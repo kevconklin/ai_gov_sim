@@ -184,7 +184,7 @@ class Meeting:
         instruction = prompts.render("committee/phase_memory.md", date=long_date(self.date), results=results_text(decisions))
         for agent in self.members:
             turn = run_turn(self.ctx, self._session(agent, "memory"), instruction=instruction, packet=packet,
-                            purpose="memory_rewrite", max_tokens=self._tokens("memory_rewrite"))
+                            purpose="memory_rewrite", max_tokens=self._tokens("memory_rewrite"), tools_enabled=False)
             if turn.text:
                 save_memory(self.ctx.db, self.ctx.llm, run_id=self.ctx.run_id, agent_id=agent.agent_id, month=self.month,
                             text=turn.text, max_tokens=int(self.ctx.budget("memory", "max_tokens")),

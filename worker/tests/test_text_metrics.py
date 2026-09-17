@@ -12,10 +12,13 @@ def test_ngram_repeat_rate():
     assert ngram_repeat_rate(["short"], ["anything"]) is None
 
 
-def test_catchphrases_need_share_and_volume():
-    msgs = ["let me be clear about the numbers"] * 4 + ["other text entirely here"] * 2
-    assert "let me be clear about the" in " ".join(catchphrases(msgs)) or "be clear about the numbers" in " ".join(catchphrases(msgs))
-    assert catchphrases(msgs[:3]) == []
+def test_catchphrases_need_share_volume_and_content():
+    msgs = ["let me be clear about the numbers"] * 4 + ["other text entirely here"] * 5
+    found = " ".join(catchphrases(msgs))
+    assert "clear about the numbers" in found
+    assert catchphrases(msgs[:5]) == []                       # too few messages to judge repetition
+    assert catchphrases(["i want to"] * 9) == []              # ordinary speech, one content word
+    assert catchphrases(["a tested kill switch please"] * 9)  # two content words, repeated
 
 
 def test_tfidf_cosine():

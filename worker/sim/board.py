@@ -157,7 +157,7 @@ def replace_member(ctx: RunContext, month: str, seat: str, reason: str, *, memo:
     turn = run_turn(ctx, session, instruction=prompts.render(
         "committee/phase_handover.md", new_name=persona.name, title=persona.title, old_name=old.name,
         new_first_name=persona.first_name), packet=memo, purpose="handover_memo",
-        max_tokens=int(ctx.budget("max_tokens", "handover")))
+        max_tokens=int(ctx.budget("max_tokens", "handover")), tools_enabled=False)
     handover = turn.text or f"Welcome to the committee. The chair will brief you before the meeting."
     deliver_inbox(ctx, month=month, sent=handover_date, sender_name=writer.name, sender_title=writer.title,
                   subject="Handover: AI Governance Committee", body=handover, recipient_seat=seat)

@@ -270,3 +270,10 @@ def test_run_pinned_model_overrides_config(db, config):
     fake.messages.responses.append(make_message())
     _client(db, config, fake).call(_request())
     assert fake.messages.calls[0]["model"] == "claude-opus-5"
+
+
+def test_tools_can_be_omitted_for_prose_only_turns(db, config):
+    fake = FakeClient()
+    fake.messages.responses.append(make_message("My notes."))
+    _client(db, config, fake).call(_request(tools=(), tool_choice=None))
+    assert "tools" not in fake.messages.calls[0]

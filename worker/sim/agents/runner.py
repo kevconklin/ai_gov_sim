@@ -63,12 +63,13 @@ def _request_blocks(content: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet: str, purpose: str,
              max_tokens: int, until: Callable[[], bool] | None = None, required_tool: str | None = None,
-             free_steps: int = 0, max_steps: int | None = None) -> TurnResult:
+             free_steps: int = 0, max_steps: int | None = None, tools_enabled: bool = True) -> TurnResult:
     """Run one member's call sequence.
 
     `until` ends the turn once the required actions are recorded. With `required_tool`, the member may use other
     tools for `free_steps` steps; after that every step must call the required tool, so reading cannot crowd out
-    positions, ballots, or minutes.
+    positions, ballots, or minutes. With `tools_enabled` false no tools are offered, so a phase whose output is
+    prose (private notes, a handover memo) cannot come back empty because the member kept reading instead.
     """
     agent = session.agent
     memory = latest_memory(ctx.db, agent.agent_id, before_month=session.month)
@@ -83,7 +84,7 @@ def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet:
         result = ctx.llm.call(LLMRequest(
             role="committee", purpose=purpose, run_id=ctx.run_id, agent_id=agent.agent_id, sim_month=session.month,
             system_fixed=(fixed_block(ctx, agent),), system_dynamic=(notes, packet),
-            messages=tuple(messages), tools=TOOLS, max_tokens=max_tokens,
+            messages=tuple(messages), tools=TOOLS if tools_enabled else (), max_tokens=max_tokens,
             tool_choice={"type": "tool", "name": required_tool} if forced else None,
         ))
         if result.text.strip():

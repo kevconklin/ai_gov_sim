@@ -158,3 +158,10 @@ def test_every_member_records_every_position_and_ballot(pilot):
         rows = db.fetch_all("SELECT d.meeting_id, d.item_id, (SELECT COUNT(*) FROM votes v WHERE v.meeting_id = d.meeting_id "
                             "AND v.item_id = d.item_id) AS ballots FROM decisions d WHERE d.run_id = ?", (run_id,))
         assert rows and all(r["ballots"] == 8 for r in rows)
+
+
+def test_notes_are_written_for_every_member_every_month(pilot):
+    db, _, run_ids, _ = pilot
+    for run_id in run_ids:
+        rows = db.fetch_all("SELECT sim_month, COUNT(*) AS n FROM agent_memories WHERE run_id = ? GROUP BY sim_month", (run_id,))
+        assert rows and all(r["n"] == 8 for r in rows), rows

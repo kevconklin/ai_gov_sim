@@ -40,17 +40,21 @@ def ngram_repeat_rate(current: Iterable[str], history: Iterable[str], n: int = 5
 
 
 def catchphrases(messages: Sequence[str], *, min_n: int = 3, max_n: int = 6, share: float = 0.3,
-                 min_messages: int = 5) -> list[str]:
-    """Phrases of 3+ words used in more than `share` of one speaker's messages."""
+                 min_messages: int = 8, min_occurrences: int = 3, min_content_words: int = 2) -> list[str]:
+    """Phrases a speaker reuses: in more than `share` of their messages, at least `min_occurrences` times.
+
+    Thresholds keep early months quiet: with a handful of messages, "in over 30%" would mean "said twice", and
+    phrases carrying fewer than `min_content_words` non-stopwords ("i want to") are ordinary speech, not catchphrases.
+    """
     if len(messages) < min_messages:
         return []
     counts: Counter[tuple[str, ...]] = Counter()
     for text in messages:
         tokens = words(text)
         counts.update({g for n in range(min_n, max_n + 1) for g in ngrams(tokens, n)
-                       if not all(t in STOPWORDS for t in g)})
-    threshold = share * len(messages)
-    frequent = [g for g, c in counts.items() if c > threshold]
+                       if sum(t not in STOPWORDS for t in g) >= min_content_words})
+    threshold = max(share * len(messages), min_occurrences)
+    frequent = [g for g, c in counts.items() if c >= threshold]
     # keep maximal phrases only
     maximal = [g for g in frequent if not any(len(o) > len(g) and " ".join(g) in " ".join(o) for o in frequent)]
     return sorted(" ".join(g) for g in maximal)
