@@ -277,3 +277,10 @@ def test_tools_can_be_omitted_for_prose_only_turns(db, config):
     fake.messages.responses.append(make_message("My notes."))
     _client(db, config, fake).call(_request(tools=(), tool_choice=None))
     assert "tools" not in fake.messages.calls[0]
+
+
+def test_effort_is_sent_as_output_config(db, config):
+    fake = FakeClient()
+    fake.messages.responses.append(make_message())
+    _client(db, config, fake).call(_request(effort="low"))
+    assert fake.messages.calls[0]["output_config"] == {"effort": "low"}

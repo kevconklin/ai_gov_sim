@@ -44,6 +44,7 @@ class LLMRequest:
     tools: tuple[Mapping[str, Any], ...] = ()
     tool_choice: Mapping[str, Any] | None = None
     stop_sequences: tuple[str, ...] = ()
+    effort: str | None = None          # output_config.effort: how much the model thinks (model-dependent)
 
     def __post_init__(self) -> None:
         if self.max_tokens < 1:
@@ -69,6 +70,7 @@ class LLMRequest:
             "tools": [dict(t) for t in self.tools] or None,
             "tool_choice": dict(self.tool_choice) if self.tool_choice else None,
             "stop_sequences": list(self.stop_sequences) or None,
+            "output_config": {"effort": self.effort} if self.effort else None,
         }
         return {**params, **{k: v for k, v in optional.items() if v is not None}}
 

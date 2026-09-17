@@ -1,21 +1,23 @@
 # Cost controls (SPEC section 12).
 max_tokens:
-  committee_turn: 400
-  position: 500              # base; plus position_per_item for each item
-  position_per_item: 350
-  minutes: 1500
-  memory_rewrite: 2000
-  estimator: 1500
-  classifier: 700
-  circulate: 1200
-  vote: 400                  # base; plus vote_per_item for each item
-  vote_per_item: 200
-  handover: 1200
-  board_memo: 1500
-  exam: 3000
-  event_wording: 700
-  coding: 400
-  compression: 1600
+  # This model thinks adaptively, and thinking tokens count against max_tokens, so every limit leaves room for
+  # roughly 1,000-2,000 thinking tokens on top of the visible output. Sizing them too tightly truncates tool calls.
+  committee_turn: 1800       # a remark of about 250 words plus thinking
+  circulate: 3500            # reading, then a full use-case or policy proposal
+  position: 1200             # base; plus position_per_item per item
+  position_per_item: 500
+  vote: 900                  # base; plus vote_per_item per item (forced tool calls do not think)
+  vote_per_item: 300
+  minutes: 3500
+  memory_rewrite: 3000
+  compression: 2000
+  handover: 2500
+  board_memo: 3000
+  exam: 8000
+  estimator: 2500
+  classifier: 1200
+  event_wording: 1500
+  coding: 700
 agent:
   max_tool_steps: 6
 memory:

@@ -79,6 +79,7 @@ def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet:
     texts: list[str] = []
     calls: list[dict[str, Any]] = []
     max_steps = max_steps or int(ctx.budget("agent", "max_tool_steps"))
+    truncations = 0
     for step in range(1, max_steps + 1):
         forced = required_tool is not None and step > free_steps
         result = ctx.llm.call(LLMRequest(
@@ -107,6 +108,10 @@ def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet:
         if until is not None and until():
             return TurnResult("\n\n".join(texts), tuple(calls), step)
         if result.stop_reason == "max_tokens":
-            break
-    log.info("%s reached the tool step limit in %s", agent.agent_id, purpose)
+            # Thinking plus output hit the limit, so the last tool call may be truncated: ask for it again, briefly.
+            log.warning("%s hit max_tokens in %s at step %d; asking again", agent.agent_id, purpose, step)
+            truncations += 1
+            messages.append({"role": "user", "content": "That reply was cut off before it finished. Send it again, "
+                                                        "shorter, and complete the tool call."})
+    log.info("%s reached the tool step limit in %s (%d truncated)", agent.agent_id, purpose, truncations)
     return TurnResult("\n\n".join(texts), tuple(calls), max_steps)
