@@ -17,6 +17,7 @@ from sim.context import RunContext
 from sim.db import Database, utc_now_iso
 from sim.engine.resolve import load_state, run_engine_month, write_report
 from sim.llm import LLMClient, StopRequested
+from sim.locks import run_lock
 from sim.meeting import Meeting
 from sim.metrics import compute_month
 from sim.world import World
@@ -51,6 +52,11 @@ class Orchestrator:
         return add_months(run["current_month"], 1) if run["current_month"] else run["start_month"]
 
     def advance(self, run_id: str) -> str:
+        """Advance one run by one month. Held under a per-run lock so workers cannot overlap."""
+        with run_lock(self.data_dir, run_id):
+            return self._advance_locked(run_id)
+
+    def _advance_locked(self, run_id: str) -> str:
         if check_hard_cap(self.db, self.config):
             self._set_status(run_id, "paused", "hard monthly spend cap reached", source="worker")
             raise RunNotActive("hard monthly spend cap reached")

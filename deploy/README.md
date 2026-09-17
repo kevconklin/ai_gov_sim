@@ -37,6 +37,9 @@ With Docker Compose (written but not run here, since Docker was not running): se
 - Verify prices and model ids in `config/models.yaml` against the official pricing and models pages.
 
 ## Operations
+- One worker per run: `advance` takes a file lock in `SIM_DATA_DIR/locks`, so two processes on the same host cannot
+  advance the same run (overlapping workers corrupt a month). Several hosts sharing one database would need a
+  database lease instead; run a single worker container until that exists.
 - Kill switch: `SIM_STOP=1`, a `STOP` file in `SIM_DATA_DIR`, or a stop command. The worker makes no further API calls,
   rolls back the in-progress month, checkpoints the last completed month, and exits. Note that a pending stop command
   halts the whole worker, not just one run.
