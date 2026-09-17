@@ -39,12 +39,16 @@ def ngram_repeat_rate(current: Iterable[str], history: Iterable[str], n: int = 5
     return sum(g in seen for g in grams) / len(grams)
 
 
-def catchphrases(messages: Sequence[str], *, min_n: int = 3, max_n: int = 6, share: float = 0.3,
-                 min_messages: int = 8, min_occurrences: int = 3, min_content_words: int = 2) -> list[str]:
-    """Phrases a speaker reuses: in more than `share` of their messages, at least `min_occurrences` times.
+def catchphrases(messages: Sequence[str], *, others: Sequence[str] = (), min_n: int = 3, max_n: int = 6,
+                 share: float = 0.3, min_messages: int = 8, min_occurrences: int = 3, min_content_words: int = 2,
+                 max_other_share: float = 0.1) -> list[str]:
+    """Phrases distinctive to one speaker: used in more than `share` of their messages, at least `min_occurrences`
+    times, and in at most `max_other_share` of other speakers' messages.
 
     Thresholds keep early months quiet: with a handful of messages, "in over 30%" would mean "said twice", and
-    phrases carrying fewer than `min_content_words` non-stopwords ("i want to") are ordinary speech, not catchphrases.
+    phrases carrying fewer than `min_content_words` non-stopwords ("i want to") are ordinary speech. The
+    exclusivity test removes shared professional vocabulary ("disparate impact testing"), which is what a committee
+    of bankers is expected to say, leaving the speaker's own habits.
     """
     if len(messages) < min_messages:
         return []
@@ -55,6 +59,16 @@ def catchphrases(messages: Sequence[str], *, min_n: int = 3, max_n: int = 6, sha
                        if sum(t not in STOPWORDS for t in g) >= min_content_words})
     threshold = max(share * len(messages), min_occurrences)
     frequent = [g for g, c in counts.items() if c >= threshold]
+    if others and frequent:
+        # A phrase is not personal if any part of it is common in other speakers' messages, so the shared core
+        # ("disparate impact testing") disqualifies the longer phrases built around it too.
+        other_counts: Counter[tuple[str, ...]] = Counter()
+        for text in others:
+            tokens = words(text)
+            other_counts.update({g for n in range(2, max_n + 1) for g in ngrams(tokens, n)
+                                 if sum(t not in STOPWORDS for t in g) >= min_content_words})
+        common = {" ".join(g) for g, c in other_counts.items() if c > max_other_share * len(others)}
+        frequent = [g for g in frequent if not any(core in " ".join(g) for core in common)]
     # keep maximal phrases only
     maximal = [g for g in frequent if not any(len(o) > len(g) and " ".join(g) in " ".join(o) for o in frequent)]
     return sorted(" ".join(g) for g in maximal)

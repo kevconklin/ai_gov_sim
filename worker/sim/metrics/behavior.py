@@ -111,7 +111,9 @@ def compute(ctx: RunContext, month: str) -> list:
         rows.append(("ngram_repeat_rate", seat, ngram_repeat_rate(debate, [h["text"] for h in history if h["agent_id"] == agent_id])))
         all_debate = [r["text"] for r in db.fetch_all("SELECT text FROM messages WHERE run_id = ? AND agent_id = ? AND phase = 'debate' "
                                                       "AND sim_month <= ?", (run_id, agent_id, month))]
-        phrases = catchphrases(all_debate)
+        others_debate = [r["text"] for r in db.fetch_all("SELECT text FROM messages WHERE run_id = ? AND agent_id != ? "
+                                                         "AND phase = 'debate' AND sim_month <= ?", (run_id, agent_id, month))]
+        phrases = catchphrases(all_debate, others=others_debate)
         for phrase in phrases:
             raise_alert(db, "catchphrase", "warning", f"{agents[agent_id]['name']} ({seat}) repeats \"{phrase}\"",
                         run_id=run_id, sim_month=month, dedupe_key=f"{agent_id}:{phrase}")

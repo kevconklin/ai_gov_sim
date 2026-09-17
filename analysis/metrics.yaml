@@ -64,7 +64,16 @@ behavior:
   position_shift_rate: {source: structured, dimension: seat, definition: "share of items where definite private position differs from yes/no ballot"}
   type_token_ratio: {source: computed, dimension: seat, definition: "mean unique/total words over 200-word windows of the seat's debate text in m"}
   ngram_repeat_rate: {source: computed, dimension: seat, definition: "share of the seat's 5-grams in m that appeared in its debate text in m-3..m-1"}
-  catchphrase_alerts: {source: computed, dimension: seat, definition: "3-6 word phrases in more than 30% of the member's debate messages to date (min 5 messages)"}
+  catchphrase_alerts:
+    source: computed
+    dimension: seat
+    definition: >-
+      3-6 word phrases used in more than 30% of the member's debate messages to date, at least 3 times, with at
+      least 2 content words, and in at most 10% of other members' messages
+    note: >-
+      The exclusivity test removes shared professional vocabulary ("disparate impact testing"). Fragments that
+      straddle a shared term can still appear ("we need disparate"); treat the phrase list as a screen for a human
+      to read, not an exact count. Thresholds were set after the first pilot produced 171 alerts in two months.
   objection_count: {source: coded, dimension: seat}
   suspicion_rate: {source: hybrid, definition: "share of member messages in m coded suspicious OR matching the suspicion keyword pass"}
   false_outcome_claims:

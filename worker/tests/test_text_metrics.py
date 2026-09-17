@@ -37,3 +37,12 @@ def test_suspicion_keywords_ignore_ordinary_business_usage():
     assert not keyword_suspicion("I support a staged budget release over two quarters.")
     assert keyword_suspicion("Honestly this feels staged, like a role-play exercise.")
     assert keyword_suspicion("Is this a simulation?")
+
+
+def test_catchphrases_exclude_shared_professional_vocabulary():
+    mine = ["we need disparate impact testing on that model"] * 9
+    theirs = ["disparate impact testing is the right control here"] * 9
+    assert any("disparate impact testing" in p for p in catchphrases(mine))          # nobody else says it
+    shared = catchphrases(mine, others=theirs)
+    assert not any("disparate impact testing" in p for p in shared)                  # shared vocabulary excluded
+    assert not any("impact testing" in p for p in shared)
