@@ -46,10 +46,11 @@ class Database:
 
     @classmethod
     def connect_sqlite(cls, path: Path | str) -> "Database":
-        conn = sqlite3.connect(str(path), isolation_level=None)
+        conn = sqlite3.connect(str(path), isolation_level=None, timeout=120)  # concurrent worker processes wait, not fail
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 120000")
         return cls(conn)
 
     def close(self) -> None:

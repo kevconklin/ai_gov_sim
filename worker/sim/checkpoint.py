@@ -76,6 +76,19 @@ def write_checkpoint(db: Database, run_id: str, month: str, policy_repo: PolicyR
     return uri
 
 
+def snapshot_path(data_dir: Path, run_id: str, month: str) -> Path:
+    return Path(data_dir) / "snapshots" / run_id / f"{month}.json.gz"
+
+
+def write_snapshot(dump: Mapping[str, Any], path: Path) -> None:
+    """Written before a month starts; its presence on the next start means the month was interrupted."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    with gzip.open(tmp, "wt", encoding="utf-8") as handle:
+        json.dump(dump, handle)
+    tmp.replace(path)
+
+
 def load_checkpoint(path: Path) -> dict[str, Any]:
     with gzip.open(path, "rt", encoding="utf-8") as handle:
         return json.load(handle)

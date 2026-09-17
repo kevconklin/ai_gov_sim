@@ -27,3 +27,10 @@ def test_tfidf_cosine():
 def pytest_approx(value):
     import pytest
     return pytest.approx(value)
+
+
+def test_suspicion_keywords_ignore_ordinary_business_usage():
+    from sim.coding import keyword_suspicion
+    assert not keyword_suspicion("I support a staged budget release over two quarters.")
+    assert keyword_suspicion("Honestly this feels staged, like a role-play exercise.")
+    assert keyword_suspicion("Is this a simulation?")

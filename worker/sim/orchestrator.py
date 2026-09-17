@@ -57,8 +57,11 @@ class Orchestrator:
         ctx = self.context(run_id)
         self._check_pinned_models(ctx)
         month = self.next_month(run_id)
+        self._recover_interrupted(ctx, month)
         started = time.monotonic()
         snapshot = checkpoint.dump_run(self.db, run_id, ctx.policy_repo)
+        snapshot_file = checkpoint.snapshot_path(self.data_dir, run_id, month)
+        checkpoint.write_snapshot(snapshot, snapshot_file)
         try:
             self._run_month(ctx, month)
         except StopRequested:
@@ -75,11 +78,31 @@ class Orchestrator:
         self.db.update("sim_months", {"wall_clock_seconds": time.monotonic() - started, "completed_at": utc_now_iso()},
                        where={"run_id": run_id, "sim_month": month})
         self.db.update("runs", {"current_month": month}, where={"run_id": run_id})
+        snapshot_file.unlink(missing_ok=True)
         if month_index(ctx.run["start_month"], month) % 3 == 0:
             checkpoint.write_checkpoint(self.db, run_id, month, ctx.policy_repo, self.data_dir, self.uploader)
         if self.on_month_complete:
             self.on_month_complete(run_id, month)
         return month
+
+    def _recover_interrupted(self, ctx: RunContext, month: str) -> None:
+        """A snapshot left on disk means a process died mid-month (e.g. killed). Restore it before retrying."""
+        path = checkpoint.snapshot_path(self.data_dir, ctx.run_id, month)
+        if not path.is_file():
+            return
+        checkpoint.rollback(self.db, checkpoint.load_checkpoint(path), ctx.policy_repo)
+        for batch in self.db.fetch_all("SELECT batch_id FROM llm_batches WHERE run_id = ? AND status = 'submitted'",
+                                       (ctx.run_id,)):
+            try:
+                self.llm.collect_batch(batch["batch_id"])      # log the orphaned batch's cost; results are not reused
+            except Exception as error:  # noqa: BLE001 - recovery continues; the batch stays submitted
+                log.warning("could not collect orphaned batch %s: %s", batch["batch_id"], error)
+        from sim import ids
+        self.db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": ctx.run_id, "sim_month": month,
+                                         "real_ts": utc_now_iso(), "kind": "recovered_interrupted_month",
+                                         "description": f"{month} was interrupted; restored its starting snapshot and retried",
+                                         "source": "worker"})
+        path.unlink()
 
     def _check_pinned_models(self, ctx: RunContext) -> None:
         """Runs keep their pinned models. A differing config/models.yaml is flagged once, never silently applied."""

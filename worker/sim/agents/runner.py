@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from sim import prompts
 from sim.agents.memory import latest_memory
@@ -62,7 +62,8 @@ def _request_blocks(content: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet: str, purpose: str,
-             max_tokens: int) -> TurnResult:
+             max_tokens: int, until: Callable[[], bool] | None = None) -> TurnResult:
+    """Run one member's call sequence. `until` ends the turn as soon as the required actions are recorded."""
     agent = session.agent
     memory = latest_memory(ctx.db, agent.agent_id, before_month=session.month)
     notes = prompts.render("committee/notes_header.md", date=long_date(session.meeting_date),
@@ -89,6 +90,8 @@ def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet:
             tool_results.append({"type": "tool_result", "tool_use_id": use["id"], "content": output,
                                  **({"is_error": True} if is_error else {})})
         messages.append({"role": "user", "content": tool_results})
+        if until is not None and until():
+            return TurnResult("\n\n".join(texts), tuple(calls), step)
         if result.stop_reason == "max_tokens":
             break
     log.info("%s reached the tool step limit in %s", agent.agent_id, purpose)
