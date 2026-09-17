@@ -76,7 +76,7 @@ def cmd_advance(args: argparse.Namespace) -> None:
     run_ids = _runs_for(db, args)
     for _ in range(args.months):
         for run_id in run_ids:
-            print(f"{run_id}: completed {orch.advance(run_id)}")
+            log.info("%s: completed %s", run_id, orch.advance(run_id))
 
 
 def cmd_serve(args: argparse.Namespace) -> None:
