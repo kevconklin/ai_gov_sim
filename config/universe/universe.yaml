@@ -1,0 +1,278 @@
+# Company reference data: region, institution facts, staff directory, vendors, market, media, supervisors.
+
+region:
+  name: "Tamsin Valley"
+  description: >-
+    A fourteen-county region along the Tamsin River in the upper Midwest, population about 2.36 million.
+    The economy rests on precision manufacturing (agricultural equipment, auto parts, industrial pumps),
+    grain and dairy, a regional logistics corridor built around two interstates and the Harrow Mills rail
+    yards, the Tamsin Health system, and Tamsin State University. Unemployment has run between 3.6% and
+    4.4% for three years. Housing is affordable by national standards (median home price about $241,000),
+    small business formation is steady, and the population is aging slightly faster than the national
+    average. Winters are long, the river floods every few springs, and people tend to bank where their
+    parents banked.
+  cities:
+    - {name: "Tamsin City", population: 684200, note: "Regional hub and county seat; home to the Bank's headquarters, Tamsin Health, and the state university's main campus"}
+    - {name: "Kestrel Bend", population: 118450, note: "River port and grain terminal city; large farm-equipment plant"}
+    - {name: "Harrow Mills", population: 96730, note: "Rail yards, warehousing, and a growing third-party logistics cluster"}
+    - {name: "Pruett Landing", population: 61280, note: "Older mill town, heavy manufacturing, active trade unions"}
+    - {name: "New Callan", population: 54910, note: "Fast-growing suburb northwest of Tamsin City; young families, new construction"}
+    - {name: "Ashgrove Heights", population: 47365, note: "Affluent suburb; wealth management clients, medical professionals"}
+    - {name: "Greaves Crossing", population: 33140, note: "Agricultural trade town; dairy cooperatives and seed dealers"}
+    - {name: "Oswin Falls", population: 28870, note: "Regional college town and small tourism economy around the falls"}
+    - {name: "Lorne Prairie", population: 19420, note: "Farming community with a large retirement population"}
+    - {name: "Marrowby", population: 12685, note: "County seat in the southern valley; food processing plant is the largest employer"}
+
+banks:
+  calder_ridge:
+    name: "Calder Ridge Bank"
+    legal_name: "Calder Ridge Bank and Trust Company"
+    holding_company: "Calder Ridge Financial Corporation"
+    domain: "calderridgebank.com"
+    hq_address: "1180 Aldine Avenue, Tamsin City"
+    charter: "State-chartered commercial bank, member of the Federal Reserve System"
+    founded: 1911
+    total_assets_usd: 18214600000
+    total_deposits_usd: 15087300000
+    total_loans_usd: 12641900000
+    employees: 3187
+    branches: 141
+    customers: 638912
+    households: 402377
+    lines_of_business:
+      - "Consumer lending (auto, personal installment, home equity, credit cards)"
+      - "Residential mortgage"
+      - "Small business lending (including SBA 7(a) and 504)"
+      - "Deposits and treasury management"
+      - "Wealth management and trust"
+    technology:
+      core_system: "Quarrystone Core Systems — Meridian Core (in place since 2013)"
+      crm: "Meridel CRM (deployed 2021, adoption uneven in branches)"
+      data_warehouse: "On-premises enterprise data warehouse, 2016 build, partially migrated to Coppervane Cloud; data quality issues in household matching and small business collateral records"
+      fraud_scoring: "Sablecrest Analytics — CardGuard transaction fraud scores (vendor model, in production since 2019)"
+      other_notes: "No in-house production machine learning. Digital banking platform refreshed in 2024. Contact center runs on a 2017 phone system."
+    ai_budget_year_one_usd: 6000000
+    ceo: {name: "Harold Brandvold", tenure_note: "CEO since 2018; previously President and Chief Banking Officer"}
+    board_chair: {name: "Evelyn Sorensen", tenure_note: "Independent chair since 2022"}
+    board_members:
+      - {name: "Evelyn Sorensen", background: "Independent chair. Former president of a Tamsin City agricultural cooperative with $2.1B in annual sales; chairs the governance and nominating committee."}
+      - {name: "Harold Brandvold", background: "Chief Executive Officer of the Bank; 31 years in banking, the last 22 at the Bank."}
+      - {name: "Leonard Oyelaran", background: "Retired audit partner from a regional accounting firm; chairs the audit committee."}
+      - {name: "Margaret Tolliver-Haas", background: "Former chief risk officer of a multistate insurance carrier; chairs the risk committee."}
+      - {name: "Dr. Samir Qureshi", background: "Dean of the business school at Tamsin State University; research on regional economic development."}
+      - {name: "Bernadette Kowalczyk", background: "Chief executive of Kowalczyk Pump & Valve in Pruett Landing, a 1,140-employee manufacturer; long-time commercial client of the Bank."}
+      - {name: "Curtis Lamphere", background: "Former chief information officer of Tamsin Health; sits on the technology subcommittee."}
+      - {name: "Rosalind Achebe-Marsh", background: "Retired state appellate judge; consumer protection and civil rights background."}
+      - {name: "Douglas Vint", background: "Fourth-generation farmer and seed dealer in Greaves Crossing; represents the Bank's agricultural and rural customer base."}
+    committee_secretary: {name: "Colleen Brandt-Mayo", title: "Senior Vice President and Corporate Secretary"}
+    phone_main: "(608) 555-0142"
+
+  tollgate:
+    name: "Tollgate Bank"
+    legal_name: "Tollgate Bank and Trust Company"
+    holding_company: "Tollgate Financial Corporation"
+    domain: "tollgatebank.com"
+    hq_address: "1180 Merritt Avenue, Tamsin City"
+    charter: "State-chartered commercial bank, member of the Federal Reserve System"
+    founded: 1911
+    total_assets_usd: 18214600000
+    total_deposits_usd: 15087300000
+    total_loans_usd: 12641900000
+    employees: 3187
+    branches: 141
+    customers: 638912
+    households: 402377
+    lines_of_business:
+      - "Consumer lending (auto, personal installment, home equity, credit cards)"
+      - "Residential mortgage"
+      - "Small business lending (including SBA 7(a) and 504)"
+      - "Deposits and treasury management"
+      - "Wealth management and trust"
+    technology:
+      core_system: "Quarrystone Core Systems — Meridian Core (in place since 2013)"
+      crm: "Meridel CRM (deployed 2021, adoption uneven in branches)"
+      data_warehouse: "On-premises enterprise data warehouse, 2016 build, partially migrated to Coppervane Cloud; data quality issues in household matching and small business collateral records"
+      fraud_scoring: "Sablecrest Analytics — CardGuard transaction fraud scores (vendor model, in production since 2019)"
+      other_notes: "No in-house production machine learning. Digital banking platform refreshed in 2024. Contact center runs on a 2017 phone system."
+    ai_budget_year_one_usd: 6000000
+    ceo: {name: "Harold Brandvold", tenure_note: "CEO since 2018; previously President and Chief Banking Officer"}
+    board_chair: {name: "Evelyn Sorensen", tenure_note: "Independent chair since 2022"}
+    board_members:
+      - {name: "Evelyn Sorensen", background: "Independent chair. Former president of a Tamsin City agricultural cooperative with $2.1B in annual sales; chairs the governance and nominating committee."}
+      - {name: "Harold Brandvold", background: "Chief Executive Officer of the Bank; 31 years in banking, the last 22 at the Bank."}
+      - {name: "Leonard Oyelaran", background: "Retired audit partner from a regional accounting firm; chairs the audit committee."}
+      - {name: "Margaret Tolliver-Haas", background: "Former chief risk officer of a multistate insurance carrier; chairs the risk committee."}
+      - {name: "Dr. Samir Qureshi", background: "Dean of the business school at Tamsin State University; research on regional economic development."}
+      - {name: "Bernadette Kowalczyk", background: "Chief executive of Kowalczyk Pump & Valve in Pruett Landing, a 1,140-employee manufacturer; long-time commercial client of the Bank."}
+      - {name: "Curtis Lamphere", background: "Former chief information officer of Tamsin Health; sits on the technology subcommittee."}
+      - {name: "Rosalind Achebe-Marsh", background: "Retired state appellate judge; consumer protection and civil rights background."}
+      - {name: "Douglas Vint", background: "Fourth-generation farmer and seed dealer in Greaves Crossing; represents the Bank's agricultural and rural customer base."}
+    committee_secretary: {name: "Colleen Brandt-Mayo", title: "Senior Vice President and Corporate Secretary"}
+    phone_main: "(608) 555-0142"
+
+committee:
+  name: "AI Governance Committee"
+  charter_note: "Chartered by the Board in December 2026 to direct the Bank's use of artificial intelligence, approve use cases, and write the Bank's AI policy. Meets monthly."
+  seats:
+    coo_chair: {name: "Raymond Achterberg", title: "Chief Operating Officer (Committee Chair)"}
+    cio: {name: "Priya Raghunathan", title: "Chief Information Officer"}
+    ciso: {name: "Martin Dubrowski", title: "Chief Information Security Officer"}
+    general_counsel: {name: "Elaine Moorcroft", title: "General Counsel"}
+    cro: {name: "Walter Ingebretsen", title: "Chief Risk Officer"}
+    cfo: {name: "Gail Pruszynski", title: "Chief Financial Officer"}
+    head_consumer_lending: {name: "Hector Villaseñor", title: "Head of Consumer Lending"}
+    head_marketing: {name: "Brooke Lindqvist", title: "Head of Marketing"}
+
+staff:
+  - {key: model_analyst, name: "Owen Takahara", title: "Senior Credit Risk Analyst", department: "Enterprise Risk Management"}
+  - {key: data_engineer_lead, name: "Farida Nasser-Coyle", title: "Lead Data Engineer", department: "Information Technology — Data Platforms"}
+  - {key: data_engineer, name: "Tyler Brandes", title: "Data Engineer II", department: "Information Technology — Data Platforms"}
+  - {key: enterprise_architect, name: "Gregory Lusk", title: "Enterprise Architect", department: "Information Technology"}
+  - {key: security_analyst, name: "Mei-Ling Oduya", title: "Security Operations Manager", department: "Information Security"}
+  - {key: compliance_officer, name: "Denise Harbaugh", title: "Director of Regulatory Compliance", department: "Compliance"}
+  - {key: fair_lending_officer, name: "Marcus Ellery", title: "Fair Lending Officer", department: "Compliance"}
+  - {key: privacy_officer, name: "Janelle Oquendo", title: "Chief Privacy Officer", department: "Legal"}
+  - {key: vendor_manager, name: "Kurt Wendlandt", title: "Third-Party Risk Manager", department: "Enterprise Risk Management"}
+  - {key: internal_audit, name: "Sandra Pilkington", title: "Chief Audit Executive", department: "Internal Audit"}
+  - {key: branch_manager_tamsin, name: "Luanne Petrakis", title: "Branch Manager, Aldine & 9th Street", department: "Retail Banking"}
+  - {key: branch_manager_kestrel, name: "DeShawn Carrow", title: "Branch Manager, Kestrel Bend Riverfront", department: "Retail Banking"}
+  - {key: regional_retail_director, name: "Patricia Voss-Kimball", title: "Regional Director, Southern Valley Branches", department: "Retail Banking"}
+  - {key: contact_center_director, name: "Robert Nwachukwu", title: "Director, Customer Contact Center", department: "Operations"}
+  - {key: underwriting_manager, name: "Angela Fairbrother", title: "Consumer Underwriting Manager", department: "Consumer Lending"}
+  - {key: mortgage_ops, name: "Dale Ostrowski", title: "Vice President, Mortgage Operations", department: "Mortgage"}
+  - {key: small_business_banker, name: "Carmen Iturbe", title: "Senior Small Business Relationship Manager", department: "Small Business Banking"}
+  - {key: wealth_advisor, name: "Philip Averill", title: "Managing Director, Private Wealth", department: "Wealth Management"}
+  - {key: digital_product_manager, name: "Kira Mansfield", title: "Director of Digital Products", department: "Digital Banking"}
+  - {key: marketing_analyst, name: "Ethan Solberg", title: "Marketing Analytics Manager", department: "Marketing"}
+  - {key: hr_director, name: "Yolanda Pierce-Whitaker", title: "Chief Human Resources Officer", department: "Human Resources"}
+  - {key: employee_association_rep, name: "Frank Mazurek", title: "President, Tamsin Valley Bank Employees' Association (teller and contact center staff representative)", department: "Operations — Contact Center"}
+  - {key: fraud_ops, name: "Heather Lindgren-Ruiz", title: "Manager, Fraud Operations", department: "Operations"}
+  - {key: collections_manager, name: "Terrence Adeyemi", title: "Manager, Consumer Collections and Recovery", department: "Consumer Lending"}
+  - {key: legal_counsel, name: "Brian Castellaw", title: "Associate General Counsel, Litigation and Regulatory", department: "Legal"}
+  - {key: finance_analyst, name: "Rachel Dunleavy", title: "Director, Financial Planning and Analysis", department: "Finance"}
+  - {key: exec_assistant_coo, name: "Tina Marchetti", title: "Executive Assistant to the Chief Operating Officer", department: "Office of the COO"}
+
+vendors:
+  - key: brevanta
+    name: "Brevanta"
+    category: "Generative AI platform"
+    description: "Enterprise generative AI platform provider headquartered outside Minneapolis, about 410 employees. Sells hosted assistants, document summarization, and a retrieval layer over internal content. Customers include insurers and community banks."
+    products:
+      - {name: "Brevanta Workspace", description: "Staff-facing chat assistant with retrieval over internal policies and procedures, single sign-on, admin console, usage logs.", pricing_note: "$38 per seat per month, 500-seat minimum; implementation fee $145,000"}
+      - {name: "Brevanta Summarize", description: "Summarizes call transcripts, loan files, and complaint narratives into structured notes.", pricing_note: "$0.019 per document page plus $60,000 annual platform fee"}
+  - key: quarrystone
+    name: "Quarrystone Core Systems"
+    category: "Core banking"
+    description: "Large core banking provider serving about 1,900 banks and credit unions. Incumbent core vendor for the Bank. Slow release cycle; now marketing AI add-on modules sold through its partner marketplace."
+    products:
+      - {name: "Meridian Core", description: "Core deposit and loan processing platform.", pricing_note: "Existing contract; renewal due in 2029"}
+      - {name: "Meridian Insight AI", description: "Add-on predictive module for deposit attrition and next-best-product, trained on the core's own data model.", pricing_note: "$412,000 per year for banks $10B-$25B in assets; 14-month typical implementation"}
+  - key: sablecrest
+    name: "Sablecrest Analytics"
+    category: "Fraud detection"
+    description: "Fraud and financial crime analytics vendor. Supplies the Bank's current card transaction fraud scores. Pushing an upgrade to deep-learning models and real-time payments fraud coverage."
+    products:
+      - {name: "CardGuard", description: "Card transaction fraud scoring, in production at the Bank since 2019.", pricing_note: "Existing contract, about $0.004 per scored transaction"}
+      - {name: "PayStream Sentinel", description: "Real-time payments and ACH fraud scoring with behavioral biometrics and scam-intervention warnings.", pricing_note: "$690,000 per year plus $210,000 one-time integration"}
+  - key: ravelle
+    name: "Ravelle Decisioning"
+    category: "Credit underwriting"
+    description: "Machine-learning credit underwriting vendor for consumer installment, auto, and card lending. Claims 15-25% more approvals at constant loss rates using cash-flow and alternative data. Provides reason codes for adverse action notices."
+    products:
+      - {name: "Ravelle Approve", description: "ML underwriting model with custom training on the lender's historical applications and performance.", pricing_note: "$1.85 per decision plus $275,000 annual platform fee; model build $180,000"}
+      - {name: "Ravelle Fairness Monitor", description: "Disparate impact testing and less-discriminatory-alternative search for Ravelle models.", pricing_note: "$96,000 per year"}
+  - key: callowen
+    name: "Callowen"
+    category: "Contact center voice AI"
+    description: "Voice AI vendor that automates inbound phone calls (balance inquiries, card activation, payment arrangements) and gives human representatives live suggested responses."
+    products:
+      - {name: "Callowen Voice Assistant", description: "Automated voice handling for routine inbound calls with handoff to a human.", pricing_note: "$0.61 per automated call; vendor projects 38% call containment"}
+      - {name: "Callowen Assist", description: "Real-time transcription and suggested answers for human contact center staff.", pricing_note: "$74 per representative seat per month"}
+  - key: meridel
+    name: "Meridel CRM"
+    category: "Customer relationship management"
+    description: "CRM vendor used by the Bank since 2021. Selling an AI add-on for lead scoring and generated outreach."
+    products:
+      - {name: "Meridel Pulse AI", description: "Lead scoring, next-best-action, and generated email and text outreach drafts for bankers.", pricing_note: "$29 per user per month on top of existing licenses; 1,100-user minimum"}
+  - key: orrin_signal
+    name: "Orrin Signal"
+    category: "Marketing personalization"
+    description: "Marketing technology firm that builds propensity models and generates personalized offers, ad copy, and landing pages. Strong with retailers, newer to banking."
+    products:
+      - {name: "Orrin Audiences", description: "Look-alike and propensity modeling for customer acquisition using first-party and purchased third-party data.", pricing_note: "$340,000 per year plus media spend"}
+      - {name: "Orrin Creative", description: "Generates personalized ad variants, emails, and offer copy at scale with brand-rule checks.", pricing_note: "$11,500 per month, unlimited variants"}
+  - key: tallyhand
+    name: "Tallyhand"
+    category: "Productivity assistant"
+    description: "Office productivity assistant that plugs into email, calendar, and documents to draft messages, summarize meetings, and search files."
+    products:
+      - {name: "Tallyhand for Enterprise", description: "Email drafting, meeting notes, and document search across the Bank's office suite.", pricing_note: "$24 per user per month; data residency add-on $3 per user"}
+  - key: halvard
+    name: "Halvard Security"
+    category: "AI security and monitoring"
+    description: "Security vendor offering discovery of unapproved AI tool usage, data loss prevention for text and files sent to AI tools, and red-team testing of AI applications."
+    products:
+      - {name: "Halvard Discover", description: "Detects staff use of outside AI tools via network and browser telemetry and blocks sensitive data uploads.", pricing_note: "$8.40 per employee per month"}
+      - {name: "Halvard Red Team", description: "Adversarial testing engagement for customer-facing AI applications.", pricing_note: "$68,000 per engagement"}
+  - key: coppervane
+    name: "Coppervane Cloud"
+    category: "Cloud hosting and AI infrastructure"
+    description: "Cloud provider hosting part of the Bank's data warehouse. Offers a managed gateway to several large AI systems with logging, redaction, and cost controls."
+    products:
+      - {name: "Coppervane AI Gateway", description: "Managed access to hosted large AI systems with content logging, PII redaction, and spending limits.", pricing_note: "Usage-based; vendor estimates $18,000-$55,000 per month for a bank this size at moderate use"}
+      - {name: "Coppervane Lakehouse", description: "Managed analytics platform to replace the on-premises warehouse.", pricing_note: "$1.2M migration estimate; $41,000 per month run rate"}
+  - key: ledgerlight
+    name: "Ledgerlight"
+    category: "AML and compliance automation"
+    description: "Anti-money-laundering vendor applying machine learning to alert triage and suspicious activity report drafting."
+    products:
+      - {name: "Ledgerlight Triage", description: "Scores and prioritizes transaction monitoring alerts; claims 44% reduction in false-positive review time.", pricing_note: "$520,000 per year"}
+      - {name: "Ledgerlight Narrative", description: "Drafts SAR narratives from case files for investigator review.", pricing_note: "$145 per filed report"}
+  - key: aldermoor
+    name: "Aldermoor Advisory"
+    category: "Consulting — model validation and risk"
+    description: "Consulting firm with offices in Tamsin City and three other Midwest cities. Independent model validation, fair lending testing, and AI governance program design for banks under $50B."
+    products:
+      - {name: "Independent Model Validation", description: "Validation of vendor and internal models, including conceptual soundness, outcomes analysis, and monitoring design.", pricing_note: "$85,000-$240,000 per model depending on complexity"}
+      - {name: "Governance Program Build", description: "Policy drafting, inventory, and control design engagement.", pricing_note: "$310,000 fixed fee, 16 weeks"}
+  - key: hollis_crane
+    name: "Hollis & Crane Data"
+    category: "Data engineering services"
+    description: "Data engineering and analytics consultancy. Builds data pipelines, customer data platforms, and data quality programs for regional banks and health systems."
+    products:
+      - {name: "Customer 360 Accelerator", description: "Household matching, master data cleanup, and a unified customer view feeding CRM and analytics.", pricing_note: "$685,000 fixed fee over 7 months"}
+      - {name: "Data Quality Sprint", description: "Six-week assessment and remediation of priority data domains.", pricing_note: "$128,000"}
+  - key: cordwain
+    name: "Cordwain Systems"
+    category: "Document AI"
+    description: "Document processing vendor that extracts data from tax returns, pay stubs, bank statements, and business financials for loan origination."
+    products:
+      - {name: "Cordwain Intake", description: "Document classification and extraction for mortgage, consumer, and small business loan files.", pricing_note: "$2.10 per loan file; $90,000 annual minimum"}
+
+competitors:
+  - {name: "Vallory Bank & Trust", kind: "Regional bank", description: "About $24.6B in assets, headquartered in Kestrel Bend with 172 branches across the valley and two neighboring states. Launched a chat assistant in its mobile app and advertises 'decisions in minutes' on personal loans."}
+  - {name: "Dunmoor Bancorp", kind: "Regional bank", description: "About $11.3B in assets, based in Harrow Mills. Strong in commercial real estate and agricultural lending; conservative reputation; recently hired a chief data officer from a large national bank."}
+  - {name: "Greaves County State Bank", kind: "Community bank", description: "About $1.4B in assets, 19 branches in the rural western valley. Deep farm relationships; losing younger customers to digital banks."}
+  - {name: "Oswin Valley Credit Union", kind: "Credit union", description: "About $6.8B in assets and 412,000 members. Aggressive on auto loans and deposit rates; rolled out automated underwriting for auto loans last year."}
+  - {name: "Tamsin Teachers Federal Credit Union", kind: "Credit union", description: "About $2.9B in assets, membership open to education and public sector workers. High member loyalty; running a pilot of an AI financial coaching tool."}
+  - {name: "Plovera", kind: "Fintech lender", description: "Online installment lender operating through a bank partnership; heavy digital advertising in the valley; approves most applications in under four minutes using machine-learning underwriting."}
+  - {name: "Quickcrest", kind: "Fintech — small business lending", description: "Online small business lender and merchant cash advance provider targeting restaurants, contractors, and trucking firms; markets same-day funding."}
+
+media_outlets:
+  - {name: "Tamsin Valley Business Journal", kind: "Regional business weekly", description: "Covers valley companies, banks, real estate, and executive moves. Published Fridays with daily web updates."}
+  - {name: "Tamsin City Courier", kind: "Daily newspaper", description: "The region's largest daily. Consumer and watchdog coverage; runs a 'Money Matters' column that follows bank fees and complaints."}
+  - {name: "Valley 11 News", kind: "Local television", description: "Most-watched local TV news operation in the valley; consumer investigations segment 'On Your Side'."}
+  - {name: "Core & Branch", kind: "Banking technology trade press", description: "National trade publication covering bank technology, vendors, and digital transformation at community and regional banks."}
+  - {name: "Regional Banking Week", kind: "Banking trade press", description: "National weekly on regional and community bank strategy, earnings, regulation, and supervision."}
+  - {name: "The Deposit Line", kind: "Banking newsletter", description: "Subscription email newsletter written by a former bank examiner; short takes on supervision, enforcement actions, and exam trends."}
+
+regulators:
+  federal_reserve_bank: "Federal Reserve Bank, Seventh District — Supervision and Regulation (primary federal regulator; state member bank)"
+  state_regulator: "State Department of Financial Institutions, Division of Banking (chartering authority; joint and alternating examinations with the Federal Reserve)"
+  examiner_in_charge: {name: "Lorraine Whitcomb", title: "Examiner-in-Charge, Federal Reserve Bank, Seventh District"}
+  state_examiner: {name: "Gerald Muncy", title: "Senior Bank Examiner, State Division of Banking"}
+  cfpb_note: "With more than $10 billion in total assets, the Bank is supervised by the Consumer Financial Protection Bureau for compliance with federal consumer financial laws, in addition to the Federal Reserve and the state."
+  exam_cycle: "Full-scope safety and soundness examination every 12 months; targeted reviews between exams."
+
+email_signature: "{name}\n{title}\n{bank_name}\n{hq_address}\n{phone}\n{email}"
+email_footer: "This message and any attachments are intended solely for the addressee and may contain confidential information. If you received this message in error, please notify the sender and delete it."

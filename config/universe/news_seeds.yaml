@@ -1,0 +1,816 @@
+# Curated industry and regional news items. Dates are assigned at publication.
+
+- id: news_001
+  outlet: "Core & Branch"
+  topic: ai_adoption
+  headline: "Mid-size banks shift AI spending from pilots to production, survey finds"
+  body: >-
+    More than half of banks between $10 billion and $50 billion in assets now have at least one AI tool
+    in daily use beyond fraud scoring, according to a survey of 212 technology executives released this
+    week. The most common deployments are internal: summarizing call notes, drafting routine letters, and
+    searching policy manuals. Only 14% said they use AI in any credit decision. "The easy wins are inside
+    the building," said Monica Arvelo, a banking technology consultant who helped design the survey.
+    "Customer-facing tools are where boards get nervous, and where the revenue story is supposed to be."
+    Respondents reported median first-year AI budgets of $4.7 million, and 38% said a lack of clean data
+    was the biggest obstacle, ahead of talent and regulatory uncertainty.
+
+- id: news_002
+  outlet: "Tamsin Valley Business Journal"
+  topic: competitor
+  headline: "Vallory Bank says its app assistant now handles four in ten customer questions"
+  body: >-
+    Vallory Bank & Trust says the chat assistant in its mobile app now resolves about 41% of customer
+    questions without a hand-off to staff, up from 23% when it launched. The Kestrel Bend-based bank
+    told investors on its quarterly call that the tool helped cut average contact center hold times by
+    nearly two minutes and freed capacity it has redirected toward outbound calls to small business
+    customers. Chief Digital Officer Renata Szabo said the bank plans to let the assistant open savings
+    accounts and start personal loan applications later this year. "Customers do not care whether it is
+    a person or software, as long as they get the right answer fast," she said. Vallory did not disclose
+    what it spent on the project.
+
+- id: news_003
+  outlet: "The Deposit Line"
+  topic: regulation
+  headline: "Examiners are asking for AI inventories. Most banks don't have one."
+  body: >-
+    In three recent exams I've heard about secondhand, the first AI request on the list was simple: give
+    us a list of every AI tool in use, who owns it, and what decisions it touches. Two of those banks
+    could not produce one within the request window. Examiners are not writing findings for merely using
+    AI. They are writing them when management cannot say where it is used, how it was validated, or what
+    happens when a vendor updates it. One bank's inventory missed a marketing vendor's lookalike audience
+    tool entirely, which mattered because the tool used ZIP code data. My advice: build the inventory
+    before anyone asks, include vendor features you did not buy on purpose, and name an owner for each.
+
+- id: news_004
+  outlet: "Tamsin City Courier"
+  topic: fraud
+  headline: "Oswin Valley Credit Union member loses $38,000 to cloned-voice phone call"
+  body: >-
+    A retired Lorne Prairie farmer lost $38,400 after a caller using what investigators believe was a
+    synthetic copy of his grandson's voice asked for bail money. The man withdrew the cash from his Oswin
+    Valley Credit Union account and handed it to a courier. The credit union said its tellers asked
+    questions but could not stop a member from withdrawing his own funds. "The voice was his grandson's.
+    The way he laughed, everything," the man's daughter told the Courier. County sheriff's deputies said
+    they have logged five similar cases in the valley since last fall. Fraud specialists say a short
+    audio clip from social media is enough to produce a convincing copy, and recommend families agree on
+    a code word.
+
+- id: news_005
+  outlet: "Regional Banking Week"
+  topic: regulation
+  headline: "CFPB reminds lenders that 'the algorithm decided' is not an adverse action reason"
+  body: >-
+    The Consumer Financial Protection Bureau reiterated this week that lenders using complex algorithms
+    must still give applicants specific and accurate reasons when they deny credit or change terms. The
+    bureau's statement said generic checklist reasons are not sufficient if they do not reflect the
+    factors that actually drove the decision, and that the complexity of a tool does not excuse a lender
+    from the requirement. Compliance attorneys said the message was consistent with earlier guidance but
+    notable for its timing, as more regional lenders evaluate machine-learning underwriting vendors. "If
+    your vendor's reason codes don't map to what the system actually weighed, you have a problem," said
+    Theodore Grasso, a consumer finance lawyer who advises lenders.
+
+- id: news_006
+  outlet: "Valley 11 News"
+  topic: consumer
+  headline: "On Your Side: Bank chatbot quoted the wrong overdraft fee, viewer says"
+  body: >-
+    A New Callan mother says an online chat assistant at an out-of-state bank told her overdraft fees
+    had been eliminated on her account type. They had not. She was charged $35 three times in one week.
+    "I screenshotted it because I didn't believe it," she told Valley 11's On Your Side team. After our
+    call, the bank refunded $105 and said the assistant had pulled from an outdated fee schedule that
+    should have been removed from its knowledge base. Consumer advocates say the case shows why banks
+    need to keep human review on anything involving fees, rates, or account terms. The bank said it has
+    corrected the content and is reviewing other answers the assistant gave during the same period.
+
+- id: news_007
+  outlet: "Tamsin Valley Business Journal"
+  topic: economy
+  headline: "Farm-equipment maker to add 420 jobs in Kestrel Bend expansion"
+  body: >-
+    The valley's largest farm-equipment plant will add a 310,000-square-foot assembly building and about
+    420 jobs in Kestrel Bend over the next two years, the company confirmed. The expansion, valued at
+    $186 million, will build larger combines and autonomous tillage equipment. State and county incentives
+    total about $14.2 million, tied to hiring targets and average wages above $27 an hour. Local officials
+    expect demand for housing and contractors to rise. "This is the biggest single investment in Kestrel
+    Bend in fifteen years," said Mayor Dolores Faircloth. Commercial lenders said suppliers in Harrow
+    Mills and Pruett Landing are already asking about equipment financing and working capital lines ahead
+    of the ramp-up.
+
+- id: news_008
+  outlet: "Core & Branch"
+  topic: vendor
+  headline: "Underwriting vendor Ravelle Decisioning raises $62 million, targets regional banks"
+  body: >-
+    Ravelle Decisioning, which sells machine-learning credit underwriting to consumer lenders, has raised
+    $62 million in new funding. The company says its tools let lenders approve 15% to 25% more applicants
+    at the same loss rate by weighing cash-flow data alongside credit bureau files. Ravelle currently
+    works with about 70 credit unions and fintech lenders and said the new money will fund a sales push
+    toward regional banks with $10 billion to $30 billion in assets. Chief Executive Adrian Pellow said
+    bank buyers mostly ask about explainability and fair lending testing. "Every bank wants the lift.
+    Every bank's compliance team wants a binder," he said. Ravelle also sells a separate fairness
+    monitoring product.
+
+- id: news_009
+  outlet: "Tamsin City Courier"
+  topic: labor
+  headline: "Contact center workers worry automation will cut hours"
+  body: >-
+    Staff at several valley contact centers say they are anxious about voice automation after a
+    Harrow Mills insurance servicer cut 64 customer service positions last month. "They told us the
+    software would handle the boring calls so we could handle the hard ones. Then they cut the
+    schedule," said one representative who asked not to be named. Labor advocates say financial
+    institutions in the region have largely avoided layoffs so far but have slowed hiring. A
+    workforce report from Tamsin State University estimates that 18% of customer service tasks in the
+    region could be automated within three years, though it projects net job losses to be smaller
+    because of turnover and new roles. Several employers said they plan retraining programs.
+
+- id: news_010
+  outlet: "Regional Banking Week"
+  topic: ai_adoption
+  headline: "Banks find the first AI payoff in back-office document work"
+  body: >-
+    Regional banks reporting measurable returns from AI are mostly pointing to document-heavy back-office
+    work rather than new revenue. Executives at four banks interviewed this month described automated
+    extraction of data from tax returns and pay stubs cutting mortgage and small business file preparation
+    time by 30% to 50%. One $14 billion bank said it avoided hiring 22 processors during a refinance
+    surge. The revenue case is harder. "Faster files mean more loans closed per month, but proving the
+    incremental revenue is messy," said Lionel Ferrante, an analyst covering regional bank stocks. He
+    said investors are starting to ask for AI revenue figures on earnings calls and that few banks can
+    give a number they would defend.
+
+- id: news_011
+  outlet: "The Deposit Line"
+  topic: regulation
+  headline: "Third-party risk is where AI findings are landing"
+  body: >-
+    If you want to know where AI-related exam findings are actually showing up, look at vendor
+    management. Examiners are reading contracts. They want to know whether you can get the vendor's
+    validation documentation, whether you are told before the vendor retrains or changes a system, where
+    customer data goes, and whether the vendor can use your data to improve products it sells to others.
+    I have seen matters requiring attention written on due diligence files that were two pages long for a
+    tool touching every loan application. The bank's defense, "it's the vendor's model," did not land.
+    Outsourcing the tool does not outsource the responsibility. Build your AI questions into the standard
+    vendor review now, not after procurement signs.
+
+- id: news_012
+  outlet: "Tamsin Valley Business Journal"
+  topic: competitor
+  headline: "Oswin Valley Credit Union credits automated underwriting for auto loan surge"
+  body: >-
+    Oswin Valley Credit Union grew its auto loan portfolio 19% over the past four quarters, which Chief
+    Executive Gary Hollenbeck attributes largely to automated underwriting that now approves about 71%
+    of applications within 90 seconds at dealerships. The credit union, with about $6.8 billion in
+    assets, said early delinquency rates are in line with its older portfolio. "Dealers send the deal to
+    whoever answers first," Hollenbeck said. "We answer first now." Rival lenders say the credit union
+    is also pricing aggressively, making it hard to separate the effect of the technology from rates.
+    The credit union said it reviews approval rates by ZIP code and applicant age each quarter and has
+    found no significant disparities.
+
+- id: news_013
+  outlet: "Core & Branch"
+  topic: cyber
+  headline: "Attackers target bank chat assistants with hidden instructions in uploaded files"
+  body: >-
+    Security researchers are warning banks that customer-facing AI assistants can be manipulated by
+    instructions hidden in documents or web content the assistant reads. In one case described at a
+    security conference, a tester uploaded a PDF containing invisible text that told a lender's
+    assistant to reveal internal procedures, and the assistant complied. No customer data was exposed.
+    "Anything the assistant can read, an attacker can write," said Nadia Brennan-Voss, a penetration
+    tester who works with financial institutions. Experts recommend limiting what assistants can access,
+    logging their inputs and outputs, and running adversarial testing before launch. Several banks said
+    they have delayed features that would let assistants read customer-uploaded documents.
+
+- id: news_014
+  outlet: "Tamsin City Courier"
+  topic: consumer
+  headline: "Poll: Most valley residents don't want AI deciding their loans"
+  body: >-
+    Sixty-two percent of Tamsin Valley adults say they would be uncomfortable if a bank used artificial
+    intelligence to decide whether to approve a loan, according to a Courier-Tamsin State University poll
+    of 1,048 residents. Comfort was higher for AI used to catch fraud (71% comfortable) and to answer
+    basic account questions (54%). Younger respondents were more accepting across the board. "People are
+    fine with AI watching their card for fraud. They get nervous when it judges them," said Professor
+    Imani Colquitt, who directed the poll. Forty-four percent said they would consider switching banks if
+    they learned a loan denial was made without any human review. The margin of error is 3.1 points.
+
+- id: news_015
+  outlet: "Regional Banking Week"
+  topic: regulation
+  headline: "State legislatures keep filing AI bills despite federal preemption push"
+  body: >-
+    State lawmakers have introduced dozens of bills this session addressing automated decision-making in
+    lending, insurance, hiring, and housing, even as federal officials push for a single national
+    approach that would limit state rules. Several proposals would require lenders to notify consumers
+    when AI plays a significant role in a decision, offer an appeal to a human, and run annual bias
+    assessments. Banking trade groups argue that federally supervised banks are already examined for
+    fair lending and should be exempt. "The patchwork risk is real for banks that lend across state
+    lines," said Joanna Metzler, a policy director at a state bankers association. Legal observers expect
+    the preemption question to end up in court.
+
+- id: news_016
+  outlet: "Valley 11 News"
+  topic: fraud
+  headline: "Fake bank texts using AI-written messages hit valley phones"
+  body: >-
+    Valley residents are reporting a wave of convincing text messages that appear to come from local
+    banks and credit unions, warning of a locked account and linking to a fake login page. Police in
+    Tamsin City say the messages are unusually well written and personalized, sometimes using the
+    recipient's first name and branch location. "The old tip was to look for bad grammar. That doesn't
+    work anymore," said Sergeant Paul Ridderhof of the Tamsin City Police financial crimes unit.
+    Investigators believe criminals are using AI writing tools to generate thousands of message
+    variations. Banks remind customers they will never ask for passwords or one-time codes by text.
+    Anyone who clicked a link should call their bank using the number on their card.
+
+- id: news_017
+  outlet: "Tamsin Valley Business Journal"
+  topic: vendor
+  headline: "Quarrystone pitches AI add-ons to its core banking clients"
+  body: >-
+    Core banking provider Quarrystone Core Systems is marketing a set of AI add-on modules to the banks
+    that run on its platform, including tools that predict which depositors are likely to leave and which
+    products customers are most likely to buy next. Quarrystone says the modules work on data already in
+    the core and avoid the integration work that slows outside vendors. Bank technology officers in the
+    region were cautious. One said Quarrystone's implementation timelines for past add-ons ran well past
+    estimates, and another noted the pricing, at more than $400,000 a year for mid-size banks, is steep
+    for a module with limited track record. Quarrystone says 37 banks have signed up.
+
+- id: news_018
+  outlet: "Core & Branch"
+  topic: ai_adoption
+  headline: "Shadow AI: bank staff are using public chatbots whether or not policy allows it"
+  body: >-
+    A survey of 1,630 employees at US banks and credit unions found that 43% have used a public AI
+    chatbot for work in the past month, and 17% admitted pasting customer information into one. Most
+    said they were drafting emails, summarizing documents, or checking calculations. Only 29% said their
+    employer had a written policy on AI tools that they had read. "Banning it just drives it onto
+    personal phones," said Carla Pennington-Reyes, a technology risk advisor. "The banks with the least
+    shadow use are the ones that gave staff an approved tool." Security vendors are selling monitoring
+    products to detect uploads to outside AI services, though some employees view such monitoring as
+    intrusive.
+
+- id: news_019
+  outlet: "The Deposit Line"
+  topic: regulation
+  headline: "Fair lending reviews now include your marketing algorithms"
+  body: >-
+    A reminder that fair lending risk does not start at the application. Examiners and the CFPB have
+    both signaled interest in digital marketing tools that decide who sees a credit offer. If your ad
+    platform or lookalike audience tool quietly excludes neighborhoods, age groups, or other protected
+    classes, even through proxies, you may have a redlining or steering problem before anyone
+    applies. I have seen banks asked for the targeting criteria behind credit card and home equity
+    campaigns, along with the vendor's documentation of how audiences were built. "We just told the
+    vendor to find people like our best customers" is not a defense if your best customers are not
+    representative of your market area.
+
+- id: news_020
+  outlet: "Tamsin City Courier"
+  topic: economy
+  headline: "Valley home sales slow as rates stay elevated, prices hold"
+  body: >-
+    Home sales in the Tamsin Valley fell 7.4% from a year earlier in the latest quarter, while the median
+    price rose 3.2% to about $241,000, according to the regional Realtors association. Inventory remains
+    tight in New Callan and Ashgrove Heights, where new construction has not kept pace with demand.
+    Lenders report refinance activity near historic lows and rising interest in home equity lines as
+    owners who locked in low rates choose to renovate rather than move. "People aren't leaving their
+    three percent mortgages," said Beverly Kostecki, a New Callan real estate broker. First-time buyers
+    face the hardest market, she said, with many competing for homes under $200,000 in Pruett Landing
+    and Marrowby.
+
+- id: news_021
+  outlet: "Regional Banking Week"
+  topic: competitor
+  headline: "Dunmoor Bancorp hires big-bank data chief, promises 'careful' AI plan"
+  body: >-
+    Dunmoor Bancorp, the $11.3 billion Harrow Mills-based lender, has hired a chief data officer from one
+    of the largest national banks as it builds out its AI strategy. Chief Executive Warren Stahlecker told
+    analysts the bank would move deliberately. "We are not going to be first. We intend to be right," he
+    said, adding that Dunmoor's early focus will be commercial credit memo preparation and internal
+    productivity tools rather than consumer-facing products. Analysts were split. One praised the
+    discipline given Dunmoor's commercial real estate concentration; another said the bank risks losing
+    younger customers to competitors with better digital tools. Dunmoor said it expects to spend about
+    $3.8 million on data and AI this year.
+
+- id: news_022
+  outlet: "Core & Branch"
+  topic: vendor
+  headline: "Outage at contact center AI provider leaves banks scrambling"
+  body: >-
+    A seven-hour outage at a contact center automation provider forced at least a dozen banks and credit
+    unions to route all incoming calls to human staff, producing hold times of more than 40 minutes at
+    some institutions. The vendor, which serves about 90 financial institutions, blamed a faulty
+    configuration update and said no customer data was affected. Several bank technology officers said
+    their contracts had no service credits for partial outages and that their contingency plans assumed
+    staffing levels from before automation. "We cut back on overtime budgets because the software was
+    handling a third of the calls," one operations director said. "When it went down, we had nobody to
+    pick up the phones."
+
+- id: news_023
+  outlet: "Tamsin Valley Business Journal"
+  topic: labor
+  headline: "Tamsin State launches banking AI certificate for working professionals"
+  body: >-
+    Tamsin State University's business school will offer a 12-week certificate in applied AI for
+    financial services starting next term, aimed at bank and credit union staff in operations, risk, and
+    lending. The program, priced at $3,450, covers data basics, evaluating vendor tools, fair lending
+    implications, and hands-on work with AI writing and analysis tools. Dean Samir Qureshi said three
+    regional financial institutions helped design the curriculum and several have committed to pay
+    tuition for employees. "Banks told us they can't hire their way out of this. They need to retrain
+    the people who already understand lending and compliance," he said. The first cohort is capped at
+    45 students.
+
+- id: news_024
+  outlet: "Valley 11 News"
+  topic: cyber
+  headline: "Regional logistics firm hit by ransomware; payroll delayed for 1,900 workers"
+  body: >-
+    A Harrow Mills logistics company says a ransomware attack disrupted its payroll and dispatch systems,
+    delaying paychecks for about 1,900 employees by three days. The company said attackers got in through
+    a compromised password at a software supplier. Several valley banks said they were contacted by
+    affected workers needing short-term help with bills and waived some overdraft fees. Cybersecurity
+    specialists warned that criminal groups are using AI tools to write more convincing phishing emails
+    and to scan for weak points faster. "The attackers have automated their side. Defenders have to catch
+    up," said Rick Halloran, who runs a Tamsin City security firm. The FBI is investigating.
+
+- id: news_025
+  outlet: "Regional Banking Week"
+  topic: regulation
+  headline: "Banking agencies update model risk expectations, signal AI focus"
+  body: >-
+    Federal banking regulators have signaled that their long-standing expectations for managing model
+    risk apply to AI and machine learning tools, including vendor products, while acknowledging that
+    some practices may need to adapt. Officials speaking at an industry conference said examiners will
+    look for an accurate inventory, validation proportional to risk, ongoing monitoring, and clear
+    ownership. They also said banks should be able to explain how generative AI tools are controlled when
+    their outputs reach customers. "Nobody expects a mid-size bank to validate a large AI system the way
+    it validates a credit scorecard," said a former examiner now in consulting. "They do expect you to
+    know what can go wrong and to watch for it."
+
+- id: news_026
+  outlet: "Tamsin City Courier"
+  topic: consumer
+  headline: "Money Matters: Can you ask a bank if a computer denied your loan?"
+  body: >-
+    A reader in Greaves Crossing asks whether she has a right to know if AI rejected her personal loan
+    application. The short answer: federal law already requires lenders to tell you the principal reasons
+    for a denial, whether a person or software made the call. Those reasons must be specific. "Insufficient
+    credit history" is a reason; "you didn't meet our criteria" is not. You are also entitled to a free
+    copy of your credit report if a report was used. Some states are considering laws that would require
+    lenders to say when AI was involved and let you ask for human review. For now, ask the lender
+    directly. Many will reconsider an application with new information.
+
+- id: news_027
+  outlet: "Core & Branch"
+  topic: fraud
+  headline: "Synthetic identity fraud climbs as AI makes fake documents cheaper"
+  body: >-
+    Losses from synthetic identity fraud at US lenders rose an estimated 21% over the past year,
+    according to a report from a fraud analytics consortium, driven partly by AI tools that generate
+    realistic pay stubs, bank statements, and even selfie videos for account opening checks. Small
+    business lenders and credit card issuers were hit hardest. "A fake identity used to take months to
+    build. Now the paperwork takes minutes," said Leah Donnelly-Park, a fraud strategy consultant.
+    Vendors are responding with document forensics and liveness detection, and some lenders are
+    returning to manual verification for larger loans. The report estimated average losses of $15,200
+    per synthetic account charged off.
+
+- id: news_028
+  outlet: "Tamsin Valley Business Journal"
+  topic: competitor
+  headline: "Plovera advertising blitz targets valley borrowers with four-minute loans"
+  body: >-
+    Online installment lender Plovera has become one of the most visible advertisers in the Tamsin
+    Valley, buying billboards along the interstate and streaming ads promising personal loans approved in
+    under four minutes. Plovera, which lends through a bank partnership, uses machine-learning
+    underwriting and says it approves borrowers traditional banks turn down. Its rates range from 11.9%
+    to 35.9% APR. Local bankers say they are seeing the effect in applications for debt consolidation
+    loans. "They're winning on speed and convenience, not price," said one consumer lending executive at
+    a valley bank. Consumer advocates caution that borrowers should compare total costs and read terms
+    carefully before accepting fast offers.
+
+- id: news_029
+  outlet: "The Deposit Line"
+  topic: regulation
+  headline: "Board minutes are becoming exam evidence on AI"
+  body: >-
+    Examiners are reading board and committee minutes to see whether directors actually oversee AI or
+    just receive presentations about it. The questions I am hearing: Did the board set a risk appetite for
+    AI? Did it approve a policy? Does it get reporting on incidents, complaints, and performance of live
+    tools? Did anyone challenge management? A bank where every AI item passed unanimously with no recorded
+    discussion is not showing credible challenge, and that gets noticed. Conversely, a committee that
+    documents dissent, conditions approvals, and follows up on open items looks well governed even when
+    it makes aggressive choices. Write minutes as though an examiner will read them. One will.
+
+- id: news_030
+  outlet: "Tamsin City Courier"
+  topic: labor
+  headline: "Bank employees' association raises concerns about AI monitoring of calls"
+  body: >-
+    The Tamsin Valley Bank Employees' Association, which represents tellers and contact center staff at
+    several valley institutions, says members are concerned about AI tools that score every customer call
+    for tone and compliance. Association president Frank Mazurek said representatives feel the scoring is
+    being used in performance reviews without clear explanation. "If a computer says I sounded impatient,
+    I want to know how it decided that," he said. The association has asked employers for written
+    policies on how AI-generated scores are used in discipline and pay decisions. Employers contacted by
+    the Courier said the tools are used for coaching, and that managers review scores before acting on
+    them.
+
+- id: news_031
+  outlet: "Regional Banking Week"
+  topic: ai_adoption
+  headline: "Generative AI in marketing: banks see higher response rates, new compliance headaches"
+  body: >-
+    Banks using AI to generate personalized marketing emails and ads report response rates 20% to 60%
+    higher than traditional campaigns, according to results shared by five regional institutions. But
+    compliance teams say reviewing thousands of message variations is straining their capacity. One bank
+    discovered that a batch of AI-written credit card emails advertised an introductory rate without the
+    required disclosures, and pulled the campaign after 48,000 messages went out. "The volume is the
+    point, and the volume is the risk," said Priscilla Oyuela, a bank marketing compliance consultant.
+    Several banks now limit AI to drafting from pre-approved language and require rule-based checks
+    before anything is sent.
+
+- id: news_032
+  outlet: "Tamsin Valley Business Journal"
+  topic: economy
+  headline: "Farm income expected to dip as grain prices soften"
+  body: >-
+    Net farm income in the Tamsin Valley is projected to fall about 9% this year as corn and soybean
+    prices soften and input costs remain high, according to the Tamsin State University extension
+    service. Dairy producers around Greaves Crossing are faring better on stronger milk prices.
+    Agricultural lenders say most borrowers remain in solid shape after several strong years, but
+    operating line renewals are drawing more scrutiny. "Balance sheets are good. Cash flow is tighter,"
+    said Merle Van Hoorn, an agricultural lending officer at Greaves County State Bank. Equipment dealers
+    report customers delaying purchases, though the Kestrel Bend plant expansion is expected to support
+    local supplier employment regardless of farm conditions.
+
+- id: news_033
+  outlet: "Core & Branch"
+  topic: vendor
+  headline: "Sablecrest Analytics launches real-time payments fraud product"
+  body: >-
+    Fraud analytics firm Sablecrest Analytics has released PayStream Sentinel, a product that scores
+    instant payments and ACH transfers for fraud risk in real time and can interrupt a transaction to
+    warn customers who may be falling for a scam. Sablecrest, whose card fraud scores are used by more
+    than 300 banks and credit unions, says early users cut authorized push payment scam losses by about
+    a third. The product uses behavioral signals such as typing patterns and whether a customer is on a
+    phone call during a transfer. Privacy advocates raised questions about behavioral monitoring, and
+    Sablecrest said data is used only for fraud prevention and is not sold.
+
+- id: news_034
+  outlet: "Tamsin City Courier"
+  topic: fraud
+  headline: "Kestrel Bend business tricked into wiring $212,000 after fake video call"
+  body: >-
+    A Kestrel Bend grain handling company wired $212,000 to criminals after an employee joined a video
+    call with what appeared to be the company's owner and outside accountant, police said. Both were
+    AI-generated fakes. The employee was told a land deal needed to close that afternoon. The company's
+    bank recovered about $61,000 before the rest was moved overseas. "It looked like him. It sounded like
+    him," the employee said in a statement released through the company. Police urged businesses to
+    require a call-back to a known phone number and a second approver for any wire request, no matter who
+    appears to be asking. It is the largest such loss reported in the valley.
+
+- id: news_035
+  outlet: "Regional Banking Week"
+  topic: competitor
+  headline: "Out-of-region lender settles bias claims over AI underwriting for $9.4 million"
+  body: >-
+    A consumer lender based in the Southwest has agreed to pay $9.4 million to settle claims by a state
+    attorney general that its machine-learning underwriting system unfairly denied loans to Hispanic and
+    Black applicants. Investigators said the system relied heavily on variables such as the applicant's
+    college and the type of phone used to apply, which acted as proxies for race and national origin.
+    The lender did not admit wrongdoing but agreed to independent testing, to search for less
+    discriminatory alternatives, and to rework its adverse action notices. "The lender tested the system
+    for accuracy. It never meaningfully tested for fairness," the attorney general's office said in a
+    statement.
+
+- id: news_036
+  outlet: "Valley 11 News"
+  topic: consumer
+  headline: "Seniors say bank app changes left them behind"
+  body: >-
+    Older customers in Lorne Prairie and Marrowby say banks' push toward apps and automated phone systems
+    is making it harder to get help. At a senior center forum hosted by Valley 11, several residents
+    described getting stuck in automated phone menus and chat assistants that did not understand their
+    questions. "I pressed zero eleven times," said one 81-year-old retired teacher. "I just wanted a
+    person." An aging services advocate said banks that close branches and automate calls should
+    guarantee a quick path to a human for customers who ask. Some local institutions said they are adding
+    dedicated phone lines for older customers and keeping lobby hours at rural branches.
+
+- id: news_037
+  outlet: "The Deposit Line"
+  topic: regulation
+  headline: "UDAAP and the chatbot: what an assistant says is what the bank says"
+  body: >-
+    A quick note for anyone launching a customer-facing AI assistant. Regulators treat what your
+    assistant tells customers the same as what a teller or a disclosure tells them. If it misstates a fee,
+    promises a rate you won't honor, or discourages someone from filing a complaint or disputing a charge,
+    that can be an unfair or deceptive practice. The CFPB has already warned that poorly designed
+    chatbots that trap customers in loops or fail to recognize a dispute can violate federal law. Expect
+    examiners to ask for your testing results, a sample of conversations, how complaints about the
+    assistant are captured, and how quickly customers can reach a human.
+
+- id: news_038
+  outlet: "Tamsin Valley Business Journal"
+  topic: ai_adoption
+  headline: "Tamsin Health says AI note-taking saves doctors 70 minutes a day"
+  body: >-
+    Tamsin Health, the valley's largest employer, says an AI tool that listens to patient visits and
+    drafts clinical notes is saving physicians an average of 70 minutes a day across 640 users. The
+    health system says physician burnout scores improved and that patients reported doctors made more
+    eye contact. The rollout was not without problems: in early use, the tool occasionally recorded
+    medications a patient mentioned but was not taking. Tamsin Health requires doctors to review and sign
+    every note. Chief Medical Information Officer Dr. Anjali Ferreira-Holt said the lesson for other
+    industries is to start with a clear, measurable problem. "We didn't buy AI. We bought back time for
+    doctors," she said.
+
+- id: news_039
+  outlet: "Core & Branch"
+  topic: ai_adoption
+  headline: "Generative AI vendor Brevanta cuts prices as competition heats up"
+  body: >-
+    Brevanta, an enterprise generative AI platform provider selling to insurers and banks, has cut its
+    per-seat price by about 15% and dropped its minimum contract for institutions under $25 billion in
+    assets. The company cited falling costs for the underlying AI systems and pressure from office
+    software vendors bundling similar assistants into existing licenses. Brevanta says it differentiates
+    on security controls, audit logs, and the ability to restrict answers to a bank's own approved
+    documents. Analysts say price declines are good news for buyers but raise questions about which
+    smaller vendors will survive. "Pick a vendor you can exit," said technology analyst Gordon Sweeney.
+    "Some of these companies won't be here in three years."
+
+- id: news_040
+  outlet: "Tamsin City Courier"
+  topic: labor
+  headline: "Valley financial firms slow hiring but avoid layoffs, survey shows"
+  body: >-
+    Financial institutions in the Tamsin Valley reduced open job postings by 16% over the past year,
+    according to a regional employers' survey, but reported few layoffs. Employers said they are filling
+    fewer entry-level processing and customer service positions as automation absorbs routine work, while
+    competing harder for data engineers, security staff, and compliance specialists. Median posted pay
+    for data engineering roles in the valley rose to $132,000. "The jobs aren't disappearing all at once.
+    They're just not being refilled," said workforce economist Lydia Marchbanks. The survey found that 58%
+    of financial employers plan to offer internal retraining programs, though only 21% have a budget set
+    aside for it.
+
+- id: news_041
+  outlet: "Regional Banking Week"
+  topic: fraud
+  headline: "Banks report surge in AI-assisted check fraud and account takeovers"
+  body: >-
+    Regional banks are reporting sharp increases in check fraud and account takeover attempts, with
+    criminals using AI tools to alter check images, generate fake identification, and script social
+    engineering calls to contact centers. One Midwest bank said account takeover attempts through its
+    phone channel rose 64% in two quarters. "Criminals call in with a script, a cloned voice, and a stolen
+    birthdate. Knowledge-based questions don't stop that anymore," said Dennis Farraday, a fraud operations
+    consultant. Banks are adding voice analysis, device checks, and out-of-band verification, but
+    executives say each new control adds friction for legitimate customers and increases call handling
+    times.
+
+- id: news_042
+  outlet: "Tamsin Valley Business Journal"
+  topic: competitor
+  headline: "Tamsin Teachers FCU pilots AI financial coach for members"
+  body: >-
+    Tamsin Teachers Federal Credit Union has begun a pilot of an AI financial coaching tool with about
+    2,400 members. The tool reviews spending and suggests budgets, savings goals, and ways to pay down debt
+    faster, and can refer members to a human counselor. Chief Executive Maureen Delacroix said early
+    results show participants increased savings balances by an average of $318 over three months. The
+    credit union set strict limits: the tool cannot recommend specific investments or loan products, and
+    every conversation is logged for review. "Our members trust us because we don't sell to them. The
+    coach can't sell either," she said. A broader launch is planned if the pilot holds up.
+
+- id: news_043
+  outlet: "Core & Branch"
+  topic: ai_adoption
+  headline: "Machine-learning underwriting delivers approval gains, but banks struggle with explanations"
+  body: >-
+    Banks that have moved consumer lending to machine-learning underwriting report approval rate gains of
+    8% to 20% at stable loss rates, according to interviews with lending executives at seven institutions.
+    But several said the hardest part was not the technology; it was producing adverse action reasons
+    that were accurate and understandable. One bank delayed launch by five months after its compliance
+    team found that the vendor's reason codes did not match the factors driving denials for thin-file
+    applicants. "The approvals were real. The explanations weren't ready," said a lending executive at a
+    $20 billion bank. Most banks interviewed kept a human underwriter review for declines above a set loan
+    amount.
+
+- id: news_044
+  outlet: "Valley 11 News"
+  topic: economy
+  headline: "Pruett Landing pump maker lands defense contract, plans hiring"
+  body: >-
+    Kowalczyk Pump & Valve, one of Pruett Landing's largest employers, has won a multi-year contract to
+    supply pumping systems for naval vessels, a deal the company values at about $74 million. Chief
+    Executive Bernadette Kowalczyk said the company expects to add 85 to 110 machinists and assemblers
+    and is working with the local technical college on training. "Pruett Landing has the skills. We need
+    to rebuild the pipeline," she said. City officials welcomed the news after several years of flat
+    manufacturing employment. Local lenders expect the contract to support supplier businesses in
+    machining and freight. The company employs about 1,140 people across two plants.
+
+- id: news_045
+  outlet: "The Deposit Line"
+  topic: ai_adoption
+  headline: "Data governance keeps showing up in AI findings"
+  body: >-
+    Here is a pattern worth noting. When examiners dig into an AI tool that went wrong, the root cause is
+    often data, not the algorithm. Training data that did not match the current customer base. Customer
+    records merged incorrectly across households. A field that meant one thing in the loan system and
+    another in the CRM. Personal data used for a purpose customers were never told about. None of that is
+    new, but AI makes old data problems travel faster and farther. Banks that cannot document data
+    lineage, quality checks, and permitted uses for the data feeding an AI tool should expect questions,
+    and possibly a finding, before the tool is even in production.
+
+- id: news_046
+  outlet: "Tamsin City Courier"
+  topic: consumer
+  headline: "Complaints about automated customer service rise at valley banks"
+  body: >-
+    Consumer complaints about automated phone systems and chat assistants at financial institutions in the
+    valley rose 34% over the past year, based on public complaint data reviewed by the Courier. Common
+    grievances included being unable to reach a person, assistants misunderstanding requests, and
+    disputes over charges that were never passed on to staff. The overall number remains small compared
+    with complaints about fees and credit reporting. "Customers will forgive a lot if they can escape to a
+    human quickly," said Alyssa Brandt, a customer experience researcher at Tamsin State University. "What
+    they don't forgive is being trapped." Several institutions said they are adding a clear option to
+    reach a representative.
+
+- id: news_047
+  outlet: "Regional Banking Week"
+  topic: competitor
+  headline: "Vallory Bank's AI personal loan launch draws strong early volume, and scrutiny"
+  body: >-
+    Vallory Bank & Trust says its new app-based personal loan, which uses automated underwriting to give
+    decisions in minutes, produced $83 million in originations in its first full quarter, more than double
+    the bank's internal target. About 38% of borrowers were new to the bank. Some analysts questioned
+    whether the growth came at the cost of credit quality, noting that early delinquencies are hard to
+    judge so soon. Consumer advocates also asked whether the bank tested the underwriting for fair lending
+    effects. Vallory said it did and that it reviews results monthly. "Speed wins customers," said analyst
+    Lionel Ferrante. "Charge-offs show up a year later."
+
+- id: news_048
+  outlet: "Core & Branch"
+  topic: cyber
+  headline: "Bank employee pasted loan files into public chatbot, triggering breach notice"
+  body: >-
+    A Midwest community bank has notified about 2,700 customers that their personal information may have
+    been exposed after a loan processor pasted portions of loan applications into a free public AI chatbot
+    to help summarize them. The bank discovered the activity during a routine review of web traffic. The
+    information included names, income, and partial Social Security numbers. The chatbot provider's terms
+    allowed user inputs to be retained. The bank said it found no evidence of misuse and has since blocked
+    public AI sites and rolled out an approved internal tool. "The employee was trying to be efficient,"
+    the bank's president said. "We hadn't given them a safe way to do that."
+
+- id: news_049
+  outlet: "Tamsin Valley Business Journal"
+  topic: vendor
+  headline: "Callowen signs three Midwest credit unions for voice automation"
+  body: >-
+    Contact center automation company Callowen has signed three Midwest credit unions, including one in
+    the valley's southern counties, to deploy software that answers routine phone calls such as balance
+    inquiries, card activation, and payment arrangements. Callowen says its system handles about 38% of
+    calls from start to finish at existing clients and hands the rest to human representatives with a
+    summary of the conversation. Pricing is per automated call. A credit union executive who asked not to
+    be named said the business case depends on not hiring replacements as staff leave. Callowen said it
+    records and retains call transcripts for 90 days unless clients request otherwise.
+
+- id: news_050
+  outlet: "Tamsin City Courier"
+  topic: fraud
+  headline: "Scammers impersonate bank fraud departments with AI-voiced robocalls"
+  body: >-
+    Valley residents are receiving automated calls that sound like a bank's fraud department, complete
+    with realistic hold music and a natural-sounding voice, asking them to confirm a suspicious charge by
+    reading back a one-time code. The code actually lets criminals log into the victim's account. The
+    Tamsin County Sheriff's Office said it received 140 reports in two weeks, with confirmed losses of
+    about $96,000. "Your bank will never ask you to read a code back to them," said Lieutenant Carla
+    Espinoza. "Hang up and call the number on the back of your card." Local banks said they are sending
+    warnings through their apps and adding alerts when a new device logs in.
+
+- id: news_051
+  outlet: "Regional Banking Week"
+  topic: regulation
+  headline: "Privacy rules and AI: regulators remind banks of limits on customer data use"
+  body: >-
+    Federal and state officials are reminding financial institutions that privacy obligations apply when
+    customer data is used to build or run AI tools, including tools supplied by outside vendors. Banks
+    must honor what their privacy notices say, protect customer information with appropriate safeguards,
+    and make sure service providers are contractually barred from using that data for their own purposes.
+    Several state attorneys general have also said they will scrutinize the sharing of consumer data with
+    AI vendors. "If your privacy notice didn't contemplate this use, you should read it again before your
+    vendor starts training on your customers' transactions," said privacy attorney Harriet Mbeki.
+
+- id: news_052
+  outlet: "Tamsin Valley Business Journal"
+  topic: labor
+  headline: "Data engineers in short supply as valley employers compete for AI talent"
+  body: >-
+    Banks, Tamsin Health, and manufacturers in the valley are competing for a small pool of data engineers
+    and security professionals, pushing salaries up and job searches longer. Recruiters say filling a
+    senior data engineering role now takes an average of 94 days, and remote employers on the coasts are
+    poaching local talent with higher pay. "Every company in town discovered it needs clean data at the
+    same time," said recruiter Hannah Voegeli. Some employers are turning to consulting firms to fill
+    gaps, while others are sponsoring employees through university programs. A bank technology executive
+    said consulting rates for experienced data engineers have climbed to between $165 and $240 an hour.
+
+- id: news_053
+  outlet: "Core & Branch"
+  topic: ai_adoption
+  headline: "Bank AI projects run over budget more often than not, consultants say"
+  body: >-
+    Most AI projects at banks take longer and cost more than planned, according to a review by a
+    consulting firm of 118 projects at US banks with $5 billion to $50 billion in assets. The median
+    project ran 41% over its original effort estimate and launched about four months late. Data
+    preparation and integration with legacy core systems were the most common causes. Projects using
+    off-the-shelf vendor software fared better than custom builds, which overran by a median of 67%.
+    About one in five projects was cancelled before launch. "The model is rarely the problem. The plumbing
+    is," said the report's author, Dominic Sauvé. Projects with a named business owner were twice as likely
+    to meet their stated goals.
+
+- id: news_054
+  outlet: "Valley 11 News"
+  topic: consumer
+  headline: "Small business owners split on AI-powered lending speed"
+  body: >-
+    Small business owners in Harrow Mills and New Callan told Valley 11 they appreciate faster loan
+    decisions from online lenders but worry about what they give up. A food truck owner said Quickcrest
+    funded her $40,000 advance in a day, but she later realized the effective annual cost was above 60%.
+    A contractor said his local bank took three weeks to approve an equipment loan but offered a far lower
+    rate and advice on structuring it. "Speed matters when a job's waiting," he said, "but I want someone
+    who knows my business." The Small Business Development Center at Tamsin State recommends comparing
+    total cost of credit before signing any fast-funding offer.
+
+- id: news_055
+  outlet: "Regional Banking Week"
+  topic: ai_adoption
+  headline: "Board directors want AI revenue numbers; CFOs say they are hard to produce"
+  body: >-
+    Bank directors are pressing management for evidence that AI spending is paying off, but chief
+    financial officers at several regional banks say attributing revenue to AI is difficult. Productivity
+    gains often show up as avoided hiring rather than cost cuts, and revenue from better targeting blends
+    with rate changes and marketing spend. "Everyone wants an ROI slide. Most of those slides are
+    optimistic," said a CFO at a $16 billion bank. Consultants recommend setting a baseline and a control
+    group before launch, and tracking a small number of metrics honestly. A survey of directors found 67%
+    expect measurable AI revenue within 18 months of initial investment; 22% of CFOs said that was
+    realistic.
+
+- id: news_056
+  outlet: "The Deposit Line"
+  topic: regulation
+  headline: "How severity works when AI issues turn into findings"
+  body: >-
+    Readers ask what separates an observation from a matter requiring attention on AI issues. Roughly:
+    an observation is a weakness examiners want fixed but that does not yet create meaningful risk. A
+    matter requiring attention means the weakness matters and the board must see it corrected within a
+    set time, often six to twelve months. A matter requiring immediate attention signals the problem is
+    serious enough to fix now, and repeat or unaddressed findings can lead to enforcement. Customer harm
+    changes everything. An AI tool that produced inaccurate adverse action notices or unfair pricing will
+    draw restitution questions, not just a policy fix. Document what you knew and when.
+
+- id: news_057
+  outlet: "Tamsin City Courier"
+  topic: economy
+  headline: "Valley unemployment holds near 4%, but manufacturing wages lag inflation"
+  body: >-
+    The Tamsin Valley unemployment rate held at 3.9% last month, below the national average, according to
+    state labor data. Job growth was strongest in health care and logistics, while retail employment
+    declined slightly. Average hourly wages in manufacturing rose 2.8% over the year, trailing price
+    increases for housing, insurance, and groceries. Household debt is also rising: credit card balances
+    in the region grew about 8% and auto loan delinquencies ticked up in the southern counties. "People
+    are working, but they're stretched," said regional economist Thomas Achterlund. He said consumer
+    lenders should expect modestly higher losses on unsecured credit over the next year.
+
+- id: news_058
+  outlet: "Tamsin Valley Business Journal"
+  topic: competitor
+  headline: "Greaves County State Bank partners with fintech for digital account opening"
+  body: >-
+    Greaves County State Bank, the $1.4 billion community lender in the western valley, has partnered
+    with a digital banking firm to let customers open accounts and apply for small loans entirely on a
+    phone, with automated identity checks. President Russell Aaberg said the bank was losing younger
+    farm families to online banks. "Their parents banked with us. They want to bank with their phones,"
+    he said. The bank said applications with any automated decline will be reviewed by a loan officer
+    before a final decision. Aaberg said the bank is not planning broader AI use yet. "We'd rather watch
+    the bigger banks make the mistakes first," he said.
+
+- id: news_059
+  outlet: "Core & Branch"
+  topic: vendor
+  headline: "AI vendors quietly change terms to allow training on client data"
+  body: >-
+    Several software vendors serving banks have updated their standard terms to allow customer data to be
+    used to improve their AI features unless clients opt out, according to a review by a procurement
+    advisory firm. The changes appeared in routine renewal paperwork and online terms updates. Bank
+    lawyers said many institutions did not notice. "If you auto-renewed, you may have agreed to it," said
+    procurement advisor Stuart Kaplowitz. He recommends banks inventory every vendor that has added AI
+    features in the past two years, check the current terms, and require written notice of material
+    changes. Two vendors named in the review said client data is anonymized and never shared with other
+    clients.
+
+- id: news_060
+  outlet: "Tamsin City Courier"
+  topic: labor
+  headline: "Tellers become 'universal bankers' as branches change"
+  body: >-
+    Branch staff across the valley are being retrained as so-called universal bankers who handle
+    deposits, account opening, and basic loan applications, as routine transactions move to apps and
+    automated systems. Several banks said they are pairing the change with AI tools that suggest products
+    and pull up customer history during conversations. Some employees welcome the broader role and higher
+    pay grade. Others say sales goals built into the new jobs make them uncomfortable. "I became a teller
+    to help people, not to hit a quota the computer sets," said a branch employee in Oswin Falls. Banks
+    said the tools are meant to help staff understand customer needs, not to pressure sales.
