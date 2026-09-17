@@ -62,8 +62,14 @@ def _request_blocks(content: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet: str, purpose: str,
-             max_tokens: int, until: Callable[[], bool] | None = None) -> TurnResult:
-    """Run one member's call sequence. `until` ends the turn as soon as the required actions are recorded."""
+             max_tokens: int, until: Callable[[], bool] | None = None, required_tool: str | None = None,
+             free_steps: int = 0, max_steps: int | None = None) -> TurnResult:
+    """Run one member's call sequence.
+
+    `until` ends the turn once the required actions are recorded. With `required_tool`, the member may use other
+    tools for `free_steps` steps; after that every step must call the required tool, so reading cannot crowd out
+    positions, ballots, or minutes.
+    """
     agent = session.agent
     memory = latest_memory(ctx.db, agent.agent_id, before_month=session.month)
     notes = prompts.render("committee/notes_header.md", date=long_date(session.meeting_date),
@@ -71,16 +77,23 @@ def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet:
     messages: list[dict[str, Any]] = [{"role": "user", "content": instruction}]
     texts: list[str] = []
     calls: list[dict[str, Any]] = []
-    max_steps = int(ctx.budget("agent", "max_tool_steps"))
+    max_steps = max_steps or int(ctx.budget("agent", "max_tool_steps"))
     for step in range(1, max_steps + 1):
+        forced = required_tool is not None and step > free_steps
         result = ctx.llm.call(LLMRequest(
             role="committee", purpose=purpose, run_id=ctx.run_id, agent_id=agent.agent_id, sim_month=session.month,
             system_fixed=(fixed_block(ctx, agent),), system_dynamic=(notes, packet),
             messages=tuple(messages), tools=TOOLS, max_tokens=max_tokens,
+            tool_choice={"type": "tool", "name": required_tool} if forced else None,
         ))
         if result.text.strip():
             texts.append(result.text.strip())
         if not result.tool_uses:
+            if required_tool is not None and until is not None and not until() and step < max_steps:
+                messages.append({"role": "assistant", "content": _request_blocks(result.raw["content"]) or
+                                 [{"type": "text", "text": "Noted."}]})
+                messages.append({"role": "user", "content": "Please record the remaining items now."})
+                continue
             return TurnResult("\n\n".join(texts), tuple(calls), step)
         messages.append({"role": "assistant", "content": _request_blocks(result.raw["content"])})
         tool_results = []

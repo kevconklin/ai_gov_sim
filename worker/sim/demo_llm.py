@@ -181,9 +181,25 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [{"type": "text", "text": REMARKS[_h(key, "remark") % len(REMARKS)]}]
 
 
+COMMITTEE_FORCED = {"cast_vote", "submit_position", "record_minutes"}
+
+
+def _forced_committee(params: Mapping[str, Any], name: str) -> list[dict[str, Any]]:
+    instruction = params["messages"][0]["content"]
+    items = re.findall(r"- ((?:UC|PE|SC)-\d{3}):", instruction)
+    done = {b["input"].get("item_id") for m in params["messages"] if m["role"] == "assistant" and isinstance(m["content"], list)
+            for b in m["content"] if b.get("type") == "tool_use" and b.get("name") == name}
+    remaining = [i for i in items if i not in done] or items[:1]
+    blocks = [b for b in _committee({**params, "messages": [params["messages"][0]]}) if b.get("name") == name]
+    return [b for b in blocks if b["input"].get("item_id") in remaining] or blocks[:1] or \
+        [_tool(name, {"summary": "Minutes.", "key_points": [], "action_items": []}, instruction)]
+
+
 def respond(params: Mapping[str, Any]) -> Message:
     choice = params.get("tool_choice") or {}
     model = params["model"]
+    if choice.get("type") == "tool" and choice.get("name") in COMMITTEE_FORCED:
+        return _message(model, _forced_committee(params, choice["name"]), params)
     if choice.get("type") == "tool":
         schema = next(t["input_schema"] for t in params["tools"] if t["name"] == choice["name"])
         key = json.dumps(params["messages"], default=str)[:2000]

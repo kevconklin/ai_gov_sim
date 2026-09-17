@@ -99,7 +99,8 @@ class Meeting:
                 instruction = prompts.render("committee/phase_position.md", date=long_date(self.date), items=listing)
                 turn = run_turn(self.ctx, session, instruction=instruction, packet=packet, purpose="committee_position",
                                 max_tokens=self._scaled_tokens("position", len(remaining)),
-                                until=lambda: all(i.item_id in session.positions for i in items))
+                                until=lambda: all(i.item_id in session.positions for i in items),
+                                required_tool="submit_position", free_steps=3, max_steps=3 + len(remaining) + 2)
                 for call in turn.tool_calls:
                     if call["name"] == "submit_position" and not call["error"]:
                         self._message(agent, "position", call["input"].get("summary", ""),
@@ -151,7 +152,8 @@ class Meeting:
                 listing = "\n".join(f"- {i.item_id}: {i.title}" for i in remaining)
                 run_turn(self.ctx, session, instruction=prompts.render("committee/phase_vote.md", items=listing),
                          packet=packet, purpose="committee_vote", max_tokens=self._scaled_tokens("vote", len(remaining)),
-                         until=lambda: all(i.item_id in session.votes for i in items))
+                         until=lambda: all(i.item_id in session.votes for i in items),
+                         required_tool="cast_vote", free_steps=0, max_steps=len(remaining) + 2)
                 remaining = [i for i in items if i.item_id not in session.votes]
                 if not remaining:
                     break
@@ -166,7 +168,8 @@ class Meeting:
                                      transcript=transcript or "(No discussion was recorded.)")
         session = self._session(self.chair, "minutes")
         run_turn(self.ctx, session, instruction=instruction, packet=packet, purpose="committee_minutes",
-                 max_tokens=self._tokens("minutes"), until=lambda: session.minutes is not None)
+                 max_tokens=self._tokens("minutes"), until=lambda: session.minutes is not None,
+                 required_tool="record_minutes", free_steps=1, max_steps=3)
         text = minutes_text(bank_name=self.ctx.bank.name, meeting_date=self.date,
                             present=[f"{a.name} ({a.title})" for a in self.members], minutes=session.minutes,
                             decisions=decisions)

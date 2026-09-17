@@ -150,3 +150,11 @@ def test_hard_kill_mid_month_is_recovered_on_next_advance(pilot):
     assert db.fetch_one("SELECT COUNT(*) AS n FROM interventions WHERE run_id = ? AND kind = 'recovered_interrupted_month'",
                         (run_id,))["n"] == 1
     assert not checkpoint.snapshot_path(data_dir, run_id, month).exists()
+
+
+def test_every_member_records_every_position_and_ballot(pilot):
+    db, _, run_ids, _ = pilot
+    for run_id in run_ids:
+        rows = db.fetch_all("SELECT d.meeting_id, d.item_id, (SELECT COUNT(*) FROM votes v WHERE v.meeting_id = d.meeting_id "
+                            "AND v.item_id = d.item_id) AS ballots FROM decisions d WHERE d.run_id = ?", (run_id,))
+        assert rows and all(r["ballots"] == 8 for r in rows)

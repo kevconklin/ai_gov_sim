@@ -152,7 +152,8 @@ def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
                                   "item_id": item, "support": support,
                                   "position": {k: args.get(k) for k in ("summary", "concerns", "conditions")}})
     s.positions[item] = support
-    return f"Position on {item} recorded."
+    remaining = [i for i in s.decision_items if i not in s.positions]
+    return f"Position on {item} recorded." + (f" Still to record: {', '.join(remaining)}." if remaining else " All positions recorded.")
 
 
 def _propose_use_case(s: ToolSession, args: Mapping[str, Any]) -> str:
@@ -220,7 +221,8 @@ def _cast_vote(s: ToolSession, args: Mapping[str, Any]) -> str:
     s.ctx.db.insert("votes", {"run_id": s.ctx.run_id, "meeting_id": s.meeting_id, "agent_id": s.agent.agent_id,
                               "item_id": item, "vote": vote, "rationale": args.get("rationale")})
     s.votes[item] = vote
-    return f"Ballot on {item} recorded."
+    remaining = [i for i in s.decision_items if i not in s.votes]
+    return f"Ballot on {item} recorded." + (f" Still to vote on: {', '.join(remaining)}." if remaining else " All ballots cast.")
 
 
 def _record_minutes(s: ToolSession, args: Mapping[str, Any]) -> str:
