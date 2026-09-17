@@ -18,7 +18,6 @@ max_tokens:
   compression: 1600
 agent:
   max_tool_steps: 6
-  temperature: null          # null = model default; some models reject custom sampling parameters
 memory:
   max_tokens: 2000           # rolling memory limit (SPEC 4.3); longer notes are compressed
 debate:

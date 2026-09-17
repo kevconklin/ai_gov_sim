@@ -142,5 +142,7 @@ class PolicyRepo:
         destination.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(["git", "clone", "-q", str(self.path), str(destination)], check=True, capture_output=True)
         clone = PolicyRepo(destination)
+        for key in ("user.name", "user.email"):
+            clone._git("config", key, self._git("config", "--get", key))
         clone.reset_to(sha)
         return clone

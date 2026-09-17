@@ -43,8 +43,6 @@ class LLMRequest:
     system_dynamic: tuple[str, ...] = ()        # memory, packet: not cached
     tools: tuple[Mapping[str, Any], ...] = ()
     tool_choice: Mapping[str, Any] | None = None
-    temperature: float | None = None
-    top_p: float | None = None
     stop_sequences: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -70,8 +68,6 @@ class LLMRequest:
             "system": system or None,
             "tools": [dict(t) for t in self.tools] or None,
             "tool_choice": dict(self.tool_choice) if self.tool_choice else None,
-            "temperature": self.temperature,
-            "top_p": self.top_p,
             "stop_sequences": list(self.stop_sequences) or None,
         }
         return {**params, **{k: v for k, v in optional.items() if v is not None}}

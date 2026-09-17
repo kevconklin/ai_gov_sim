@@ -35,8 +35,6 @@ With Docker Compose (written but not run here, since Docker was not running): se
 ## Before any paid run
 - Run `worker/scripts/smoke_llm.py` to confirm caching and batches on the real API.
 - Verify prices and model ids in `config/models.yaml` against the official pricing and models pages.
-- Confirm the committee model accepts the request shape used (tools, `tool_choice`, cached system blocks). If a model
-  rejects custom sampling parameters, leave `agent.temperature: null` in `config/budget.yaml`.
 
 ## Operations
 - Kill switch: `SIM_STOP=1`, a `STOP` file in `SIM_DATA_DIR`, or a stop command. The worker makes no further API calls,

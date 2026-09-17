@@ -54,6 +54,7 @@ def test_repo_commits_with_sim_date_and_resets(tmp_path):
     assert repo._git("log", "-1", "--format=%ad", "--date=short") == "2027-02-09"
     assert repo.commit(repo.read(), "no change", date(2027, 2, 9)) == second
     clone = repo.clone_to(tmp_path / "fork", first)
+    assert clone._git("config", "--get", "user.email") == "committee@example.com"
     assert "AI-GOV-001" not in clone.read()
     repo.reset_to(first)
     assert "No sections" in repo.read()

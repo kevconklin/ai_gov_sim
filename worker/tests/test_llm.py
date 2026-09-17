@@ -17,7 +17,6 @@ def _request(**overrides):
         system_dynamic=("Current packet.",),
         messages=({"role": "user", "content": "Agenda item 1 is open for discussion."},),
         max_tokens=400,
-        temperature=0.7,
     )
     base.update(overrides)
     return LLMRequest(**base)
@@ -44,7 +43,7 @@ def test_call_logs_tokens_cost_request_and_response(db, config):
     assert row["cost_usd"] == pytest.approx(expected)
     assert result.cost_usd == pytest.approx(expected)
     request = db.loads(row["request"])
-    assert request["temperature"] == 0.7 and request["max_tokens"] == 400
+    assert request["max_tokens"] == 400 and request["model"] == "claude-sonnet-5"
     assert db.loads(row["response"])["content"][0]["text"] == "I support item 1."
 
 
@@ -63,9 +62,9 @@ def test_fixed_system_blocks_get_cache_control_on_last_fixed_block_only(db, conf
 def test_optional_params_are_omitted_when_unset(db, config):
     fake = FakeClient()
     fake.messages.responses.append(make_message())
-    _client(db, config, fake).call(_request(temperature=None, system_fixed=(), system_dynamic=()))
+    _client(db, config, fake).call(_request(system_fixed=(), system_dynamic=()))
     params = fake.messages.calls[0]
-    assert "temperature" not in params and "system" not in params and "tools" not in params
+    assert "system" not in params and "tools" not in params
 
 
 def test_tools_are_passed_and_tool_use_blocks_returned(db, config):

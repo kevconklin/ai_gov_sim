@@ -76,7 +76,6 @@ def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet:
             role="committee", purpose=purpose, run_id=ctx.run_id, agent_id=agent.agent_id, sim_month=session.month,
             system_fixed=(fixed_block(ctx, agent),), system_dynamic=(notes, packet),
             messages=tuple(messages), tools=TOOLS, max_tokens=max_tokens,
-            temperature=ctx.config.budget.raw.get("agent", {}).get("temperature"),
         ))
         if result.text.strip():
             texts.append(result.text.strip())

@@ -34,7 +34,6 @@ def _request(purpose: str) -> LLMRequest:
         system_fixed=(_HANDBOOK_PARAGRAPH * 120,),
         messages=({"role": "user", "content": "In one short sentence, where is suspected fraud escalated?"},),
         max_tokens=60,
-        temperature=0.0,
     )
 
 
