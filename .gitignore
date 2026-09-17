@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+*.sqlite
+*.db
+.env
+exports/
+node_modules/
+.next/
+.dev/
+data/
+*.tsbuildinfo
+.env*
+!.env.example
+analysis/notebooks/.ipynb_checkpoints/
