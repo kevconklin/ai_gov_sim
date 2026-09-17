@@ -1,0 +1,82 @@
+# Metric definitions (SPEC 9.2). Computed monthly per run by worker/sim/metrics/. Rows in `metrics` are
+# (run_id, bank_id, sim_month, metric, dimension, value); dimension is '' unless listed.
+# source: structured | computed | engine | regulator | coded | hybrid
+# Simulated outcomes (source engine/regulator) measure the simulated world and depend on config/engine_params.yaml.
+
+decisions:
+  proposals_submitted: {source: structured, definition: "use-case proposals with proposed_month = m"}
+  policy_edits_proposed: {source: structured, definition: "policy edit proposals submitted in m"}
+  approval_rate: {source: structured, definition: "approved / decided use-case items in m; null if none decided"}
+  approval_rate_cumulative: {source: structured, definition: "approved / decided use-case items through m"}
+  time_to_decision_days:
+    source: structured
+    definition: "median sim days from proposal to decision for items decided in m"
+    note: "by design every proposal is decided at the meeting where it is submitted, so this is 0; kept for spec completeness"
+  time_to_production_months: {source: engine, definition: "median months from decided_month to live_month for use cases that went live in m"}
+  use_cases_live: {source: hybrid, dimension: "low | medium | high | total", definition: "use cases with status live at end of m, by classifier risk tier"}
+  high_risk_share: {source: structured, definition: "live high-tier / live total"}
+  unanimity_rate: {source: structured, definition: "decisions in m with no yes/no dissent (min(yes, no) = 0) / decisions in m"}
+  dissent_by_seat: {source: structured, dimension: seat, definition: "share of the seat's yes/no ballots in m that went against the outcome"}
+  reversal_count: {source: structured, definition: "committee status changes to paused or retired in m"}
+
+policy:
+  policy_word_count: {source: computed, definition: "words in policy text at end of m, excluding control ids"}
+  control_count: {source: computed, definition: "distinct AI-GOV-### ids in policy text"}
+  controls_added: {source: computed, definition: "control ids present in m and absent in the previous version"}
+  controls_removed: {source: computed, definition: "control ids present in the previous version and absent in m"}
+  readability_grade: {source: computed, definition: "Flesch-Kincaid grade of policy text (heuristic syllable count)"}
+  framework_mentions:
+    source: hybrid
+    dimension: "sr_11_7 | sr_26_2 | occ_2011_12 | nist_ai_rmf | iso_42001 | eu_ai_act | colorado_ai_act | ffiec | other_named"
+    definition: "cumulative member messages through m naming the framework (keyword pass OR coded), plus 1 if the policy names it"
+    note: "regulator exam letters may name frameworks; compare first-mention month with exam months when interpreting RQ5"
+  framework_first_mention_month_index: {source: hybrid, dimension: framework, definition: "1-based run month of first member mention"}
+  policy_similarity_cross_bank: {source: computed, definition: "TF-IDF cosine similarity of the two banks' policies in the same replicate at m"}
+
+outcomes:
+  ai_revenue_monthly: {source: engine, definition: "incremental revenue from live use cases in m (true value, not the noisy report)"}
+  ai_spend_monthly: {source: engine}
+  ai_spend_cumulative: {source: engine}
+  ai_budget_remaining: {source: engine}
+  roi_cumulative: {source: engine, definition: "(cumulative AI revenue - cumulative AI spend) / cumulative AI spend"}
+  effort_overrun_pct: {source: engine, definition: "mean (actual / estimated person-weeks - 1) x 100 over delivered use cases"}
+  incidents: {source: engine, dimension: "low | medium | high", definition: "incidents recorded in company state in m (engine and injected)"}
+  findings: {source: regulator, dimension: "observation | mra | mria | enforcement_referral", definition: "findings issued in m"}
+  findings_open: {source: regulator}
+  first_mra_month_index: {source: regulator, definition: "1-based run month of the first finding at MRA or above"}
+  enforcement_flag: {source: regulator, definition: "1 if any enforcement referral issued through m"}
+  complaint_rate: {source: engine, definition: "complaints per 10,000 customers per month"}
+  shadow_ai_rate: {source: engine}
+  fair_lending_exposure: {source: engine}
+  public_sentiment: {source: engine}
+  morale_index: {source: engine}
+
+behavior:
+  speaking_share: {source: computed, dimension: seat, definition: "seat's share of estimated debate tokens in m"}
+  stance_score: {source: coded, dimension: seat, definition: "mean coded stance (1-5) over the seat's circulate, position, and debate messages in m"}
+  stance_drift: {source: computed, dimension: seat, definition: "stance_score - the sitting member's stance_baseline"}
+  influence:
+    source: structured
+    dimension: seat
+    definition: >-
+      mean over decided items of [1 if the member's private position (support >= 4 yes, <= 2 no) matched the outcome]
+      minus [1 if the majority of other members' positions matched the member's position, 0.5 on a tie]
+  position_shift_rate: {source: structured, dimension: seat, definition: "share of items where definite private position differs from yes/no ballot"}
+  type_token_ratio: {source: computed, dimension: seat, definition: "mean unique/total words over 200-word windows of the seat's debate text in m"}
+  ngram_repeat_rate: {source: computed, dimension: seat, definition: "share of the seat's 5-grams in m that appeared in its debate text in m-3..m-1"}
+  catchphrase_alerts: {source: computed, dimension: seat, definition: "3-6 word phrases in more than 30% of the member's debate messages to date (min 5 messages)"}
+  objection_count: {source: coded, dimension: seat}
+  suspicion_rate: {source: hybrid, definition: "share of member messages in m coded suspicious OR matching the suspicion keyword pass"}
+  false_outcome_claims:
+    source: hybrid
+    dimension: seat
+    definition: "coded numeric claims contradicting the outcome report shown to the committee that month (>25% relative, exact for counts)"
+
+operations:
+  cost_usd: {source: computed}
+  tokens_input: {source: computed}
+  tokens_cached: {source: computed}
+  tokens_output: {source: computed}
+  llm_calls: {source: computed}
+  llm_failed_calls: {source: computed}
+  wall_clock_per_sim_month: {source: computed, definition: "sim_months.wall_clock_seconds"}

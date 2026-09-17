@@ -1,0 +1,43 @@
+# Phase 0 (SPEC 11.2): worker + Postgres + dashboard on localhost.
+# First run:  docker compose up -d postgres
+#             docker compose run --rm worker python -m sim create --name pilot --seed 2027
+#             docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: governance_sim
+      POSTGRES_USER: sim
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sim-local-only}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sim -d governance_sim"]
+      interval: 5s
+      retries: 10
+
+  worker:
+    build: {context: ., dockerfile: worker/Dockerfile}
+    depends_on: {postgres: {condition: service_healthy}}
+    environment:
+      DATABASE_URL: postgresql://sim:${POSTGRES_PASSWORD:-sim-local-only}@postgres:5432/governance_sim
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      SIM_DATA_DIR: /data
+    # WORKER_MODE defaults to --demo (scripted, free). Set WORKER_MODE= (empty) with ANTHROPIC_API_KEY for real runs.
+    command: python -m sim serve ${WORKER_MODE---demo}
+    volumes: [simdata:/data]
+    restart: unless-stopped
+
+  dashboard:
+    build: {context: dashboard}
+    depends_on: {postgres: {condition: service_healthy}}
+    environment:
+      DATABASE_URL: postgresql://sim:${POSTGRES_PASSWORD:-sim-local-only}@postgres:5432/governance_sim
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:?set DASHBOARD_PASSWORD}
+      DASHBOARD_SESSION_SECRET: ${DASHBOARD_SESSION_SECRET:?set DASHBOARD_SESSION_SECRET}
+    ports: ["3100:3100"]
+
+volumes:
+  pgdata:
+  simdata:
