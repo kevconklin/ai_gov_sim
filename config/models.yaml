@@ -1,0 +1,17 @@
+# Pinned model IDs and prices. Changing anything here mid-run must be logged as an intervention.
+# Prices are USD per million tokens. VERIFY against
+# https://platform.claude.com/docs/en/about-claude/pricing before any paid run (SPEC section 16).
+roles:
+  committee: claude-sonnet-5        # committee turns, chair, minutes, policy drafting
+  estimator: claude-sonnet-5        # reality engine estimators, regulator exams (Batch API)
+  utility: claude-haiku-4-5-20251001  # classification, compression, event wording, coding, suspicion scan
+
+prices:
+  claude-sonnet-5: {input: 2.00, output: 10.00}            # from SPEC section 12, unverified
+  claude-haiku-4-5-20251001: {input: 1.00, output: 5.00}   # from SPEC section 12, unverified
+  claude-opus-5: {input: 5.00, output: 25.00}              # from SPEC section 12, unverified
+
+multipliers:
+  cache_write: 1.25   # 5-minute cache write, relative to input rate
+  cache_read: 0.10    # relative to input rate
+  batch: 0.50         # Batch API discount, stacks with caching

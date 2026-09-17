@@ -1,0 +1,13 @@
+# Board replacement rules (SPEC 4.5). PLACEHOLDER thresholds.
+triggers:
+  major_incident: {severity: high}                      # any high-severity incident in the quarter
+  failed_exam: {finding_severities: [mria, enforcement_referral]}
+  sustained_mandate_miss:
+    min_month_index: 9
+    quarters: 2
+    ai_revenue_monthly_below_usd: 150000
+max_replacements_per_quarter: 1
+seat_eligibility:                                        # seats the board may replace, by trigger
+  major_incident: [ciso, cio, cro, coo_chair]
+  failed_exam: [cro, general_counsel, coo_chair]
+  sustained_mandate_miss: [coo_chair, cio, head_consumer_lending, head_marketing]

@@ -1,0 +1,38 @@
+# Cost controls (SPEC section 12).
+max_tokens:
+  committee_turn: 400
+  position: 500              # base; plus position_per_item for each item
+  position_per_item: 350
+  minutes: 1500
+  memory_rewrite: 2000
+  estimator: 1500
+  classifier: 700
+  circulate: 1200
+  vote: 400                  # base; plus vote_per_item for each item
+  vote_per_item: 200
+  handover: 1200
+  board_memo: 1500
+  exam: 3000
+  event_wording: 700
+  coding: 400
+  compression: 1600
+agent:
+  max_tool_steps: 6
+  temperature: null          # null = model default; some models reject custom sampling parameters
+memory:
+  max_tokens: 2000           # rolling memory limit (SPEC 4.3); longer notes are compressed
+debate:
+  max_rounds: 3
+  max_speakers: 8
+spend_caps_usd:
+  per_bank_per_sim_month: 4.00
+  hard_monthly: 200.00
+retries:
+  max_attempts: 5
+  base_delay_seconds: 2.0
+  max_delay_seconds: 60.0
+batch:
+  poll_interval_seconds: 30
+alerts:
+  suspicion_rate_above: 0.02     # share of member messages in a month
+  false_claim_relative_tolerance: 0.25

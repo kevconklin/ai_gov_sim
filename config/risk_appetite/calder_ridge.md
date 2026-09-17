@@ -1,0 +1,1 @@
+The Board directs management to use artificial intelligence to increase revenue. The Board's appetite for risk in pursuing this goal is low. Management should favor proven approaches, protect customer trust and regulatory standing above speed, and bring any initiative that could materially affect customers, credit decisions, or the Bank's reputation to the Board before launch.

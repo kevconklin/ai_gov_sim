@@ -1,0 +1,69 @@
+# Reality engine priors (SPEC 6.2). EVERY value here is a PLACEHOLDER for development.
+# Before the full run, replace each value with one sourced from real project data or published studies
+# and cite the source in a comment next to it (SPEC 15, 16).
+
+effort_overrun_multiplier:        # PLACEHOLDER
+  vendor_saas: {dist: lognormal, median: 1.2, sigma: 0.3}
+  custom_build: {dist: lognormal, median: 1.6, sigma: 0.5}
+
+incident_prob_per_month:          # PLACEHOLDER
+  tier_low: 0.005
+  tier_medium: 0.02
+  tier_high: 0.05
+
+incident_prob_modifiers:          # PLACEHOLDER
+  no_model_validation: 1.8
+  no_human_review: 1.5
+  vendor_risk_assessment_done: 0.7
+
+incident_severity_mix:            # PLACEHOLDER, probabilities by tier
+  tier_low: {low: 0.8, medium: 0.18, high: 0.02}
+  tier_medium: {low: 0.6, medium: 0.32, high: 0.08}
+  tier_high: {low: 0.45, medium: 0.37, high: 0.18}
+
+estimator_prior_weight: 0.5       # 0 = trust LLM only, 1 = trust priors only
+
+revenue_per_month_full_adoption_usd:   # PLACEHOLDER triangular priors by risk tier
+  tier_low: {low: 8000, mode: 35000, high: 120000}
+  tier_medium: {low: 20000, mode: 90000, high: 300000}
+  tier_high: {low: 40000, mode: 180000, high: 650000}
+
+run_cost_per_month_usd:           # PLACEHOLDER
+  vendor_saas: {low: 6000, mode: 18000, high: 45000}
+  custom_build: {low: 4000, mode: 12000, high: 35000}
+
+one_time_cost_usd:                # PLACEHOLDER
+  vendor_saas: {low: 60000, mode: 180000, high: 450000}
+  custom_build: {low: 150000, mode: 420000, high: 1100000}
+
+adoption_peak:                    # PLACEHOLDER share of target users at steady state
+  {low: 0.25, mode: 0.55, high: 0.85}
+months_to_peak:                   # PLACEHOLDER
+  {low: 3, mode: 6, high: 12}
+
+incident_effects:                 # PLACEHOLDER state changes per incident, by severity
+  low: {complaint_rate_per_10k: 0.4, public_sentiment: -1, fair_lending_exposure: 0.5, morale_index: 0}
+  medium: {complaint_rate_per_10k: 1.8, public_sentiment: -4, fair_lending_exposure: 2.5, morale_index: -1}
+  high: {complaint_rate_per_10k: 6.0, public_sentiment: -12, fair_lending_exposure: 8.0, morale_index: -3}
+
+complaint_decay_per_month: 0.15   # PLACEHOLDER share of excess complaints that fades each month
+fair_lending_decay_per_month: 0.03   # PLACEHOLDER
+
+shadow_ai:                        # PLACEHOLDER monthly drift of unapproved tool use
+  base_drift: 0.012
+  approved_internal_tool_effect: -0.02
+  acceptable_use_control_effect: -0.01
+  noise_sd: 0.004
+
+paused_run_cost_share: 0.5        # PLACEHOLDER
+
+report_noise:                     # how wrong status reports are
+  revenue_estimate_error_sd: 0.15
+  report_delay_months: {p0: 0.6, p1: 0.3, p2: 0.1}
+
+fallbacks:                        # PLACEHOLDER used when an estimate is missing or malformed
+  person_weeks: {low: 12, mode: 30, high: 80}
+  fair_lending_exposure_change: {low: 0, mode: 0, high: 0}
+  complaint_rate_change_per_10k: {low: 0, mode: 0, high: 0}
+  incident_prob_spread: [0.5, 1.0, 2.0]   # prior point probability scaled into low/mode/high
+max_incident_prob_per_month: 0.4

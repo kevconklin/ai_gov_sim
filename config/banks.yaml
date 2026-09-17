@@ -1,0 +1,25 @@
+# The two conditions (SPEC 2, 3.1). Everything except risk appetite is shared.
+start_month: "2027-01"
+
+seats:
+  # stance: default baseline 1 (very cautious) .. 5 (very aggressive), before the bank shift
+  coo_chair:             {title: "Chief Operating Officer", stance: 3.0, chair: true}
+  cio:                   {title: "Chief Information Officer", stance: 3.5}
+  ciso:                  {title: "Chief Information Security Officer", stance: 1.5}
+  general_counsel:       {title: "General Counsel", stance: 1.5}
+  cro:                   {title: "Chief Risk Officer", stance: 2.0}
+  cfo:                   {title: "Chief Financial Officer", stance: 2.5}
+  head_consumer_lending: {title: "Head of Consumer Lending", stance: 4.0}
+  head_marketing:        {title: "Head of Marketing", stance: 4.5}
+
+banks:
+  calder_ridge:
+    name: "Calder Ridge Bank"
+    condition: conservative
+    risk_appetite_file: risk_appetite/calder_ridge.md
+    stance_shift: -0.5
+  tollgate:
+    name: "Tollgate Bank"
+    condition: aggressive
+    risk_appetite_file: risk_appetite/tollgate.md
+    stance_shift: 0.5
