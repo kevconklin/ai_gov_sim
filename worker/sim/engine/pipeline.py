@@ -84,6 +84,33 @@ def _proposal_text(use_case: Mapping[str, Any]) -> str:
     return json.dumps({"title": use_case["title"], "description": use_case["description"], **details}, indent=2)
 
 
+RISK_TIERS = ("low", "medium", "high")
+DELIVERY = ("vendor_saas", "custom_build")
+
+
+def normalize_classification(raw: Mapping[str, Any], use_case: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep the engine safe from out-of-enum classifier output (e.g. delivery "undecided" copied from the proposal).
+
+    A proposal may legitimately leave delivery undecided; the engine still needs one of its two cost models, so a
+    named vendor means vendor_saas and anything else is treated as a build.
+    """
+    result = dict(raw)
+    raw_details = use_case["details"]                     # sqlite3.Row supports indexing, not .get
+    details = json.loads(raw_details) if isinstance(raw_details, str) else dict(raw_details or {})
+    if result.get("delivery") not in DELIVERY:
+        vendor_named = bool(details.get("vendor_name")) or details.get("delivery") == "vendor"
+        log.warning("classifier returned delivery %r; using %s", result.get("delivery"),
+                    "vendor_saas" if vendor_named else "custom_build")
+        result["delivery"] = "vendor_saas" if vendor_named else "custom_build"
+    if result.get("risk_tier") not in RISK_TIERS:
+        log.warning("classifier returned risk_tier %r; using medium", result.get("risk_tier"))
+        result["risk_tier"] = "medium"
+    for flag in ("customer_facing", "credit_decision", "staff_genai_tool", "model_validation_required_by_policy",
+                 "human_review_in_design", "vendor_due_diligence_required_by_policy"):
+        result[flag] = bool(result.get(flag))
+    return result
+
+
 def classify(llm: LLMClient, *, run_id: str, month: str, use_case: Mapping[str, Any], policy_text: str,
              max_tokens: int) -> dict[str, Any]:
     fields = dict(
@@ -92,7 +119,7 @@ def classify(llm: LLMClient, *, run_id: str, month: str, use_case: Mapping[str, 
         messages=({"role": "user", "content": f"Proposal:\n{_proposal_text(use_case)}\n\n"
                                                f"Current AI policy:\n{policy_text or '(no policy adopted yet)'}"},),
     )
-    return call_structured(llm, fields, CLASSIFY_TOOL)
+    return normalize_classification(call_structured(llm, fields, CLASSIFY_TOOL), use_case)
 
 
 def estimate_many(llm: LLMClient, *, run_id: str, month: str, max_tokens: int,

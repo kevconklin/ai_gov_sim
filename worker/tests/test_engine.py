@@ -165,3 +165,17 @@ def test_report_shows_delayed_noisy_figures(db, run_id, world):
     assert "staff_survey_unapproved_ai_tool_use" in report.reported      # April starts a new quarter
     row = report.reported["use_cases"][0]
     assert row["status"] == "live"
+
+
+def test_classification_is_normalized_before_the_engine_uses_it(world):
+    from sim.engine.pipeline import normalize_classification
+    vendor_case = {"details": '{"vendor_name": "Brevanta", "delivery": "vendor"}'}
+    build_case = {"details": '{"delivery": "undecided"}'}
+    raw = {"delivery": "undecided", "risk_tier": "unknown", "customer_facing": "yes"}
+    assert normalize_classification(raw, vendor_case)["delivery"] == "vendor_saas"
+    assert normalize_classification(raw, build_case)["delivery"] == "custom_build"
+    assert normalize_classification(raw, build_case)["risk_tier"] == "medium"
+    assert normalize_classification(raw, build_case)["customer_facing"] is True
+    # normalized output must satisfy the engine's priors and produce a usable plan
+    priors, blended = blend(normalize_classification(raw, build_case), {}, world.engine_params)
+    assert blended["run_cost_per_month_usd"] == priors["run_cost_per_month_usd"]
