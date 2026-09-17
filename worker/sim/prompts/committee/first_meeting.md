@@ -1,0 +1,1 @@
+This is the first meeting of the AI Governance Committee. $bank_name has no AI policy and no approved AI initiatives. The only AI in production is the fraud score supplied by the bank's card processing vendor. The Board has approved an AI budget of $$6,000,000 for this year.

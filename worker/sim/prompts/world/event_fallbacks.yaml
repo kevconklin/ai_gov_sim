@@ -1,0 +1,13 @@
+inbox:
+  subject: "$subject"
+  body: |-
+    Committee members,
+
+    $summary
+
+    I am available to discuss at your convenience.
+
+    $signature
+news:
+  headline: "$subject"
+  body: "$summary"

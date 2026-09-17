@@ -1,0 +1,1 @@
+Shorten the following private working notes written by a bank executive to at most 1,000 words. Keep every open commitment, decision, number, name, deadline, and concern. Keep the author's first-person voice. Remove repetition. Return only the shortened notes.

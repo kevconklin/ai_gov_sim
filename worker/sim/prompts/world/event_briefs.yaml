@@ -1,0 +1,33 @@
+vendor_pitch: >-
+  A sales executive at the vendor below emails the bank's AI Governance Committee to pitch a specific product, with a
+  concrete offer, pricing, a reference customer described generically, and a request for a meeting.
+competitor_launch: >-
+  A news story about the competitor below launching an AI-powered product or service in the region, with customer or
+  analyst reaction.
+regulator_guidance: >-
+  A trade press story about federal bank supervisors or consumer protection officials speaking about how banks should
+  manage artificial intelligence, credit models, or customer communications. Name no specific guidance documents.
+key_staff_resignation: >-
+  An internal email from the HR director to the committee reporting that a named staff member important to data or
+  technology work has resigned to join another company, with the effect on workload.
+press_inquiry: >-
+  An email from the bank's communications director forwarding a reporter's questions about how the bank uses AI,
+  prompted by recent customer comments.
+shadow_ai_discovery: >-
+  An email from the information security analyst reporting that staff have been pasting bank documents into
+  unapproved public AI tools, with specific (unnamed-customer) examples and counts from network logs.
+data_leak: >-
+  An urgent email from the information security analyst reporting that customer information was exposed through an
+  AI-related tool or process, what is known so far, and immediate containment steps.
+complaint_wave: >-
+  An email from the contact center director reporting a jump in customer complaints this month, with themes and
+  examples.
+morale_issue: >-
+  An email from the employee association representative raising staff concerns about AI and job security, workload,
+  or training.
+model_error: >-
+  An email from the relevant operations manager reporting a problem caused by the AI initiative named below, what
+  happened, and customer impact so far.
+staff_voice: >-
+  An email to the committee from the staff member below sharing a frontline observation, request, or concern about
+  AI at the bank, grounded in the situation described.

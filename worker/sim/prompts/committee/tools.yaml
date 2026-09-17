@@ -1,0 +1,127 @@
+# Committee member tools (SPEC 4.4). The same list is sent on every committee call so the cached prefix is shared.
+- name: read_policy
+  description: Read the bank's current AI policy, or one section of it by heading.
+  input_schema:
+    type: object
+    properties:
+      section: {type: string, description: Section heading to read. Omit to read the whole policy.}
+
+- name: search_decision_log
+  description: Search past committee decisions, vote tallies, minutes, and the AI initiative inventory.
+  input_schema:
+    type: object
+    properties:
+      query: {type: string}
+    required: [query]
+
+- name: read_use_case
+  description: Read the full record for one AI initiative, such as UC-003.
+  input_schema:
+    type: object
+    properties:
+      use_case_id: {type: string}
+    required: [use_case_id]
+
+- name: read_news
+  description: Read the bank's curated industry and regional news digest.
+  input_schema:
+    type: object
+    properties:
+      days: {type: integer, minimum: 1, maximum: 120, description: How many days back to read. Default 31.}
+
+- name: read_inbox
+  description: Read emails and letters addressed to you or to the whole committee this month and last month.
+  input_schema:
+    type: object
+    properties: {}
+
+- name: submit_position
+  description: >-
+    Record your confidential pre-meeting position on one agenda item that will be decided. Positions stay with the
+    committee secretary until voting closes.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string}
+      support: {type: integer, minimum: 1, maximum: 5, description: "1 strongly oppose, 3 undecided, 5 strongly support"}
+      summary: {type: string, description: Your position in two or three sentences.}
+      concerns: {type: array, items: {type: string}}
+      conditions: {type: array, items: {type: string}, description: Conditions under which you would support it.}
+    required: [item_id, support, summary]
+
+- name: propose_use_case
+  description: Submit a new AI initiative for a committee decision.
+  input_schema:
+    type: object
+    properties:
+      title: {type: string}
+      description: {type: string, description: What it does, who uses it, and how it creates revenue.}
+      line_of_business:
+        type: string
+        enum: [consumer_lending, mortgage, small_business, deposits, wealth_management, marketing, operations, technology, risk_and_compliance, enterprise]
+      delivery: {type: string, enum: [vendor, build, undecided]}
+      vendor_name: {type: string}
+      customer_facing: {type: boolean}
+      affects_credit_decisions: {type: boolean}
+      data_used: {type: array, items: {type: string}}
+      human_review: {type: string, description: Where people review or can override outputs.}
+      expected_benefit: {type: string}
+      estimated_cost_usd: {type: number}
+    required: [title, description, line_of_business, delivery, customer_facing, affects_credit_decisions, expected_benefit]
+
+- name: propose_policy_edit
+  description: >-
+    Propose language for one section of the AI policy. Your text replaces the whole section (or creates it if the
+    heading is new). Write each requirement as its own line starting with AI-GOV-NEW: and the policy office assigns
+    the final control number. Keep existing control numbers for requirements you are keeping.
+  input_schema:
+    type: object
+    properties:
+      section: {type: string, description: Section heading, for example "Model Validation".}
+      text: {type: string}
+      rationale: {type: string}
+    required: [section, text, rationale]
+
+- name: propose_status_change
+  description: Propose pausing, retiring, or resuming an existing AI initiative.
+  input_schema:
+    type: object
+    properties:
+      use_case_id: {type: string}
+      new_status: {type: string, enum: [paused, retired, resume]}
+      rationale: {type: string}
+    required: [use_case_id, new_status, rationale]
+
+- name: pass_turn
+  description: Yield the floor without speaking when you have nothing to add.
+  input_schema:
+    type: object
+    properties: {}
+
+- name: cast_vote
+  description: Cast your secret ballot on one agenda item.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string}
+      vote: {type: string, enum: ["yes", "no", "abstain"]}
+      rationale: {type: string}
+    required: [item_id, vote, rationale]
+
+- name: record_minutes
+  description: Chair only. Record the official minutes of this meeting.
+  input_schema:
+    type: object
+    properties:
+      summary: {type: string, description: Prose summary of the discussion, three to six paragraphs.}
+      key_points: {type: array, items: {type: string}}
+      action_items:
+        type: array
+        items:
+          type: object
+          properties:
+            owner: {type: string}
+            action: {type: string}
+            due: {type: string}
+          required: [owner, action]
+    required: [summary, key_points, action_items]

@@ -1,0 +1,16 @@
+performance: >-
+  Estimate how well the solution will work once live: the relevant accuracy or business lift as a fraction
+  (for example 0.12 for a 12 percent lift).
+effort: >-
+  Estimate internal delivery effort in person-weeks of bank staff and contractors, calendar months to go live,
+  and key dependencies.
+adoption: >-
+  Estimate staff or customer uptake: the share of intended users actively using it at steady state, months to reach
+  that level, training hours per user, and expected resistance.
+risk: >-
+  Estimate the monthly probability that the initiative causes a reportable operational incident once live, the mix
+  of incident severity, the change in fair lending exposure on a 0 to 100 scale (0 if unrelated to credit), privacy
+  exposure, and the change in customer complaints per 10,000 customers per month (0 if not customer-facing).
+financial: >-
+  Estimate incremental revenue per month at full adoption in US dollars, ongoing run cost per month, and one-time
+  implementation cost.

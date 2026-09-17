@@ -1,0 +1,9 @@
+chair_open: >-
+  The meeting is called to order. As chair, open the discussion: frame the agenda and the decisions in front of the
+  committee. Keep it under 250 words.
+member: >-
+  The chair has recognized you. Speak briefly, or call pass_turn if you have nothing to add. You may also make a new
+  proposal, which will be added to today's decisions.
+chair_close: >-
+  As chair, close the discussion before the vote. Summarize where members stand and anything conditions attach to.
+  Keep it under 250 words.
