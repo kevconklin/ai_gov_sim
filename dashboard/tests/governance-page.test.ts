@@ -78,3 +78,15 @@ describe("attest payloads the page builds", () => {
     expect(parsed.success).toBe(false);
   });
 });
+
+describe("malformed agenda items", () => {
+  it("are rejected by the schema rather than reaching the worker", () => {
+    const parsed = commandSchema.safeParse({
+      kind: "convene",
+      run_id: "run1",
+      reason: "Governance review requested by the CRO.",
+      payload: { agenda: ["not an object"] },
+    });
+    expect(parsed.success).toBe(false);
+  });
+});

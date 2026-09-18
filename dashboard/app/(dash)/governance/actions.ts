@@ -37,10 +37,18 @@ export async function conveneAction(_prev: ControlResult | null, formData: FormD
   if (!(await hasValidSession())) return UNAUTHORIZED;
   const f = fieldsOf(formData);
   const advisory = (f.advisory ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
-  const agenda = formData
-    .getAll("item")
-    .filter((v): v is string => typeof v === "string")
-    .map((v) => JSON.parse(v) as { item_id: string; kind: string; title: string; ref_id?: string });
+  // Checkbox values are JSON the page wrote, but they arrive from the client and a logged-in
+  // caller can send anything. A parse failure is a bad request, not a crashed action; the
+  // shape itself is checked by commandSchema below.
+  const agenda: unknown[] = [];
+  for (const v of formData.getAll("item")) {
+    if (typeof v !== "string") continue;
+    try {
+      agenda.push(JSON.parse(v));
+    } catch {
+      return { success: false, data: null, error: "An agenda item was not readable. Reload and try again." };
+    }
+  }
   return done(await submitCommand({
     kind: "convene",
     run_id: f.run_id ?? "",
