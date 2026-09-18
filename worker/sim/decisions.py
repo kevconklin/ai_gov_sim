@@ -131,6 +131,20 @@ def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: st
     return problems
 
 
+def decisions_for_meeting(ctx: RunContext, meeting_id: str) -> list[Decision]:
+    """Rebuild a meeting's recorded decisions, so a human can attest to them in a later session."""
+    import json as _json
+    row = ctx.db.fetch_one("SELECT agenda FROM meetings WHERE meeting_id = ?", (meeting_id,))
+    titles = {i["item_id"]: i["title"] for i in _json.loads((row["agenda"] if row else None) or "[]")}
+    out = []
+    for r in ctx.db.fetch_all("SELECT * FROM decisions WHERE meeting_id = ? ORDER BY item_id", (meeting_id,)):
+        item = AgendaItem(r["item_id"], r["kind"], titles.get(r["item_id"], r["item_id"]), r["ref_id"])
+        out.append(Decision(r["decision_id"], item, Tally(int(r["yes_votes"]), int(r["no_votes"]),
+                                                          int(r["abstentions"]), r["outcome"] == "approved",
+                                                          bool(r["tie_broken"]))))
+    return out
+
+
 def results_text(decisions: Sequence[Decision]) -> str:
     if not decisions:
         return "No items were put to a vote."

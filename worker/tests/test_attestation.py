@@ -207,3 +207,40 @@ def test_policy_edits_carry_no_risk_tier(ctx, attest_config):
     ctx.db.update("decisions", {"kind": "policy_edit", "ref_id": f"{ctx.run_id}/edit/1"},
                   where={"decision_id": decision.decision_id})
     assert attest(ctx, decision, attest_config, responded_to=()).outcome == "approved"
+
+
+# ---- rebuilding a meeting's decisions -------------------------------------
+
+
+def test_decisions_are_rebuilt_from_the_meeting_record(ctx):
+    from sim.decisions import decisions_for_meeting
+    decision = make_decision(ctx)
+    ctx.db.update("meetings", {"agenda": [decision.item.to_json()]},
+                  where={"meeting_id": f"{ctx.run_id}/meeting/{MONTH}"})
+    rebuilt = decisions_for_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}")
+    assert [d.decision_id for d in rebuilt] == [decision.decision_id]
+    assert rebuilt[0].item.title == decision.item.title
+    assert rebuilt[0].tally.approved is True
+
+
+def test_a_decision_with_no_agenda_entry_still_rebuilds(ctx):
+    from sim.decisions import decisions_for_meeting
+    make_decision(ctx)
+    rebuilt = decisions_for_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}")
+    assert rebuilt[0].item.title == "UC-001"
+
+
+def test_apply_meeting_refuses_until_every_item_is_attested(ctx):
+    from sim.attestation import apply_meeting
+    make_decision(ctx)
+    with pytest.raises(AttestationRequired):
+        apply_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}", month=MONTH, meeting_date=date(2027, 1, 12))
+
+
+def test_apply_meeting_applies_what_was_attested(ctx, attest_config):
+    from sim.attestation import apply_meeting
+    decision = make_decision(ctx)
+    attest(ctx, decision, attest_config, outcome="approved")
+    apply_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}", month=MONTH, meeting_date=date(2027, 1, 12))
+    assert ctx.db.fetch_one("SELECT status FROM use_cases WHERE use_case_id = ?",
+                            (decision.item.ref_id,))["status"] == "approved"

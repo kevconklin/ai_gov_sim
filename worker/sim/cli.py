@@ -112,6 +112,78 @@ def cmd_serve(args: argparse.Namespace) -> None:
             return
 
 
+def cmd_candidates(args: argparse.Namespace) -> None:
+    """The ranked list a human builds an agenda from. Priority is computed, never asked of a model."""
+    from datetime import date as _date
+
+    from sim.agenda import candidates
+    from sim.config import load_agenda_priority
+
+    db = _open_db()
+    ranked = candidates(db, args.run, load_agenda_priority(REPO_ROOT / "config"),
+                        today=args.today or _date.today().isoformat())
+    print(json.dumps([{"kind": c.kind, "ref_id": c.ref_id, "title": c.title, "priority": c.priority,
+                       "reasons": list(c.reasons), "deferrals": c.deferral_count, "escalated": c.escalated}
+                      for c in ranked], indent=2))
+
+
+def _agenda_from(args: argparse.Namespace) -> list:
+    from sim.packet import AgendaItem
+
+    items = []
+    if args.agenda:
+        raw = Path(args.agenda[1:]).read_text() if args.agenda.startswith("@") else args.agenda
+        items += [AgendaItem(i["item_id"], i["kind"], i["title"], i.get("ref_id")) for i in json.loads(raw)]
+    for n, question in enumerate(args.advisory or [], start=len(items) + 1):
+        items.append(AgendaItem(f"ADV-{n:03d}", "advisory", question))
+    if not items:
+        sys.exit("nothing to discuss; pass --agenda and/or --advisory")
+    return items
+
+
+def cmd_convene(args: argparse.Namespace) -> None:
+    """Hold a meeting a human called. Recommendations come back; nothing applies until attested."""
+    db = _open_db()
+    orch = _orchestrator(db, demo=args.demo)
+    result = orch.convene(args.run, agenda=_agenda_from(args), month=args.month)
+    print(json.dumps({"meeting_id": result.meeting_id, "date": result.meeting_date.isoformat(),
+                      "recommendations": [{"decision_id": d.decision_id, "item_id": d.item.item_id,
+                                           "recommended": d.outcome, "yes": d.tally.yes, "no": d.tally.no,
+                                           "abstain": d.tally.abstain} for d in result.decisions]}, indent=2))
+
+
+def cmd_attest(args: argparse.Namespace) -> None:
+    """Record a person against one decision, then optionally apply the meeting."""
+    from datetime import date as _date
+
+    from sim.attestation import AttestationInvalid, apply_meeting, dissents, record_attestation
+    from sim.config import load_attestation
+    from sim.decisions import decisions_for_meeting
+
+    db = _open_db()
+    orch = _orchestrator(db, demo=args.demo)
+    ctx = orch.context(args.run)
+    if args.show:
+        for d in decisions_for_meeting(ctx, args.show):
+            print(json.dumps({"decision_id": d.decision_id, "item_id": d.item.item_id, "recommended": d.outcome,
+                              "dissents": [{"agent_id": x.agent_id, "rationale": x.rationale}
+                                           for x in dissents(db, d)]}, indent=2))
+        return
+    try:
+        record_attestation(db, args.run, decision_id=args.decision, actor=args.actor, outcome=args.outcome,
+                           rationale=args.rationale, responded_to=args.responded_to or (),
+                           config=load_attestation(REPO_ROOT / "config"))
+    except AttestationInvalid as error:
+        sys.exit(str(error))
+    print(json.dumps({"attested": args.decision, "outcome": args.outcome}, indent=2))
+    if args.apply:
+        meeting = db.fetch_one("SELECT meeting_id, sim_month, meeting_date FROM meetings WHERE meeting_id = "
+                               "(SELECT meeting_id FROM decisions WHERE decision_id = ?)", (args.decision,))
+        problems = apply_meeting(ctx, meeting["meeting_id"], month=meeting["sim_month"],
+                                 meeting_date=_date.fromisoformat(meeting["meeting_date"]))
+        print(json.dumps({"applied": meeting["meeting_id"], "problems": problems}, indent=2))
+
+
 def cmd_control(args: argparse.Namespace) -> None:
     db = _open_db()
     payload = json.loads(args.payload) if args.payload else {}
@@ -183,6 +255,32 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--demo", action="store_true")
     p.add_argument("--once", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("candidates", help="ranked items a human can put on an agenda")
+    p.add_argument("--run", required=True)
+    p.add_argument("--today", help="ISO date the age signal is measured from (default: today)")
+    p.set_defaults(func=cmd_candidates)
+
+    p = sub.add_parser("convene", help="hold a meeting on an agenda you set")
+    p.add_argument("--run", required=True)
+    p.add_argument("--agenda", help='JSON list of agenda items, or @path to a file')
+    p.add_argument("--advisory", action="append", help="a question for discussion only, no vote (repeatable)")
+    p.add_argument("--month", help="the month to book it under (default: the run's current month)")
+    p.add_argument("--demo", action="store_true", help="use the scripted client")
+    p.set_defaults(func=cmd_convene)
+
+    p = sub.add_parser("attest", help="put a person on record for a decision")
+    p.add_argument("--run", required=True)
+    p.add_argument("--show", metavar="MEETING_ID", help="list a meeting's decisions and dissents, then stop")
+    p.add_argument("--decision")
+    p.add_argument("--actor", help="the accountable person")
+    p.add_argument("--outcome", choices=("approved", "rejected", "deferred"))
+    p.add_argument("--rationale", default="", help="your own reasoning, in your own words")
+    p.add_argument("--responded-to", action="append", dest="responded_to",
+                   help="agent_id of a dissent you answered (repeatable)")
+    p.add_argument("--apply", action="store_true", help="apply the meeting once every item is attested")
+    p.add_argument("--demo", action="store_true")
+    p.set_defaults(func=cmd_attest)
 
     p = sub.add_parser("control", help="queue a control command (logged as an intervention)")
     p.add_argument("kind", choices=sorted(commands.KINDS))

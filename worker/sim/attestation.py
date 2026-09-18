@@ -24,7 +24,7 @@ from sim.agenda import record_deferral
 from sim.config import AttestationConfig
 from sim.context import RunContext
 from sim.db import Database, utc_now_iso
-from sim.decisions import Decision, apply_decisions
+from sim.decisions import Decision, apply_decisions, decisions_for_meeting
 
 DEFERRED = "deferred"
 TABLED = "tabled"
@@ -161,3 +161,8 @@ def apply_attested(ctx: RunContext, decisions: Sequence[Decision], *, month: str
             continue
         applying.append(replace(decision, attested_outcome=attested.outcome))
     return apply_decisions(ctx, applying, month=month, meeting_date=meeting_date)
+
+
+def apply_meeting(ctx: RunContext, meeting_id: str, *, month: str, meeting_date: date) -> list[str]:
+    """Apply one meeting's decisions once a human has attested to all of them."""
+    return apply_attested(ctx, decisions_for_meeting(ctx, meeting_id), month=month, meeting_date=meeting_date)
