@@ -244,3 +244,16 @@ def test_apply_meeting_applies_what_was_attested(ctx, attest_config):
     apply_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}", month=MONTH, meeting_date=date(2027, 1, 12))
     assert ctx.db.fetch_one("SELECT status FROM use_cases WHERE use_case_id = ?",
                             (decision.item.ref_id,))["status"] == "approved"
+
+
+def test_how_the_identity_was_established_is_recorded(ctx, attest_config):
+    """The record says a person is accountable, so it should also say how that name was arrived at."""
+    decision = make_decision(ctx)
+    attest(ctx, decision, attest_config, source="dashboard_session")
+    assert attestation_for(ctx.db, decision.decision_id).source == "dashboard_session"
+
+
+def test_an_unstated_source_is_recorded_as_unknown_not_assumed_verified(ctx, attest_config):
+    decision = make_decision(ctx)
+    attest(ctx, decision, attest_config)
+    assert attestation_for(ctx.db, decision.decision_id).source == "unknown"

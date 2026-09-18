@@ -122,6 +122,9 @@ export const commandSchema = z.discriminatedUnion("kind", [
           rationale: z.string().trim().min(1, "Write your own reasoning.").max(4000),
           responded_to: z.array(z.string().trim().min(1).max(400)).max(20).optional(),
           apply: z.boolean().optional(),
+          // How the actor's identity was established, for the ledger. The dashboard sets this
+          // from the signed session; the CLI records that it was merely asserted.
+          source: z.enum(["dashboard_session", "cli_asserted", "unknown"]).optional(),
         })
         .strict(),
     })

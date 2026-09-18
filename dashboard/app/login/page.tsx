@@ -7,6 +7,7 @@ const ERRORS: Record<string, string> = {
   incorrect: "Incorrect password.",
   invalid: "Enter the password.",
   config: "Sign-in is disabled: the server is missing auth configuration.",
+  operator: "Enter your name or email. It is recorded on anything you approve.",
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -24,8 +25,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             {cfg.devFallback ? <p className="muted">Dev mode: auth env vars are not set; the default dev password from the README is in use.</p> : null}
             <input type="hidden" name="next" value={next} />
             <label className="flex flex-col gap-1">
+              <span className="muted">Your name or email</span>
+              <input className="field" name="operator" autoComplete="username" required autoFocus maxLength={200} />
+              <span className="muted text-xs">Recorded on anything you approve this session.</span>
+            </label>
+            <label className="flex flex-col gap-1">
               <span className="muted">Password</span>
-              <input className="field" type="password" name="password" autoComplete="current-password" required autoFocus />
+              <input className="field" type="password" name="password" autoComplete="current-password" required />
             </label>
             {error ? <p style={{ color: "var(--c-sev-high)" }}>{error}</p> : null}
             <button className="btn btn-primary" type="submit">Sign in</button>

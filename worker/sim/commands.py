@@ -141,6 +141,7 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
     attested = record_attestation(db, run_id, decision_id=payload["decision_id"], actor=payload["actor"],
                                   outcome=payload["outcome"], rationale=payload.get("rationale", ""),
                                   responded_to=payload.get("responded_to", ()),
+                                  source=payload.get("source", "unknown"),
                                   config=load_attestation(config_dir))
     out: dict[str, Any] = {"attestation_id": attested.attestation_id, "outcome": attested.outcome}
     if payload.get("apply"):

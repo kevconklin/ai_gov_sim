@@ -48,6 +48,7 @@ export interface AttestedRow {
   recommended: string;
   rationale: string;
   created_at: string;
+  source: string;
 }
 
 /**
@@ -124,7 +125,7 @@ export async function recentAttestations(runId: string): Promise<AttestedRow[]> 
   const db = await readDb();
   return db.all<AttestedRow>(
     `SELECT a.attestation_id, a.decision_id, d.item_id, a.actor, a.outcome,
-            d.outcome AS recommended, a.rationale, a.created_at
+            d.outcome AS recommended, a.rationale, a.created_at, a.source
      FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id
      WHERE a.run_id = ? ORDER BY a.created_at DESC LIMIT 50`,
     [runId],

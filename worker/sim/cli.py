@@ -172,7 +172,7 @@ def cmd_attest(args: argparse.Namespace) -> None:
     try:
         record_attestation(db, args.run, decision_id=args.decision, actor=args.actor, outcome=args.outcome,
                            rationale=args.rationale, responded_to=args.responded_to or (),
-                           config=load_attestation(REPO_ROOT / "config"))
+                           source="cli_asserted", config=load_attestation(REPO_ROOT / "config"))
     except AttestationInvalid as error:
         sys.exit(str(error))
     print(json.dumps({"attested": args.decision, "outcome": args.outcome}, indent=2))
@@ -273,7 +273,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--run", required=True)
     p.add_argument("--show", metavar="MEETING_ID", help="list a meeting's decisions and dissents, then stop")
     p.add_argument("--decision")
-    p.add_argument("--actor", help="the accountable person")
+    p.add_argument("--actor", help="the accountable person (asserted, not verified: recorded as cli_asserted)")
     p.add_argument("--outcome", choices=("approved", "rejected", "deferred"))
     p.add_argument("--rationale", default="", help="your own reasoning, in your own words")
     p.add_argument("--responded-to", action="append", dest="responded_to",

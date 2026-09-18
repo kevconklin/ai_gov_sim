@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { bindActor } from "@/lib/control/bind";
 import { commandSchema } from "@/lib/control/schema";
 
 /**
@@ -88,5 +89,31 @@ describe("malformed agenda items", () => {
       payload: { agenda: ["not an object"] },
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("binding an attestation to the session", () => {
+  const attest = (payload: Record<string, unknown>) => ({
+    kind: "attest", run_id: "run1", reason: "Governance review requested by the CRO.", payload,
+  });
+
+  it("discards an actor the caller supplied", () => {
+    const bound = bindActor(attest({ actor: "someone.else@evil.example", outcome: "approved" }), "real@bank.example");
+    expect((bound.payload as Record<string, unknown>).actor).toBe("real@bank.example");
+  });
+
+  it("records how the identity was established", () => {
+    const bound = bindActor(attest({ outcome: "approved" }), "real@bank.example");
+    expect((bound.payload as Record<string, unknown>).source).toBe("dashboard_session");
+  });
+
+  it("leaves other command kinds alone", () => {
+    const convene = { kind: "convene", run_id: "run1", reason: "x", payload: { advisory: ["q"] } };
+    expect(bindActor(convene, "real@bank.example")).toEqual(convene);
+  });
+
+  it("changes nothing without a session, so the request fails auth rather than acting unbound", () => {
+    const input = attest({ actor: "someone.else@evil.example", outcome: "approved" });
+    expect(bindActor(input, null)).toEqual(input);
   });
 });

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { hasValidSession } from "@/lib/auth/session";
+import { currentOperator, hasValidSession } from "@/lib/auth/session";
 import { submitCommand, type ControlResult } from "@/lib/control/submit";
 
 const MAX_FIELD = 4000;
@@ -22,19 +22,21 @@ function done(result: ControlResult): ControlResult {
 
 /** Ask the worker to re-rank the candidate list. The formula lives there, not here. */
 export async function refreshCandidatesAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
-  if (!(await hasValidSession())) return UNAUTHORIZED;
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
   return done(await submitCommand({
     kind: "candidates",
     run_id: f.run_id ?? "",
-    reason: f.reason?.trim() ? f.reason : "Refreshing the agenda candidate list before setting an agenda.",
+    reason: `${operator}: ${f.reason?.trim() || "refreshing the agenda candidate list before setting an agenda"}`,
     payload: {},
   }));
 }
 
 /** Call a meeting on an agenda a person chose. */
 export async function conveneAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
-  if (!(await hasValidSession())) return UNAUTHORIZED;
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
   const advisory = (f.advisory ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
   // Checkbox values are JSON the page wrote, but they arrive from the client and a logged-in
@@ -52,7 +54,7 @@ export async function conveneAction(_prev: ControlResult | null, formData: FormD
   return done(await submitCommand({
     kind: "convene",
     run_id: f.run_id ?? "",
-    reason: f.reason ?? "",
+    reason: `${operator}: ${f.reason ?? ""}`,
     payload: { ...(agenda.length ? { agenda } : {}), ...(advisory.length ? { advisory } : {}) },
   }));
 }
@@ -64,7 +66,8 @@ export async function conveneAction(_prev: ControlResult | null, formData: FormD
  * attestation is discoverable evidence that the oversight was a formality.
  */
 export async function attestAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
-  if (!(await hasValidSession())) return UNAUTHORIZED;
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
   const respondedTo = formData
     .getAll("responded_to")
@@ -72,10 +75,12 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
   return done(await submitCommand({
     kind: "attest",
     run_id: f.run_id ?? "",
-    reason: f.reason?.trim() ? f.reason : `Attesting to ${f.decision_id ?? "a decision"}.`,
+    reason: `${operator}: attesting to ${f.decision_id ?? "a decision"}`,
     payload: {
       decision_id: f.decision_id ?? "",
-      actor: f.actor ?? "",
+      // Overwritten by bindActor below as well; set here so the shape is complete.
+      actor: operator,
+      source: "dashboard_session",
       outcome: f.outcome ?? "",
       rationale: f.rationale ?? "",
       ...(respondedTo.length ? { responded_to: respondedTo } : {}),

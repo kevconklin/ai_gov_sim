@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sameOrigin } from "@/lib/auth/origin";
-import { hasValidSession } from "@/lib/auth/session";
+import { currentOperator, hasValidSession } from "@/lib/auth/session";
+import { bindActor } from "@/lib/control/bind";
 import { commandResult } from "@/lib/control/result";
 import { submitCommand, submitIntervention, type ControlResult } from "@/lib/control/submit";
 
@@ -37,9 +38,10 @@ export async function POST(request: Request) {
 
   const { type, ...rest } = body as Record<string, unknown>;
   if (type === "intervention") return reply(await submitIntervention(rest));
-  if (type === "command" || type === undefined) return reply(await submitCommand(rest));
+  if (type === "command" || type === undefined) return reply(await submitCommand(bindActor(rest, await currentOperator())));
   return error(400, "type must be 'command' or 'intervention'.");
 }
+
 
 /**
  * GET /api/control?command=<id>

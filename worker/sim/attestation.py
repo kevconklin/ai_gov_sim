@@ -54,6 +54,7 @@ class Attestation:
     rationale: str
     responded_to: tuple[str, ...]
     created_at: str
+    source: str = "unknown"
 
     def overrides(self, decision: Decision) -> bool:
         """True when the human landed somewhere other than the committee's recommendation."""
@@ -100,7 +101,8 @@ def _risk_tier(db: Database, row: Mapping[str, Any]) -> str | None:
 
 
 def record_attestation(db: Database, run_id: str, *, decision_id: str, actor: str, outcome: str, rationale: str,
-                       config: AttestationConfig, responded_to: Sequence[str] = ()) -> Attestation:
+                       config: AttestationConfig, responded_to: Sequence[str] = (),
+                       source: str = "unknown") -> Attestation:
     row = _decision_row(db, decision_id)
     if outcome not in config.outcomes:
         raise AttestationInvalid(f"outcome {outcome!r} is not one of {', '.join(config.outcomes)}")
@@ -117,11 +119,12 @@ def record_attestation(db: Database, run_id: str, *, decision_id: str, actor: st
 
     attestation = Attestation(
         attestation_id=ids.scoped(run_id, "attestation", decision_id), decision_id=decision_id, actor=actor,
-        outcome=outcome, rationale=rationale.strip(), responded_to=answered, created_at=utc_now_iso())
+        outcome=outcome, rationale=rationale.strip(), responded_to=answered, created_at=utc_now_iso(),
+        source=source)
     db.insert("attestations", {
         "attestation_id": attestation.attestation_id, "run_id": run_id, "decision_id": decision_id, "actor": actor,
         "outcome": outcome, "rationale": attestation.rationale, "responded_to": list(answered),
-        "created_at": attestation.created_at,
+        "created_at": attestation.created_at, "source": source,
     })
     return attestation
 
@@ -133,7 +136,8 @@ def attestation_for(db: Database, decision_id: str) -> Attestation | None:
     return Attestation(
         attestation_id=row["attestation_id"], decision_id=row["decision_id"], actor=row["actor"],
         outcome=row["outcome"], rationale=row["rationale"],
-        responded_to=tuple(json.loads(row["responded_to"] or "[]")), created_at=row["created_at"])
+        responded_to=tuple(json.loads(row["responded_to"] or "[]")), created_at=row["created_at"],
+        source=row["source"])
 
 
 # ---- the gate -------------------------------------------------------------

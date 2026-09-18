@@ -122,10 +122,6 @@ export function AttestForm({ runId, row, dissents }: { runId: string; row: Await
 
       <div className="flex flex-wrap gap-2">
         <label className="flex flex-col gap-1">
-          <span className="muted">You</span>
-          <input className="field" name="actor" required placeholder="you@bank.example" />
-        </label>
-        <label className="flex flex-col gap-1">
           <span className="muted">Your decision</span>
           <select className="field" name="outcome" required defaultValue="">
             <option value="" disabled>Choose…</option>

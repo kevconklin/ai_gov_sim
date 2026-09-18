@@ -189,7 +189,7 @@ export default async function GovernancePage({ searchParams }: { searchParams: P
             <TableWrap>
               <table>
                 <thead>
-                  <tr><th>Item</th><th>Committee</th><th>Person</th><th>Who</th><th>Reasoning</th><th>When</th></tr>
+                  <tr><th>Item</th><th>Committee</th><th>Person</th><th>Who</th><th>Identity</th><th>Reasoning</th><th>When</th></tr>
                 </thead>
                 <tbody>
                   {attested.map((a) => (
@@ -202,6 +202,9 @@ export default async function GovernancePage({ searchParams }: { searchParams: P
                           : a.outcome}
                       </td>
                       <td>{a.actor}</td>
+                      <td className="muted">
+                        {a.source === "dashboard_session" ? "signed session" : a.source.replace("_", " ")}
+                      </td>
                       <td>{a.rationale}</td>
                       <td className="muted">{a.created_at}</td>
                     </tr>
