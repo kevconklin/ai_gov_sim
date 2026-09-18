@@ -1,0 +1,96 @@
+# Stateless: reads Postgres and writes only commands and interventions. Safe to scale.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: govsim-dashboard
+  namespace: govsim
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: govsim, component: dashboard }
+  template:
+    metadata:
+      labels: { app: govsim, component: dashboard }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000               # the node image's `node` user
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: dashboard
+          image: ghcr.io/REPLACE/govsim-dashboard:0.1.0
+          ports:
+            - { name: http, containerPort: 3100 }
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: govsim, key: DATABASE_URL_READ } }
+            - name: DATABASE_URL_CONTROL
+              valueFrom: { secretKeyRef: { name: govsim, key: DATABASE_URL_CONTROL } }
+            - name: DASHBOARD_PASSWORD
+              valueFrom: { secretKeyRef: { name: govsim, key: DASHBOARD_PASSWORD } }
+            - name: DASHBOARD_SESSION_SECRET
+              valueFrom: { secretKeyRef: { name: govsim, key: DASHBOARD_SESSION_SECRET } }
+          # /login is the one route the proxy lets through unauthenticated, so it is the only
+          # honest probe target.
+          livenessProbe:
+            httpGet: { path: /login, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 1Gi }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: govsim-dashboard
+  namespace: govsim
+spec:
+  selector: { app: govsim, component: dashboard }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: govsim-dashboard
+  namespace: govsim
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: govsim, component: dashboard }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: govsim-dashboard
+  namespace: govsim
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["govsim.REPLACE.example"]
+      secretName: govsim-dashboard-tls
+  rules:
+    - host: govsim.REPLACE.example
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: govsim-dashboard
+                port: { name: http }

@@ -52,6 +52,7 @@ class BudgetConfig:
 class Config:
     models: ModelsConfig
     budget: BudgetConfig
+    advisory: "AdvisoryConfig"
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -111,4 +112,106 @@ def load_config(config_dir: Path) -> Config:
     return Config(
         models=_load_models(_read_yaml(config_dir / "models.yaml")),
         budget=_load_budget(_read_yaml(config_dir / "budget.yaml")),
+        advisory=_load_advisory(_read_yaml(config_dir / "advisory.yaml")),
     )
+
+
+@dataclass(frozen=True)
+class AgendaPriorityConfig:
+    """Ranking for the candidate list a human picks an agenda from (config/agenda_priority.yaml)."""
+
+    escalate_after: int
+    count: str
+    counts_as_deferral: tuple[str, ...]
+    escalation: str
+    age_days_full_at: int
+    risk_tier_factors: Mapping[str, float]
+    weights: Mapping[str, int]
+
+
+WEIGHT_KEYS = ("age_days", "risk_tier", "control_gap", "blocking", "deferral")
+
+
+def _load_agenda_priority(data: Mapping[str, Any]) -> AgendaPriorityConfig:
+    source = "agenda_priority.yaml"
+    deferral = _require(data, "deferral", source)
+    weights = {k: int(v) for k, v in _require(data, "weights", source).items()}
+    missing = sorted(set(WEIGHT_KEYS) - set(weights))
+    if missing:
+        raise ConfigError(f"{source} is missing weights: {', '.join(missing)}")
+    if sum(weights.values()) != 100:
+        raise ConfigError(f"{source} weights must sum to 100, got {sum(weights.values())}")
+    escalate_after = int(_require(deferral, "escalate_after", f"{source} deferral"))
+    if escalate_after < 1:
+        raise ConfigError(f"{source} deferral.escalate_after must be at least 1")
+    if deferral.get("count") not in ("cumulative", "consecutive"):
+        raise ConfigError(f"{source} deferral.count must be 'cumulative' or 'consecutive'")
+    return AgendaPriorityConfig(
+        escalate_after=escalate_after,
+        count=deferral["count"],
+        counts_as_deferral=tuple(_require(deferral, "counts_as_deferral", f"{source} deferral")),
+        escalation=str(_require(deferral, "escalation", f"{source} deferral")),
+        age_days_full_at=int(_require(data, "age_days_full_at", source)),
+        risk_tier_factors=MappingProxyType({k: float(v) for k, v in _require(data, "risk_tier_factors", source).items()}),
+        weights=MappingProxyType(weights),
+    )
+
+
+def load_agenda_priority(config_dir: Path) -> AgendaPriorityConfig:
+    return _load_agenda_priority(_read_yaml(Path(config_dir) / "agenda_priority.yaml"))
+
+
+@dataclass(frozen=True)
+class AttestationConfig:
+    """The human oversight gate (config/attestation.yaml)."""
+
+    outcomes: tuple[str, ...]
+    require_dissent_response_for_tiers: tuple[str, ...]
+    min_rationale_chars: int
+
+
+def _load_attestation(data: Mapping[str, Any]) -> AttestationConfig:
+    source = "attestation.yaml"
+    outcomes = tuple(_require(data, "outcomes", source))
+    if "deferred" not in outcomes:
+        raise ConfigError(f"{source} outcomes must include 'deferred'; a human must be able to table an item")
+    min_chars = int(_require(data, "min_rationale_chars", source))
+    if min_chars < 1:
+        raise ConfigError(f"{source} min_rationale_chars must be at least 1; a blank rationale is not oversight")
+    return AttestationConfig(
+        outcomes=outcomes,
+        require_dissent_response_for_tiers=tuple(_require(data, "require_dissent_response_for_tiers", source)),
+        min_rationale_chars=min_chars,
+    )
+
+
+def load_attestation(config_dir: Path) -> AttestationConfig:
+    return _load_attestation(_read_yaml(Path(config_dir) / "attestation.yaml"))
+
+
+@dataclass(frozen=True)
+class AdvisoryConfig:
+    """Advisory items, which take no vote (config/advisory.yaml)."""
+
+    split_at: int
+    stance_min: int
+    stance_max: int
+    for_at_least: int
+    against_at_most: int
+
+
+def _load_advisory(data: Mapping[str, Any]) -> AdvisoryConfig:
+    source = "advisory.yaml"
+    values = {k: int(_require(data, k, source))
+              for k in ("split_at", "stance_min", "stance_max", "for_at_least", "against_at_most")}
+    if values["stance_min"] >= values["stance_max"]:
+        raise ConfigError(f"{source} stance_min must be below stance_max")
+    if values["split_at"] < 1:
+        raise ConfigError(f"{source} split_at must be at least 1; every committee has some spread")
+    if not values["stance_min"] <= values["against_at_most"] < values["for_at_least"] <= values["stance_max"]:
+        raise ConfigError(f"{source} against_at_most must sit below for_at_least, both inside the stance scale")
+    return AdvisoryConfig(**values)
+
+
+def load_advisory(config_dir: Path) -> AdvisoryConfig:
+    return _load_advisory(_read_yaml(Path(config_dir) / "advisory.yaml"))

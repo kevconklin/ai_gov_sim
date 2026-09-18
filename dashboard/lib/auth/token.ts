@@ -1,6 +1,11 @@
 /**
- * Session tokens: `<expiresAtMs>.<nonce>.<hmacSha256(base64url)>`.
+ * Session tokens: `<expiresAtMs>.<nonce>.<operator>.<hmacSha256(base64url)>`.
  * Uses Web Crypto only, so it runs in the proxy (edge or node) and in server code.
+ *
+ * The operator is inside the signed body so an action can be attributed to the session that
+ * took it rather than to whatever name a form field carried. Note what this is not: there is
+ * one shared dashboard credential, so this binds an action to a session, not to a verified
+ * person. Real accounts are what would make it an identity.
  */
 export const SESSION_COOKIE = "gsim_session";
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -36,18 +41,21 @@ async function hmacKey(secret: string): Promise<CryptoKey> {
   );
 }
 
+export const MAX_OPERATOR_LENGTH = 200;
+
 export async function signSession(
   secret: string,
+  operator: string,
   now: number = Date.now(),
   ttlMs: number = SESSION_TTL_MS,
 ): Promise<string> {
   const nonceBytes = crypto.getRandomValues(new Uint8Array(16));
-  const body = `${now + ttlMs}.${toBase64Url(nonceBytes)}`;
+  const body = `${now + ttlMs}.${toBase64Url(nonceBytes)}.${toBase64Url(encoder.encode(operator))}`;
   const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret), encoder.encode(body));
   return `${body}.${toBase64Url(new Uint8Array(sig))}`;
 }
 
-export type VerifyResult = { ok: true; expiresAt: number } | { ok: false; reason: string };
+export type VerifyResult = { ok: true; expiresAt: number; operator: string } | { ok: false; reason: string };
 
 export async function verifySession(
   secret: string,
@@ -56,22 +64,25 @@ export async function verifySession(
 ): Promise<VerifyResult> {
   if (!token) return { ok: false, reason: "missing" };
   const parts = token.split(".");
-  if (parts.length !== 3) return { ok: false, reason: "malformed" };
-  const [expText, nonce, sigText] = parts as [string, string, string];
-  if (!/^\d{1,16}$/.test(expText) || !nonce) return { ok: false, reason: "malformed" };
+  // A three-part token predates operator binding; it is refused so the holder signs in again
+  // rather than acting anonymously.
+  if (parts.length !== 4) return { ok: false, reason: "malformed" };
+  const [expText, nonce, operatorText, sigText] = parts as [string, string, string, string];
+  if (!/^\d{1,16}$/.test(expText) || !nonce || !operatorText) return { ok: false, reason: "malformed" };
   const sig = fromBase64Url(sigText);
-  if (!sig) return { ok: false, reason: "malformed" };
+  const operatorBytes = fromBase64Url(operatorText);
+  if (!sig || !operatorBytes) return { ok: false, reason: "malformed" };
   // crypto.subtle.verify compares in constant time.
   const valid = await crypto.subtle.verify(
     "HMAC",
     await hmacKey(secret),
     sig as Uint8Array<ArrayBuffer>,
-    encoder.encode(`${expText}.${nonce}`),
+    encoder.encode(`${expText}.${nonce}.${operatorText}`),
   );
   if (!valid) return { ok: false, reason: "bad_signature" };
   const expiresAt = Number(expText);
   if (expiresAt <= now) return { ok: false, reason: "expired" };
-  return { ok: true, expiresAt };
+  return { ok: true, expiresAt, operator: new TextDecoder().decode(operatorBytes) };
 }
 
 /** Constant-time string equality: compares SHA-256 digests byte by byte. */

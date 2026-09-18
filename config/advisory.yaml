@@ -1,0 +1,12 @@
+# Advisory items take no vote. Each seat files a perspective; the synthesis reports where
+# the committee agrees, where it divides, and what the human would have to go and check.
+# The split is computed from the structured stance, never inferred from prose.
+
+# PLACEHOLDER: stance spread at or above which the committee counts as divided.
+# Cite a basis before this ships.
+split_at: 2
+
+stance_min: 1                 # 1 strongly against the direction under discussion
+stance_max: 5                 # 5 strongly for it
+for_at_least: 4               # stance at or above this counts as for
+against_at_most: 2            # stance at or below this counts as against

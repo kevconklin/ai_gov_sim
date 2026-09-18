@@ -85,6 +85,9 @@ class Database:
             applied.append(path.name)
         return applied
 
+    # SQLite has no cross-host lease; sim.locks falls back to a file lock.
+    advisory_locks = False
+
     def insert(self, table: str, row: Mapping[str, Any]) -> None:
         if not row:
             raise ValueError("cannot insert an empty row")
@@ -133,6 +136,17 @@ class PostgresDatabase(Database):
         from psycopg.rows import dict_row
 
         return cls(psycopg.connect(url, autocommit=True, row_factory=dict_row))
+
+    # Session-level advisory locks give sim.locks a lease that spans hosts and is released by
+    # the server as soon as this connection drops.
+    advisory_locks = True
+
+    def try_advisory_lock(self, key: int) -> bool:
+        row = self._conn.execute("SELECT pg_try_advisory_lock(%s) AS taken", (key,)).fetchone()
+        return bool(row["taken"])
+
+    def advisory_unlock(self, key: int) -> None:
+        self._conn.execute("SELECT pg_advisory_unlock(%s)", (key,))
 
     @staticmethod
     def _sql(sql: str) -> str:

@@ -1,0 +1,12 @@
+# The human attestation gate. A committee recommendation takes effect only once a person
+# is on record for it. Oversight must be effective rather than nominal, so a one-click
+# approval is refused: high-tier items require an answer to every dissent.
+
+outcomes: [approved, rejected, deferred]
+
+# Risk tiers where the attester must respond to each dissenting vote before the item applies.
+require_dissent_response_for_tiers: [high]
+
+# PLACEHOLDER: the shortest rationale that counts as the attester's own reasoning.
+# Cite a basis (an internal audit standard, a regulator expectation) before this ships.
+min_rationale_chars: 20

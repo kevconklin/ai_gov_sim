@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthConfig } from "@/lib/auth/config";
 import { safeNext, sameOrigin } from "@/lib/auth/origin";
-import { constantTimeEqual, SESSION_COOKIE, SESSION_TTL_MS, signSession } from "@/lib/auth/token";
+import { constantTimeEqual, MAX_OPERATOR_LENGTH, SESSION_COOKIE, SESSION_TTL_MS, signSession } from "@/lib/auth/token";
 
 const FAILURE_DELAY_MS = 600;
 
@@ -34,8 +34,14 @@ export async function POST(request: Request) {
     return back(request, next, "incorrect");
   }
 
+  // Who is signing in goes into the signed cookie, so anything they later put on the record is
+  // attributed to the session rather than to a name typed beside the action.
+  const operatorRaw = form.get("operator");
+  const operator = typeof operatorRaw === "string" ? operatorRaw.trim() : "";
+  if (!operator || operator.length > MAX_OPERATOR_LENGTH) return back(request, next, "operator");
+
   const res = NextResponse.redirect(new URL(next, request.url), 303);
-  res.cookies.set(SESSION_COOKIE, await signSession(cfg.secret), {
+  res.cookies.set(SESSION_COOKIE, await signSession(cfg.secret, operator), {
     httpOnly: true,
     sameSite: "lax",
     secure: request.headers.get("x-forwarded-proto") === "https" || new URL(request.url).protocol === "https:",

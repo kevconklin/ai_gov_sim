@@ -13,6 +13,11 @@ DATABASE_URL=../data/sim.sqlite DASHBOARD_PASSWORD=... DASHBOARD_SESSION_SECRET=
 ```
 With Docker Compose (written but not run here, since Docker was not running): see the header of `docker-compose.yml`.
 
+## Kubernetes
+
+See [k8s/README.md](k8s/README.md). The manifests in `k8s/` cover the namespace, the migration
+Job, the worker, the dashboard, and network policy.
+
 ## Phase 1: hosted pilot
 1. **Supabase Postgres**: create a project. Run `db/migrations/0001_init.sql` (or let the worker migrate on start with the
    owner connection once), then `db/postgres/roles.sql` with real passwords. Create a private Storage bucket
@@ -37,9 +42,9 @@ With Docker Compose (written but not run here, since Docker was not running): se
 - Verify prices and model ids in `config/models.yaml` against the official pricing and models pages.
 
 ## Operations
-- One worker per run: `advance` takes a file lock in `SIM_DATA_DIR/locks`, so two processes on the same host cannot
-  advance the same run (overlapping workers corrupt a month). Several hosts sharing one database would need a
-  database lease instead; run a single worker container until that exists.
+- One worker per run: on Postgres, `advance` takes a session advisory lease, so two workers on any host cannot
+  advance the same run (overlapping workers corrupt a month). The lease is released when the connection drops.
+  On SQLite it falls back to a file lock in `SIM_DATA_DIR/locks`, which only covers one host.
 - Kill switch: `SIM_STOP=1`, a `STOP` file in `SIM_DATA_DIR`, or a stop command. The worker makes no further API calls,
   rolls back the in-progress month, checkpoints the last completed month, and exits. Note that a pending stop command
   halts the whole worker, not just one run.

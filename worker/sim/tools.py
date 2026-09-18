@@ -11,6 +11,7 @@ from typing import Any, Callable, Mapping
 from pydantic import BaseModel, Field, ValidationError
 
 from sim import prompts
+from sim.advisory import STANCE_MAX, STANCE_MIN, record_perspective
 from sim.calendar import long_date
 from sim.context import Agent, RunContext, display_id, next_display_id
 from sim.policy import read_section
@@ -21,6 +22,7 @@ PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_s
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {
     "circulate": READ_TOOLS | PROPOSE_TOOLS,
     "position": READ_TOOLS | {"submit_position"},
+    "perspective": READ_TOOLS | {"submit_perspective"},
     "debate": READ_TOOLS | PROPOSE_TOOLS | {"pass_turn"},
     "vote": frozenset({"read_policy", "read_use_case", "cast_vote"}),
     "minutes": frozenset({"read_policy", "record_minutes"}),
@@ -40,8 +42,10 @@ class ToolSession:
     meeting_id: str
     meeting_date: date
     decision_items: Mapping[str, str] = field(default_factory=dict)   # item_id -> title
+    advisory_items: Mapping[str, str] = field(default_factory=dict)   # item_id -> title, no ballot
     created_items: list[str] = field(default_factory=list)
     positions: dict[str, int] = field(default_factory=dict)
+    perspectives: dict[str, int] = field(default_factory=dict)
     votes: dict[str, str] = field(default_factory=dict)
     minutes: dict[str, Any] | None = None
     passed: bool = False
@@ -156,6 +160,23 @@ def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
     return f"Position on {item} recorded." + (f" Still to record: {', '.join(remaining)}." if remaining else " All positions recorded.")
 
 
+def _submit_perspective(s: ToolSession, args: Mapping[str, Any]) -> str:
+    item = str(args.get("item_id", "")).strip().upper()
+    if item not in s.advisory_items:
+        listed = ", ".join(s.advisory_items) or "none"
+        return f"{item} is not an advisory item on this agenda. Advisory items: {listed}."
+    stance = int(args["stance"])
+    if not STANCE_MIN <= stance <= STANCE_MAX:
+        return f"Stance must be between {STANCE_MIN} and {STANCE_MAX}."
+    record_perspective(s.ctx.db, s.ctx.run_id, meeting_id=s.meeting_id, agent_id=s.agent.agent_id, item_id=item,
+                       stance=stance, position=str(args["position"]), key_concern=str(args["key_concern"]),
+                       would_change_my_mind=str(args["would_change_my_mind"]))
+    s.perspectives[item] = stance
+    remaining = [i for i in s.advisory_items if i not in s.perspectives]
+    return (f"Perspective on {item} recorded."
+            + (f" Still to record: {', '.join(remaining)}." if remaining else " All perspectives recorded."))
+
+
 def _propose_use_case(s: ToolSession, args: Mapping[str, Any]) -> str:
     proposal = UseCaseProposal.model_validate(args)
     item = next_display_id(s.ctx.db, s.ctx.run_id, "use_cases", "use_case_id", "UC")
@@ -238,6 +259,7 @@ HANDLERS: Mapping[str, Callable[[ToolSession, Mapping[str, Any]], str]] = {
     "propose_use_case": _propose_use_case, "propose_policy_edit": _propose_policy_edit,
     "propose_status_change": _propose_status_change, "pass_turn": _pass_turn, "cast_vote": _cast_vote,
     "record_minutes": _record_minutes,
+    "submit_perspective": _submit_perspective,
 }
 
 

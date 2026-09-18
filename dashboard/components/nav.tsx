@@ -12,6 +12,7 @@ const LINKS: [string, string][] = [
   ["/health", "Health"],
   ["/compare", "Compare"],
   ["/logs", "Log explorer"],
+  ["/governance", "Governance"],
   ["/control", "Control"],
 ];
 

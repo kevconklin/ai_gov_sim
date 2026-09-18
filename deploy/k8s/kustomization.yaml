@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: govsim
+
+# secret.example.yaml is deliberately not listed: supply the real Secret from a vault,
+# External Secrets, or Sealed Secrets.
+resources:
+  - namespace.yaml
+  - job-migrate.yaml
+  - worker.yaml
+  - dashboard.yaml
+  - networkpolicy.yaml
+
+images:
+  - name: ghcr.io/REPLACE/govsim-worker
+    newTag: 0.1.0
+  - name: ghcr.io/REPLACE/govsim-dashboard
+    newTag: 0.1.0
+
+commonLabels:
+  app.kubernetes.io/part-of: govsim

@@ -1,0 +1,39 @@
+# Runs before the worker and dashboard. Several worker replicas racing the same CREATE TABLE
+# collide, so migrations are their own step and the workers are told to skip them.
+#
+# Re-runnable: applied migrations are recorded in schema_migrations and skipped.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: govsim-migrate
+  namespace: govsim
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels: { app: govsim, component: migrate }
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: migrate
+          image: ghcr.io/REPLACE/govsim-worker:0.1.0
+          command: ["python", "-m", "sim", "migrate"]
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: govsim, key: DATABASE_URL_MIGRATE } }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+      volumes:
+        - name: data
+          emptyDir: {}

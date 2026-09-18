@@ -159,11 +159,17 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
             return [_tool("propose_policy_edit", {"section": section, "text": text,
                                                   "rationale": "We need clear, written requirements before we scale."}, key)]
         return [{"type": "text", "text": "Nothing to add to the agenda this month."}]
-    items = re.findall(r"- ((?:UC|PE|SC)-\d{3}):", instruction)
+    items = re.findall(r"- ((?:UC|PE|SC|ADV)-\d{3}):", instruction)
     if "confidential position" in instruction:
         return [_tool("submit_position", {"item_id": i, "support": 1 + _h(key, i) % 5, "summary": REMARKS[_h(key, i) % len(REMARKS)],
                                           "concerns": ["delivery capacity"], "conditions": ["quarterly reporting"]}, (key, i))
                 for i in items] or [{"type": "text", "text": "Done."}]
+    if "for discussion only" in instruction:
+        return [_tool("submit_perspective", {
+            "item_id": i, "stance": 1 + _h(key, i, "p") % 5, "position": REMARKS[_h(key, i) % len(REMARKS)],
+            "key_concern": "Ownership is not settled and the inventory is incomplete.",
+            "would_change_my_mind": "A written owner for every model and a completed inventory."}, (key, i))
+            for i in items] or [{"type": "text", "text": "Done."}]
     if "Voting is open" in instruction:
         return [_tool("cast_vote", {"item_id": i, "vote": "yes" if _h(key, i, "v") % 10 < 7 else "no",
                                     "rationale": "Consistent with my position."}, (key, i)) for i in items] or [{"type": "text", "text": "Done."}]
@@ -181,12 +187,12 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [{"type": "text", "text": REMARKS[_h(key, "remark") % len(REMARKS)]}]
 
 
-COMMITTEE_FORCED = {"cast_vote", "submit_position", "record_minutes"}
+COMMITTEE_FORCED = {"cast_vote", "submit_position", "submit_perspective", "record_minutes"}
 
 
 def _forced_committee(params: Mapping[str, Any], name: str) -> list[dict[str, Any]]:
     instruction = params["messages"][0]["content"]
-    items = re.findall(r"- ((?:UC|PE|SC)-\d{3}):", instruction)
+    items = re.findall(r"- ((?:UC|PE|SC|ADV)-\d{3}):", instruction)
     done = {b["input"].get("item_id") for m in params["messages"] if m["role"] == "assistant" and isinstance(m["content"], list)
             for b in m["content"] if b.get("type") == "tool_use" and b.get("name") == name}
     remaining = [i for i in items if i not in done] or items[:1]

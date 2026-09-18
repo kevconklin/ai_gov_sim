@@ -1,0 +1,90 @@
+# The worker advances runs and answers governance commands. It makes paid API calls.
+#
+# One replica, and Recreate rather than a rolling update. The Postgres advisory lease makes a
+# second worker safe (it cannot take a run another worker holds), but two workers would simply
+# contend for the same lowest-month run and waste calls. Raise replicas only when runs are
+# sharded, not to go faster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: govsim-worker
+  namespace: govsim
+spec:
+  replicas: 1
+  strategy: { type: Recreate }        # never two workers during a rollout
+  selector:
+    matchLabels: { app: govsim, component: worker }
+  template:
+    metadata:
+      labels: { app: govsim, component: worker }
+    spec:
+      # A month can take many minutes. SIGTERM asks the worker to finish or roll back the month
+      # it is in; cutting it off early is what leaves a half-written month behind.
+      terminationGracePeriodSeconds: 900
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: worker
+          image: ghcr.io/REPLACE/govsim-worker:0.1.0
+          command: ["python", "-m", "sim", "serve", "--health-port", "8080"]
+          ports:
+            - { name: health, containerPort: 8080 }
+          env:
+            - name: SIM_SKIP_MIGRATIONS
+              value: "1"              # the migrate Job owns the schema
+            - name: SIM_DATA_DIR
+              value: /data
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: govsim, key: ANTHROPIC_API_KEY } }
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: govsim, key: DATABASE_URL } }
+            - name: SUPABASE_URL
+              valueFrom: { secretKeyRef: { name: govsim, key: SUPABASE_URL } }
+            - name: SUPABASE_SERVICE_ROLE_KEY
+              valueFrom: { secretKeyRef: { name: govsim, key: SUPABASE_SERVICE_ROLE_KEY } }
+            - name: SUPABASE_STORAGE_BUCKET
+              valueFrom: { secretKeyRef: { name: govsim, key: SUPABASE_STORAGE_BUCKET } }
+            - name: ALERT_WEBHOOK_URL
+              valueFrom: { secretKeyRef: { name: govsim, key: ALERT_WEBHOOK_URL } }
+          livenessProbe:
+            httpGet: { path: /healthz, port: health }
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            # Generous: a slow month must not look like a hung process.
+            failureThreshold: 6
+          readinessProbe:
+            httpGet: { path: /healthz, port: health }
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: tmp, mountPath: /tmp }
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: "1", memory: 2Gi }
+      volumes:
+        # Policy git repositories live here. Every version is also in policy_versions.policy_text,
+        # so losing the volume loses the git history, not the policy text. Snapshots and
+        # checkpoints do not need it: snapshots are in the database and checkpoints upload to
+        # object storage.
+        - name: data
+          persistentVolumeClaim: { claimName: govsim-worker-data }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: govsim-worker-data
+  namespace: govsim
+spec:
+  accessModes: ["ReadWriteOnce"]     # one replica, so RWO is enough
+  resources:
+    requests:
+      storage: 10Gi

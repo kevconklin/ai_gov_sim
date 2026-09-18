@@ -125,3 +125,22 @@
             due: {type: string}
           required: [owner, action]
     required: [summary, key_points, action_items]
+
+- name: submit_perspective
+  description: >-
+    Record your view on an advisory item: something the committee is asked to think about rather than
+    decide. There is no ballot on these. Your view stays confidential until every member has filed one.
+    Say where you stand, the one concern you would escalate, and what evidence would move you.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string, description: The advisory item, such as ADV-001.}
+      stance:
+        type: integer
+        minimum: 1
+        maximum: 5
+        description: 1 is strongly against the direction under discussion, 5 is strongly for it.
+      position: {type: string, description: Where you stand, and why.}
+      key_concern: {type: string, description: The single thing you would escalate about this.}
+      would_change_my_mind: {type: string, description: The evidence, test, or event that would move your view.}
+    required: [item_id, stance, position, key_concern, would_change_my_mind]
