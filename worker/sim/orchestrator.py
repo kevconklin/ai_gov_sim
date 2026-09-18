@@ -6,7 +6,7 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from sim import board, checkpoint, coding, events, regulator
 from sim.alerts import raise_alert
@@ -18,7 +18,8 @@ from sim.db import Database, utc_now_iso
 from sim.engine.resolve import load_state, run_engine_month, write_report
 from sim.llm import LLMClient, StopRequested
 from sim.locks import run_lock
-from sim.meeting import Meeting
+from sim.meeting import Meeting, MeetingResult
+from sim.packet import AgendaItem
 from sim.metrics import compute_month
 from sim.world import World
 
@@ -90,6 +91,18 @@ class Orchestrator:
         if self.on_month_complete:
             self.on_month_complete(run_id, month)
         return month
+
+    def convene(self, run_id: str, *, agenda: Sequence[AgendaItem], month: str | None = None) -> MeetingResult:
+        """Hold a meeting a human called, on the agenda they set.
+
+        Nothing the committee recommends applies here: the decisions come back for attestation,
+        and sim.attestation.apply_attested is what makes them real.
+        """
+        with run_lock(self.data_dir, run_id):
+            ctx = self.context(run_id)
+            self._check_pinned_models(ctx)
+            run = self.db.fetch_one("SELECT current_month, start_month FROM runs WHERE run_id = ?", (run_id,))
+            return Meeting(ctx, month or run["current_month"] or run["start_month"], agenda=agenda).hold()
 
     def _recover_interrupted(self, ctx: RunContext, month: str) -> None:
         """A snapshot left on disk means a process died mid-month (e.g. killed). Restore it before retrying."""

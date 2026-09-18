@@ -52,6 +52,7 @@ class BudgetConfig:
 class Config:
     models: ModelsConfig
     budget: BudgetConfig
+    advisory: "AdvisoryConfig"
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -111,6 +112,7 @@ def load_config(config_dir: Path) -> Config:
     return Config(
         models=_load_models(_read_yaml(config_dir / "models.yaml")),
         budget=_load_budget(_read_yaml(config_dir / "budget.yaml")),
+        advisory=_load_advisory(_read_yaml(config_dir / "advisory.yaml")),
     )
 
 
