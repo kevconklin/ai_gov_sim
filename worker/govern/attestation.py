@@ -19,12 +19,12 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Mapping, Sequence
 
-from sim import ids
-from sim.agenda import record_deferral
-from sim.config import AttestationConfig
-from sim.context import RunContext
-from sim.db import Database, utc_now_iso
-from sim.decisions import Decision, apply_decisions, decisions_for_meeting
+from govern import ids
+from govern.agenda import record_deferral
+from govern.config import AttestationConfig
+from govern.context import ReviewContext
+from govern.db import Database, utc_now_iso
+from govern.decisions import Decision, apply_decisions, decisions_for_meeting
 
 DEFERRED = "deferred"
 TABLED = "tabled"
@@ -143,7 +143,7 @@ def attestation_for(db: Database, decision_id: str) -> Attestation | None:
 # ---- the gate -------------------------------------------------------------
 
 
-def apply_attested(ctx: RunContext, decisions: Sequence[Decision], *, month: str,
+def apply_attested(ctx: ReviewContext, decisions: Sequence[Decision], *, month: str,
                    meeting_date: date) -> list[str]:
     """Apply only what a human attested to, using the human's outcome rather than the tally.
 
@@ -167,6 +167,6 @@ def apply_attested(ctx: RunContext, decisions: Sequence[Decision], *, month: str
     return apply_decisions(ctx, applying, month=month, meeting_date=meeting_date)
 
 
-def apply_meeting(ctx: RunContext, meeting_id: str, *, month: str, meeting_date: date) -> list[str]:
+def apply_meeting(ctx: ReviewContext, meeting_id: str, *, month: str, meeting_date: date) -> list[str]:
     """Apply one meeting's decisions once a human has attested to all of them."""
     return apply_attested(ctx, decisions_for_meeting(ctx, meeting_id), month=month, meeting_date=meeting_date)

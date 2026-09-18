@@ -10,11 +10,11 @@ from typing import Any, Callable, Mapping
 
 from pydantic import BaseModel, Field, ValidationError
 
-from sim import prompts
-from sim.advisory import STANCE_MAX, STANCE_MIN, record_perspective
-from sim.calendar import long_date
-from sim.context import Agent, RunContext, display_id, next_display_id
-from sim.policy import read_section
+from govern import prompts
+from govern.advisory import STANCE_MAX, STANCE_MIN, record_perspective
+from govern.calendar import long_date
+from govern.context import Agent, ReviewContext, display_id, next_display_id
+from govern.policy import read_section
 
 TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("committee/tools.yaml"))
 READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox"})
@@ -35,7 +35,7 @@ NOT_AVAILABLE = "That action is not available at this point in the meeting."
 @dataclass
 class ToolSession:
     """Mutable record of what one member did during one call sequence."""
-    ctx: RunContext
+    ctx: ReviewContext
     agent: Agent
     phase: str
     month: str
@@ -130,7 +130,7 @@ def _read_news(s: ToolSession, args: Mapping[str, Any]) -> str:
 
 
 def _read_inbox(s: ToolSession, args: Mapping[str, Any]) -> str:
-    from sim.calendar import add_months
+    from govern.calendar import add_months
     rows = s.ctx.db.fetch_all(
         "SELECT * FROM inbox_items WHERE run_id = ? AND sim_month IN (?, ?) AND sent_date <= ? "
         "AND (recipient_seat IS NULL OR recipient_seat = ?) ORDER BY sent_date DESC",
@@ -247,7 +247,7 @@ def _cast_vote(s: ToolSession, args: Mapping[str, Any]) -> str:
 
 
 def _record_minutes(s: ToolSession, args: Mapping[str, Any]) -> str:
-    if s.agent.seat != s.ctx.world.chair_seat:
+    if s.agent.seat != s.ctx.org.chair_seat:
         return NOT_AVAILABLE
     s.minutes = {k: args.get(k) for k in ("summary", "key_points", "action_items")}
     return "Minutes recorded."

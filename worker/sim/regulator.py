@@ -6,10 +6,11 @@ import json
 import logging
 from typing import Any, Sequence
 
-from sim import ids, prompts
-from sim.agents.structured import StructuredOutputError, extract, forced, tool
-from sim.calendar import add_months, day_in_month, long_date, meeting_date, month_index, months_between
-from sim.context import RunContext, display_id
+from govern import ids, prompts
+from govern.agents.structured import StructuredOutputError, extract, forced, tool
+from govern.calendar import add_months, day_in_month, long_date, meeting_date, month_index, months_between
+from govern.context import display_id
+from sim.context import RunContext
 from sim.engine.state import CompanyState
 from sim.events import WorldEvent, deliver_inbox
 from sim.realism import find_leaks

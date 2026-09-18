@@ -8,10 +8,10 @@ import pytest
 
 from conftest import REPO_ROOT
 from sim import commands
-from sim.config import load_config
-from sim.db import Database
+from govern.config import load_config
+from govern.db import Database
 from sim.demo_llm import DemoAnthropic
-from sim.llm import LLMClient
+from govern.llm import LLMClient
 from sim.orchestrator import Orchestrator
 from sim.setup import create_experiment
 from sim.world import load_world

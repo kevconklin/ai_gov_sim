@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Mapping, Sequence
 
-from sim import prompts
-from sim.calendar import add_months, long_date
-from sim.context import RunContext, display_id
-from sim.policy import sections, stats
+from govern import prompts
+from govern.calendar import add_months, long_date
+from govern.context import ReviewContext, display_id
+from govern.policy import sections, stats
 
 STATUS_WORDS = {"proposed": "Proposed", "approved": "Approved, not started", "building": "In delivery",
                 "live": "In production", "paused": "Paused", "retired": "Retired", "rejected": "Not approved"}
@@ -32,7 +32,7 @@ def agenda_text(items: Sequence[AgendaItem]) -> str:
                      for i, item in enumerate(items))
 
 
-def decision_details(ctx: RunContext, items: Sequence[AgendaItem]) -> str:
+def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
     blocks = []
     for item in items:
         if item.kind == "use_case":
@@ -55,7 +55,7 @@ def decision_details(ctx: RunContext, items: Sequence[AgendaItem]) -> str:
     return "\n\n".join(blocks)
 
 
-def _inventory(ctx: RunContext) -> str:
+def _inventory(ctx: ReviewContext) -> str:
     rows = ctx.db.fetch_all("SELECT * FROM use_cases WHERE run_id = ? AND status != 'proposed' ORDER BY use_case_id",
                             (ctx.run_id,))
     if not rows:
@@ -64,7 +64,7 @@ def _inventory(ctx: RunContext) -> str:
                      + (f", inventory risk tier {r['risk_tier']}" if r["risk_tier"] else "") for r in rows)
 
 
-def _policy_summary(ctx: RunContext) -> str:
+def _policy_summary(ctx: ReviewContext) -> str:
     text = ctx.policy_repo.read()
     heads = list(sections(text))
     if not heads:
@@ -73,7 +73,7 @@ def _policy_summary(ctx: RunContext) -> str:
             + "; ".join(heads) + ". Use read_policy for the full text.")
 
 
-def _findings(ctx: RunContext, month: str) -> str:
+def _findings(ctx: ReviewContext, month: str) -> str:
     rows = ctx.db.fetch_all("SELECT * FROM findings WHERE run_id = ? AND status = 'open' AND sim_month <= ? "
                             "ORDER BY sim_month", (ctx.run_id, month))
     if not rows:
@@ -85,7 +85,7 @@ def _findings(ctx: RunContext, month: str) -> str:
                      for r in rows)
 
 
-def build_packet(ctx: RunContext, *, month: str, meeting_date: date, agenda: Sequence[AgendaItem]) -> str:
+def build_packet(ctx: ReviewContext, *, month: str, meeting_date: date, agenda: Sequence[AgendaItem]) -> str:
     db, run_id = ctx.db, ctx.run_id
     prev = db.fetch_one("SELECT minutes_text FROM meetings WHERE run_id = ? AND sim_month = ?",
                         (run_id, add_months(month, -1)))
@@ -95,7 +95,7 @@ def build_packet(ctx: RunContext, *, month: str, meeting_date: date, agenda: Seq
     news = db.fetch_all("SELECT outlet, headline FROM news_items WHERE run_id = ? AND sim_month = ? AND published_date <= ? "
                         "ORDER BY published_date", (run_id, month, meeting_date.isoformat()))
     first_meeting = prev is None and month == ctx.run["start_month"]
-    standing = (prompts.render("committee/first_meeting.md", bank_name=ctx.bank.name) if first_meeting else "")
+    standing = (prompts.render("committee/first_meeting.md", bank_name=ctx.org.name) if first_meeting else "")
     decisions = [i for i in agenda if i.kind != "discussion"]
     agenda_block = agenda_text(agenda)
     if decisions:

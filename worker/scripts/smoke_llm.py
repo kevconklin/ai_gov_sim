@@ -13,9 +13,9 @@ import logging
 import sys
 from pathlib import Path
 
-from sim.config import load_config
-from sim.db import Database
-from sim.llm import LLMClient, LLMRequest
+from govern.config import load_config
+from govern.db import Database
+from govern.llm import LLMClient, LLMRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 log = logging.getLogger("smoke")

@@ -15,10 +15,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from sim import commands
-from sim.alerts import raise_alert
-from sim.config import load_config
-from sim.db import Database
-from sim.llm import LLMClient, StopRequested
+from govern.alerts import raise_alert
+from govern.config import load_config
+from govern.db import Database
+from govern.llm import LLMClient, StopRequested
 from sim.orchestrator import Orchestrator, RunNotActive
 from sim.world import REPO_ROOT, load_world
 
@@ -192,8 +192,8 @@ def cmd_candidates(args: argparse.Namespace) -> None:
     """The ranked list a human builds an agenda from. Priority is computed, never asked of a model."""
     from datetime import date as _date
 
-    from sim.agenda import candidates
-    from sim.config import load_agenda_priority
+    from govern.agenda import candidates
+    from govern.config import load_agenda_priority
 
     db = _open_db()
     ranked = candidates(db, args.run, load_agenda_priority(REPO_ROOT / "config"),
@@ -204,7 +204,7 @@ def cmd_candidates(args: argparse.Namespace) -> None:
 
 
 def _agenda_from(args: argparse.Namespace) -> list:
-    from sim.packet import AgendaItem
+    from govern.packet import AgendaItem
 
     items = []
     if args.agenda:
@@ -232,9 +232,9 @@ def cmd_attest(args: argparse.Namespace) -> None:
     """Record a person against one decision, then optionally apply the meeting."""
     from datetime import date as _date
 
-    from sim.attestation import AttestationInvalid, apply_meeting, dissents, record_attestation
-    from sim.config import load_attestation
-    from sim.decisions import decisions_for_meeting
+    from govern.attestation import AttestationInvalid, apply_meeting, dissents, record_attestation
+    from govern.config import load_attestation
+    from govern.decisions import decisions_for_meeting
 
     db = _open_db()
     orch = _orchestrator(db, demo=args.demo)

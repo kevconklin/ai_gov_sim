@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 
 from conftest import REPO_ROOT
-from sim.advisory import perspectives_for, synthesis_for
-from sim.config import load_config
-from sim.db import Database
+from govern.advisory import perspectives_for, synthesis_for
+from govern.config import load_config
+from govern.db import Database
 from sim.demo_llm import DemoAnthropic
-from sim.llm import LLMClient
-from sim.meeting import STANDING_ITEMS, Meeting, next_meeting_id
+from govern.llm import LLMClient
+from govern.meeting import STANDING_ITEMS, Meeting, next_meeting_id
 from sim.orchestrator import Orchestrator
-from sim.packet import AgendaItem
+from govern.packet import AgendaItem
 from sim.setup import create_experiment
 from sim.world import load_world
 

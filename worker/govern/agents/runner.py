@@ -6,13 +6,12 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from sim import prompts
-from sim.agents.memory import latest_memory
-from sim.calendar import long_date
-from sim.context import Agent, RunContext
-from sim.llm import LLMRequest
-from sim.tools import TOOLS, ToolSession, execute
-from sim.world import load_persona
+from govern import prompts
+from govern.agents.memory import latest_memory
+from govern.calendar import long_date
+from govern.context import Agent, ReviewContext
+from govern.llm import LLMRequest
+from govern.tools import TOOLS, ToolSession, execute
 
 log = logging.getLogger(__name__)
 
@@ -24,30 +23,21 @@ class TurnResult:
     steps: int
 
 
-def fixed_block(ctx: RunContext, agent: Agent) -> str:
-    """Persona, role, bank background, and board direction: identical on every call, so it is cached."""
-    persona = load_persona(ctx.world.config_dir, agent.persona_file)
-    facts = ctx.world.bank_universe(ctx.run["bank_id"])
+def fixed_block(ctx: ReviewContext, agent: Agent) -> str:
+    """Persona, role, organisation background, and board direction: identical on every call, so it is cached.
+
+    Two templates, chosen by whether the members have been told what they are. A customer's
+    committee is told: its output is advisory, machine-generated, and a named person decides.
+    The simulation's is not (SPEC 7), and its template is leak-checked to keep it that way.
+    """
+    org = ctx.org
+    template = "review/fixed.md" if org.disclosed else "committee/fixed.md"
     return prompts.render(
-        "committee/fixed.md",
-        name=agent.name, title=agent.title, bank_name=ctx.bank.name,
-        profile=persona.body, bank_facts=_bank_facts(ctx, facts), risk_appetite=ctx.bank.risk_appetite,
+        template,
+        name=agent.name, title=agent.title, bank_name=org.name,
+        profile=ctx.persona_body(agent), bank_facts=org.facts, risk_appetite=org.risk_appetite,
         chair_name=ctx.chair().name,
     )
-
-
-def _bank_facts(ctx: RunContext, facts: Any) -> str:
-    if not facts:
-        return f"{ctx.bank.name} is a state-chartered commercial bank and Federal Reserve member headquartered in the Midwest."
-    keys = [("legal_name", "Legal name"), ("hq_address", "Headquarters"), ("total_assets_usd", "Total assets"),
-            ("employees", "Employees"), ("branches", "Branches"), ("customers", "Customers")]
-    lines = []
-    for key, label in keys:
-        if key in facts:
-            value = facts[key]
-            lines.append(f"- {label}: ${value:,.0f}" if key == "total_assets_usd" and isinstance(value, (int, float))
-                         else f"- {label}: {value:,}" if isinstance(value, int) else f"- {label}: {value}")
-    return "\n".join(lines)
 
 
 def _request_blocks(content: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -61,7 +51,7 @@ def _request_blocks(content: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return blocks
 
 
-def run_turn(ctx: RunContext, session: ToolSession, *, instruction: str, packet: str, purpose: str,
+def run_turn(ctx: ReviewContext, session: ToolSession, *, instruction: str, packet: str, purpose: str,
              max_tokens: int, until: Callable[[], bool] | None = None, required_tool: str | None = None,
              free_steps: int = 0, max_steps: int | None = None, tools_enabled: bool = True) -> TurnResult:
     """Run one member's call sequence.

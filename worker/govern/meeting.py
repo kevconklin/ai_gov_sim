@@ -7,15 +7,15 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Sequence
 
-from sim import ids, prompts
-from sim.advisory import perspectives_for, synthesize
-from sim.agents.memory import save_memory
-from sim.agents.runner import run_turn
-from sim.calendar import long_date, meeting_date as meeting_date_for
-from sim.context import Agent, RunContext, display_id
-from sim.decisions import Decision, apply_decisions, minutes_text, record_decisions, results_text
-from sim.packet import AgendaItem, agenda_text, build_packet
-from sim.tools import ToolSession
+from govern import ids, prompts
+from govern.advisory import perspectives_for, synthesize
+from govern.agents.memory import save_memory
+from govern.agents.runner import run_turn
+from govern.calendar import long_date, meeting_date as meeting_date_for
+from govern.context import Agent, ReviewContext, display_id
+from govern.decisions import Decision, apply_decisions, minutes_text, record_decisions, results_text
+from govern.packet import AgendaItem, agenda_text, build_packet
+from govern.tools import ToolSession
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class MeetingResult:
 
 
 class Meeting:
-    def __init__(self, ctx: RunContext, month: str, *, agenda: Sequence[AgendaItem] | None = None) -> None:
+    def __init__(self, ctx: ReviewContext, month: str, *, agenda: Sequence[AgendaItem] | None = None) -> None:
         self.ctx = ctx
         self.month = month
         self.date = meeting_date_for(month)
@@ -231,7 +231,7 @@ class Meeting:
         run_turn(self.ctx, session, instruction=instruction, packet=packet, purpose="committee_minutes",
                  max_tokens=self._tokens("minutes"), until=lambda: session.minutes is not None,
                  required_tool="record_minutes", free_steps=1, max_steps=3)
-        text = minutes_text(bank_name=self.ctx.bank.name, meeting_date=self.date,
+        text = minutes_text(bank_name=self.ctx.org.name, meeting_date=self.date,
                             present=[f"{a.name} ({a.title})" for a in self.members], minutes=session.minutes,
                             decisions=decisions)
         self.ctx.db.update("meetings", {"minutes_json": {"recorded": session.minutes, "decisions": [

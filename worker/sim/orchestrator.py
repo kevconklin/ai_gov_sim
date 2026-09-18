@@ -9,17 +9,17 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from sim import board, checkpoint, coding, events, regulator
-from sim.alerts import raise_alert
-from sim.budget import bank_under_cap, check_hard_cap
-from sim.calendar import add_months, month_index
-from sim.config import Config
+from govern.alerts import raise_alert
+from govern.budget import bank_under_cap, check_hard_cap
+from govern.calendar import add_months, month_index
+from govern.config import Config
 from sim.context import RunContext
-from sim.db import Database, utc_now_iso
+from govern.db import Database, utc_now_iso
 from sim.engine.resolve import load_state, run_engine_month, write_report
-from sim.llm import LLMClient, StopRequested
-from sim.locks import run_lock
-from sim.meeting import Meeting, MeetingResult
-from sim.packet import AgendaItem
+from govern.llm import LLMClient, StopRequested
+from govern.locks import run_lock
+from govern.meeting import Meeting, MeetingResult
+from govern.packet import AgendaItem
 from sim.metrics import compute_month
 from sim.world import World
 
@@ -119,7 +119,7 @@ class Orchestrator:
                 self.llm.collect_batch(batch["batch_id"])      # log the orphaned batch's cost; results are not reused
             except Exception as error:  # noqa: BLE001 - recovery continues; the batch stays submitted
                 log.warning("could not collect orphaned batch %s: %s", batch["batch_id"], error)
-        from sim import ids
+        from govern import ids
         self.db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": ctx.run_id, "sim_month": month,
                                          "real_ts": utc_now_iso(), "kind": "recovered_interrupted_month",
                                          "description": f"{month} was interrupted; restored its starting snapshot and retried",
@@ -138,7 +138,7 @@ class Orchestrator:
         if raise_alert(self.db, "model_config_mismatch", "warning",
                        f"{ctx.run_id} keeps pinned models {pinned}; config/models.yaml now says {current}",
                        run_id=ctx.run_id, dedupe_key=key):
-            from sim import ids
+            from govern import ids
             self.db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": ctx.run_id,
                                              "sim_month": ctx.run["current_month"], "real_ts": utc_now_iso(),
                                              "kind": "model_config_mismatch",
@@ -168,7 +168,7 @@ class Orchestrator:
     def _set_status(self, run_id: str, status: str, reason: str, *, source: str) -> None:
         run = self.db.fetch_one("SELECT current_month FROM runs WHERE run_id = ?", (run_id,))
         self.db.update("runs", {"status": status}, where={"run_id": run_id})
-        from sim import ids
+        from govern import ids
         self.db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id,
                                          "sim_month": run["current_month"] if run else None, "real_ts": utc_now_iso(),
                                          "kind": f"status_{status}", "description": reason, "source": source})

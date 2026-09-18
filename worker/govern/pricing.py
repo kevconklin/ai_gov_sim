@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sim.config import ModelsConfig
+from govern.config import ModelsConfig
 
 _PER_MILLION = 1_000_000
 

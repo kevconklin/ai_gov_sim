@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sim.alerts import raise_alert
-from sim.config import Config
-from sim.db import Database
+from govern.alerts import raise_alert
+from govern.config import Config
+from govern.db import Database
 
 ALERT_LEVELS = (0.5, 0.8, 1.0)
 

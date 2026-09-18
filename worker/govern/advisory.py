@@ -19,10 +19,10 @@ import json
 from dataclasses import dataclass
 from typing import Sequence
 
-from sim import ids
-from sim.config import AdvisoryConfig
-from sim.context import RunContext
-from sim.db import Database
+from govern import ids
+from govern.config import AdvisoryConfig
+from govern.context import ReviewContext
+from govern.db import Database
 
 STANCE_MIN, STANCE_MAX = 1, 5
 
@@ -110,7 +110,7 @@ def analyse(perspectives: Sequence[Perspective], *, config: AdvisoryConfig) -> S
 # ---- synthesis ------------------------------------------------------------
 
 
-def synthesize(ctx: RunContext, *, meeting_id: str, item_id: str, config: AdvisoryConfig,
+def synthesize(ctx: ReviewContext, *, meeting_id: str, item_id: str, config: AdvisoryConfig,
                narrative: str | None = None) -> Synthesis:
     """Read the sealed perspectives and record what the human needs in order to act."""
     perspectives = perspectives_for(ctx.db, meeting_id, item_id)

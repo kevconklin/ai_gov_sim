@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Sequence
 
 from sim.coding import FRAMEWORK_IDS, MEASURES
-from sim.db import Database
+from govern.db import Database
 from sim.engine.rng import derive_seed
 
 BINARY = {"suspicion": lambda v: bool(v), "objection": lambda v: bool((v or {}).get("objection"))}

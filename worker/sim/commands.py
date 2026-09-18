@@ -8,8 +8,10 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
-from sim import checkpoint, ids
-from sim.db import Database, utc_now_iso
+from govern import ids
+
+from sim import checkpoint
+from govern.db import Database, utc_now_iso
 
 log = logging.getLogger(__name__)
 
@@ -110,10 +112,10 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
     """
     from datetime import date
 
-    from sim.agenda import candidates
-    from sim.attestation import apply_meeting, record_attestation
-    from sim.config import load_agenda_priority, load_attestation
-    from sim.packet import AgendaItem
+    from govern.agenda import candidates
+    from govern.attestation import apply_meeting, record_attestation
+    from govern.config import load_agenda_priority, load_attestation
+    from govern.packet import AgendaItem
     from sim.world import REPO_ROOT
 
     kind, run_id = command["kind"], command["run_id"]

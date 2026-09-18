@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Mapping, Sequence
 
-from sim import ids
-from sim.calendar import long_date
-from sim.context import RunContext
-from sim.packet import AgendaItem
-from sim.policy import PolicyError, apply_edit, stats
+from govern import ids
+from govern.calendar import long_date
+from govern.context import ReviewContext
+from govern.packet import AgendaItem
+from govern.policy import PolicyError, apply_edit, stats
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def tally(votes: Mapping[str, str], chair_agent_id: str) -> Tally:
     return Tally(yes, no, abstain, approved=yes > 0 and votes.get(chair_agent_id) == "yes", tie_broken=yes > 0)
 
 
-def record_decisions(ctx: RunContext, *, meeting_id: str, month: str, items: Sequence[AgendaItem],
+def record_decisions(ctx: ReviewContext, *, meeting_id: str, month: str, items: Sequence[AgendaItem],
                      chair_agent_id: str) -> list[Decision]:
     decisions = []
     for item in items:
@@ -68,7 +68,7 @@ def record_decisions(ctx: RunContext, *, meeting_id: str, month: str, items: Seq
     return decisions
 
 
-def set_use_case_status(ctx: RunContext, use_case_id: str, month: str, new_status: str, *, source: str,
+def set_use_case_status(ctx: ReviewContext, use_case_id: str, month: str, new_status: str, *, source: str,
                         decision_id: str | None = None) -> None:
     row = ctx.db.fetch_one("SELECT status FROM use_cases WHERE use_case_id = ?", (use_case_id,))
     if row is None or row["status"] == new_status:
@@ -88,7 +88,7 @@ def set_use_case_status(ctx: RunContext, use_case_id: str, month: str, new_statu
     })
 
 
-def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: str, meeting_date: date) -> list[str]:
+def apply_decisions(ctx: ReviewContext, decisions: Sequence[Decision], *, month: str, meeting_date: date) -> list[str]:
     """Update records and commit approved policy language. Returns notes about edits that could not apply."""
     problems = []
     policy_text = ctx.policy_repo.read()
@@ -131,7 +131,7 @@ def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: st
     return problems
 
 
-def decisions_for_meeting(ctx: RunContext, meeting_id: str) -> list[Decision]:
+def decisions_for_meeting(ctx: ReviewContext, meeting_id: str) -> list[Decision]:
     """Rebuild a meeting's recorded decisions, so a human can attest to them in a later session."""
     import json as _json
     row = ctx.db.fetch_one("SELECT agenda FROM meetings WHERE meeting_id = ?", (meeting_id,))

@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Sequence
 
-from sim import ids
-from sim.config import AgendaPriorityConfig
-from sim.context import display_id
-from sim.db import Database
+from govern import ids
+from govern.config import AgendaPriorityConfig
+from govern.context import display_id
+from govern.db import Database
 
 UNCLASSIFIED_TIER = "medium"
 

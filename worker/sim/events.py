@@ -9,13 +9,13 @@ from datetime import date
 from string import Template
 from typing import Any, Mapping, Sequence
 
-from sim import ids, prompts
-from sim.agents.structured import StructuredOutputError, call_structured, tool
-from sim.calendar import add_months, day_in_month, long_date, meeting_date, parse_month
+from govern import ids, prompts
+from govern.agents.structured import StructuredOutputError, call_structured, tool
+from govern.calendar import add_months, day_in_month, long_date, meeting_date, parse_month
 from sim.context import RunContext
 from sim.engine.rng import stable_int
 from sim.engine.state import CompanyState
-from sim.llm import LLMCallFailed
+from govern.llm import LLMCallFailed
 from sim.realism import find_leaks
 
 log = logging.getLogger(__name__)
