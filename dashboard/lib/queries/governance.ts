@@ -44,6 +44,11 @@ export interface AttestedRow {
   decision_id: string;
   item_id: string;
   title: string;
+  item_kind: string | null;
+  kind: string;
+  risk_tier: string | null;
+  yes_votes: number;
+  no_votes: number;
   actor: string;
   outcome: string;
   recommended: string;
@@ -126,6 +131,7 @@ export async function recentAttestations(runId: string): Promise<AttestedRow[]> 
   const db = await readDb();
   return db.all<AttestedRow>(
     `SELECT a.attestation_id, a.decision_id, d.item_id, COALESCE(i.title, u.title, d.item_id) AS title,
+            i.kind AS item_kind, d.kind, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, d.yes_votes, d.no_votes,
             a.actor, a.outcome, d.outcome AS recommended, a.rationale, a.created_at, a.source
      FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id
      LEFT JOIN items i ON i.item_id = d.ref_id
@@ -223,6 +229,9 @@ export interface DecisionRow {
   submitted_by: string | null;
   review_total: number;
   review_signed: number;
+  yes_votes: number;
+  no_votes: number;
+  abstentions: number;
 }
 
 /**
@@ -236,6 +245,7 @@ export async function decisionsToSign(runId: string): Promise<DecisionRow[]> {
     `SELECT d.decision_id, d.meeting_id, m.meeting_date, d.item_id, d.kind, i.kind AS item_kind,
             COALESCE(i.title, u.title, d.item_id) AS title, COALESCE(i.description, u.description) AS description,
             d.outcome AS recommended, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, i.submitted_by,
+            d.yes_votes, d.no_votes, d.abstentions,
             (SELECT COUNT(*) FROM decisions d2 WHERE d2.meeting_id = d.meeting_id) AS review_total,
             (SELECT COUNT(*) FROM decisions d3 JOIN attestations a3 ON a3.decision_id = d3.decision_id
               WHERE d3.meeting_id = d.meeting_id) AS review_signed
@@ -281,6 +291,7 @@ export interface WaitingMatter {
   risk_tier: string | null;
   since: string;
   submitted_by: string | null;
+  description: string | null;
 }
 
 /**
@@ -292,15 +303,15 @@ export async function waitingMatters(runId: string): Promise<WaitingMatter[]> {
   const db = await readDb();
   const [items, useCases, edits] = await Promise.all([
     db.all<WaitingMatter>(
-      `SELECT item_id AS ref_id, 'item' AS source, kind AS item_kind, title, risk_tier, submitted_on AS since, submitted_by
+      `SELECT item_id AS ref_id, 'item' AS source, kind AS item_kind, title, risk_tier, submitted_on AS since, submitted_by, description
        FROM items WHERE run_id = ? AND status = 'submitted'`, [runId]),
     db.all<WaitingMatter>(
       `SELECT use_case_id AS ref_id, 'use_case' AS source, 'use_case' AS item_kind, title, risk_tier,
-              proposed_month AS since, NULL AS submitted_by
+              proposed_month AS since, NULL AS submitted_by, description
        FROM use_cases WHERE run_id = ? AND status = 'proposed'`, [runId]),
     db.all<WaitingMatter>(
       `SELECT edit_id AS ref_id, 'policy_edit' AS source, 'policy_edit' AS item_kind, section AS title,
-              NULL AS risk_tier, sim_month AS since, NULL AS submitted_by
+              NULL AS risk_tier, sim_month AS since, NULL AS submitted_by, text AS description
        FROM policy_edits WHERE run_id = ? AND status = 'proposed'`, [runId]),
   ]);
   return [...items, ...useCases, ...edits];

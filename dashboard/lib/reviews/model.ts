@@ -26,6 +26,7 @@ export interface WaitingRow {
   risk_tier: string | null;
   since: string; // YYYY-MM-DD or YYYY-MM
   submitted_by: string | null;
+  description?: string | null;
 }
 
 export interface Ranking {
@@ -150,4 +151,43 @@ export function describeWork(kind: string, payloadJson: string | null): string {
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+/** Two letters to stand for a seat or a person: "Chief Risk Officer" is CR, "kevin@org" is KE. */
+export function initials(name: string): string {
+  const words = name.replace(/@.*/, "").split(/[^A-Za-z0-9]+/).filter(Boolean);
+  const significant = words.filter((w) => !/^(chief|and|of|the|officer|lead)$/i.test(w));
+  if (significant.length >= 2) return (significant[0]![0]! + significant[1]![0]!).toUpperCase();
+  return (significant[0] ?? words[0] ?? "?").slice(0, 2).toUpperCase();
+}
+
+/**
+ * A short code for a seat, from its id rather than its title, because titles collide:
+ * "Committee Chair" and "Customer and Conduct Lead" are both CC. chair is CH, customer is CU,
+ * cio stays CIO, general_counsel is GC.
+ */
+export function seatCode(seatId: string): string {
+  const parts = seatId.split(/[^A-Za-z0-9]+/).filter(Boolean);
+  if (parts.length > 1) return parts.map((p) => p[0]).join("").slice(0, 3).toUpperCase();
+  const word = parts[0] ?? "?";
+  // cio, cro, cfo, ciso are already codes; "risk" and "legal" are words and take two letters
+  return (/^c[a-z]{1,2}o$/i.test(word) ? word : word.slice(0, 2)).toUpperCase();
+}
+
+/** A stable colour per seat, by its place in the speaking order, so a seat looks the same everywhere. */
+export const SEAT_HUES = ["#6938ef", "#1570ef", "#0e9384", "#dc6803", "#c11574", "#4e5ba6", "#079455", "#b42318"] as const;
+export function seatColor(index: number): string {
+  return SEAT_HUES[((index % SEAT_HUES.length) + SEAT_HUES.length) % SEAT_HUES.length]!;
+}
+
+export function firstSentence(text: string | null | undefined, max = 110): string {
+  const sentence = (text ?? "").split(/(?<=[.!?])\s/)[0] ?? "";
+  return sentence.length > max ? `${sentence.slice(0, max - 1).trimEnd()}…` : sentence;
+}
+
+/** How long a matter has been open, in the fewest words. */
+export function ageOf(since: string, now: number = Date.now()): string {
+  const day = since.length > 7 ? since : `${since}-01`;
+  const days = Math.max(0, Math.floor((now - new Date(`${day}T00:00:00`).getTime()) / 86_400_000));
+  return days === 0 ? "today" : days === 1 ? "1 day" : `${days} days`;
 }

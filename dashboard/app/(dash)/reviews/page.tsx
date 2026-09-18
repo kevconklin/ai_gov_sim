@@ -1,10 +1,11 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
 import { currentOperator } from "@/lib/auth/session";
 import { BANK_LABELS } from "@/lib/constants";
 import { first, href, type SearchParams } from "@/lib/params";
 import {
   ballotsToSign,
   committeeSeats,
-  decidedCount,
   decisionsToSign,
   latestCandidates,
   openWork,
@@ -15,9 +16,9 @@ import {
   waitingMatters,
   type ScopeRow,
 } from "@/lib/queries/governance";
-import { benchFor, describeWork, displayId, KIND_LABELS, mergeQueue, plural, type Ranking } from "@/lib/reviews/model";
-import { Bench } from "./bench";
-import { AutoRefresh, BriefForm, Queue, RefreshRanking, SignDecision, SubmitMatter, WorkspacePicker, type Scope } from "./forms";
+import { ageOf, benchFor, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
+import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, SubmitMatterForm, WaitingRows, WorkspacePicker, type Scope } from "./forms";
+import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, VoteBar } from "./parts";
 
 function parse<T>(raw: string | null | undefined, fallback: T): T {
   try {
@@ -38,11 +39,21 @@ function when(iso: string): string {
 }
 
 function errorOf(result: string | null): string {
-  const parsed = parse<{ error?: string }>(result, {});
-  return (parsed.error ?? "It did not go through.").replace(/^\w+Error: /, "").replace(/^AttestationInvalid: /, "");
+  return (parse<{ error?: string }>(result, {}).error ?? "It did not go through.").replace(/^\w+(Error|Invalid): /, "");
 }
 
 const STALE_MS = 45_000;
+const OUTCOME: Record<string, [string, string | undefined]> = { approved: ["Approved", "ok"], rejected: ["Rejected", "no"], deferred: ["Deferred", undefined] };
+type Tab = "needs" | "waiting" | "decided" | "advice" | "committee";
+
+function EmptyState({ icon, tone, children }: { icon: string; tone: string; children: ReactNode }) {
+  return (
+    <div className="rv-empty">
+      <span className="rv-empty-icon" data-tone={tone}><Icon name={icon} /></span>
+      <span>{children}</span>
+    </div>
+  );
+}
 
 export default async function ReviewsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
@@ -51,17 +62,14 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     return (
       <div className="rv">
         <h1 className="rv-org">No committee yet</h1>
-        <p className="rv-lede" style={{ marginTop: "0.5rem" }}>
-          Create one for your organisation, then reload: <code>python -m sim workspace --name &quot;Your organisation&quot; --risk-appetite &quot;…&quot;</code>
-        </p>
+        <p className="muted mt-2">Create one, then reload: <code>python -m sim workspace --name &quot;Your organisation&quot; --risk-appetite &quot;…&quot;</code></p>
       </div>
     );
   }
   const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0]!;
   const runId = scope.run_id;
-  const view = first(sp, "view");
 
-  const [operator, org, decisions, ballots, waiting, ranked, work, decided, syntheses, record, seats] = await Promise.all([
+  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats] = await Promise.all([
     currentOperator(),
     orgProfile(runId),
     decisionsToSign(runId),
@@ -69,7 +77,6 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     waitingMatters(runId),
     latestCandidates(runId),
     openWork(runId),
-    decidedCount(runId),
     recentSyntheses(runId),
     recentAttestations(runId),
     committeeSeats(runId),
@@ -77,219 +84,322 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
 
   const order = parse<string[]>(org?.seats, []);
   const committee = [...seats].sort((a, b) => (order.indexOf(a.seat) + 1 || 99) - (order.indexOf(b.seat) + 1 || 99));
+  const seatIndex = new Map(committee.map((c, i) => [c.seat, i]));
+  const titleOf = (seat: string) => committee.find((c) => c.seat === seat)?.title ?? seat.replace(/_/g, " ");
   const ranking = parse<{ candidates?: Ranking[] }>(JSON.stringify(ranked?.result ?? {}), {}).candidates ?? [];
   const queue = mergeQueue(waiting, ranking);
   const pending = work.filter((w) => w.status !== "failed");
   const failed = work.filter((w) => w.status === "failed");
   const reviewing = pending.filter((w) => w.kind === "convene").length;
   const stale = pending.some((w) => Date.now() - new Date(w.created_at).getTime() > STALE_MS);
+  const settled = record.filter((r) => r.outcome !== "deferred");
+  const overrides = settled.filter((r) => r.outcome !== r.recommended).length;
 
-  const decidedSigned = record.filter((r) => r.outcome !== "deferred");
-  const overrides = decidedSigned.filter((r) => r.outcome !== r.recommended).length;
-  const tab = view === "record" || view === "committee" || view === "advice" ? view : syntheses.length ? "advice" : "record";
+  const wanted = first(sp, "tab") as Tab | undefined;
+  const tab: Tab = wanted && ["needs", "waiting", "decided", "advice", "committee"].includes(wanted)
+    ? wanted : decisions.length ? "needs" : queue.length ? "waiting" : "decided";
+  const open = first(sp, "open") ?? "";
+  const to = (overrides_: Record<string, string | null>) => href("/reviews", sp, overrides_);
+  const closeHref = to({ open: null });
   const scopeOptions: Scope[] = scopes.map((s) => ({ run_id: s.run_id, label: scopeLabel(s), workspace: s.condition === "workspace" }));
+
+  const openRisk = [...queue.map((q) => q.risk_tier), ...decisions.map((d) => d.risk_tier)];
+  const riskCount = (tier: string | null) => openRisk.filter((t) => t === tier).length;
+  const tiles: { tab: Tab; tone: string; icon: string; count: number; label: string }[] = [
+    { tab: "needs", tone: "you", icon: "pen", count: decisions.length, label: decisions.length === 1 ? "Needs your decision" : "Need your decision" },
+    { tab: "waiting", tone: "wait", icon: "inbox", count: queue.length, label: "Waiting for review" },
+    { tab: "needs", tone: "ai", icon: "users", count: reviewing, label: "With the committee" },
+    { tab: "decided", tone: "ok", icon: "check", count: record.length, label: "Signed" },
+  ];
+  const tabs: { id: Tab; label: string; count: number; tone: string }[] = [
+    { id: "needs", label: "Needs you", count: decisions.length, tone: "you" },
+    { id: "waiting", label: "Waiting", count: queue.length, tone: "wait" },
+    { id: "decided", label: "Signed", count: record.length, tone: "ok" },
+    { id: "advice", label: "Advice", count: syntheses.length, tone: "ai" },
+    { id: "committee", label: "Committee", count: committee.length, tone: "ai" },
+  ];
+
+  // ---- the drill-down ----------------------------------------------------------------------
+  let drawer: ReactNode = null;
+  const [what, ...rest] = open.split(":");
+  const key = rest.join(":");
+
+  if (what === "submit") {
+    drawer = <Drawer closeHref={closeHref} title="Submit a matter" chips={<Chip tone="you">It joins Waiting</Chip>}><SubmitMatterForm runId={runId} /></Drawer>;
+  } else if (what === "decision") {
+    const d = decisions.find((x) => x.decision_id === key);
+    if (d) {
+      const mine = ballots.filter((b) => b.decision_id === d.decision_id);
+      const bench = benchFor(committee, mine, d.recommended);
+      const t = tally(bench);
+      const agentOf = new Map(mine.map((b) => [b.seat, b.agent_id]));
+      const dissents = bench.filter((s) => s.dissent).map((s) => ({ agent_id: agentOf.get(s.seat) ?? s.seat, seat: s.seat, title: s.title, index: seatIndex.get(s.seat) ?? 0, rationale: s.rationale }));
+      drawer = (
+        <Drawer closeHref={closeHref} title={d.title} chips={<><RiskChip tier={d.risk_tier} /><KindChip kind={d.item_kind ?? d.kind} /><Chip plain>{d.item_id}</Chip></>}>
+          {d.description ? <p className="rv-prose">{d.description}</p> : null}
+          <section className="rv-card" data-tone="ai">
+            <div className="rv-card-h">
+              <span className="inline-flex items-center gap-2"><Icon name="users" /> The committee recommends {d.recommended === "approved" ? "approving" : "rejecting"}</span>
+              <VoteBar yes={t.yes} no={t.no} abstain={t.abstain} />
+            </div>
+            <SeatVotes bench={bench} />
+            <p className="rv-hint">Advice from AI advisers. {t.sat < t.of ? `${t.sat} of ${t.of} seats sat on this one. ` : ""}You decide.</p>
+          </section>
+          <section className="rv-card" data-tone="you">
+            <SignDecision runId={runId} decisionId={d.decision_id} recommended={d.recommended} mustWeighAll={d.risk_tier === "high"}
+              dissents={dissents} operator={operator ?? "You"} reviewTotal={Number(d.review_total)} reviewSigned={Number(d.review_signed)} />
+          </section>
+        </Drawer>
+      );
+    }
+  } else if (what === "matter") {
+    const m = queue.find((x) => x.ref_id === key);
+    if (m) {
+      drawer = (
+        <Drawer closeHref={closeHref} title={m.title} chips={<><RiskChip tier={m.risk_tier} /><Chip plain>{m.advisory ? "Question" : m.label}</Chip><Chip plain>{m.display}</Chip></>}>
+          {m.description ? <p className="rv-prose">{m.description}</p> : null}
+          <section className="rv-card">
+            <dl className="rv-facts">
+              {m.submitted_by ? <><dt>From</dt><dd>{m.submitted_by}</dd></> : null}
+              <dt>Waiting</dt><dd>{ageOf(m.since)}</dd>
+              <dt>Priority</dt>
+              <dd className="flex flex-wrap items-center gap-1.5">
+                {m.priority === null ? <Chip tone="you">Not ranked yet</Chip> : <strong>{m.priority} of 100</strong>}
+                {m.reasons.map((r) => <Chip key={r} plain>{r}</Chip>)}
+              </dd>
+            </dl>
+          </section>
+          <p className="rv-hint">{m.advisory ? "A question gets advice, not a vote. " : ""}Tick it under Waiting to include it in a review.</p>
+        </Drawer>
+      );
+    }
+  } else if (what === "record") {
+    const r = record.find((x) => x.attestation_id === key);
+    if (r) {
+      const [label, tone] = OUTCOME[r.outcome] ?? [r.outcome, undefined];
+      const overruled = r.outcome !== "deferred" && r.outcome !== r.recommended;
+      drawer = (
+        <Drawer closeHref={closeHref} title={r.title}
+          chips={<>{tone ? <Chip tone={tone} solid>{label}</Chip> : <Chip plain>{label}</Chip>}{overruled ? <Chip tone="objection">Overruled the committee</Chip> : null}<RiskChip tier={r.risk_tier} /><Chip plain>{r.item_id}</Chip></>}>
+          <section className="rv-card" data-tone="you">
+            <div className="rv-card-h"><span className="inline-flex items-center gap-2"><Avatar name={r.actor} you /> {r.actor}</span><span className="muted font-normal">{when(r.created_at)}</span></div>
+            <p className="rv-prose">{r.rationale}</p>
+            <p className="rv-hint">{r.source === "dashboard_session" ? "Signed in here under this name." : r.source === "cli_asserted" ? "Name given at the command line, not verified." : "How this name was established was not recorded."}</p>
+          </section>
+          <section className="rv-card" data-tone="ai">
+            <div className="rv-card-h"><span>The committee recommended {r.recommended === "approved" ? "approving" : "rejecting"}</span><VoteBar yes={Number(r.yes_votes)} no={Number(r.no_votes)} /></div>
+          </section>
+        </Drawer>
+      );
+    }
+  } else if (what === "advice") {
+    const s = syntheses.find((x) => x.synthesis_id === key);
+    if (s) {
+      const question = parse<{ item_id: string; title: string }[]>(s.agenda, []).find((i) => i.item_id === s.item_id)?.title ?? s.item_id;
+      const sides: [string, string, string[]][] = [["In favour", "ok", parse<string[]>(s.for_seats, [])], ["Against", "no", parse<string[]>(s.against_seats, [])], ["Undecided", "", parse<string[]>(s.undecided_seats, [])]];
+      drawer = (
+        <Drawer closeHref={closeHref} title={question} chips={<>{s.split ? <Chip tone="wait">Committee divided</Chip> : <Chip tone="ok">Committee agreed</Chip>}<Chip plain>{s.item_id}</Chip><Chip plain>{s.sim_month}</Chip></>}>
+          {s.narrative ? <p className="rv-prose">{s.narrative}</p> : null}
+          <section className="rv-card" data-tone="ai">
+            <div className="grid gap-3">
+              {sides.map(([label, tone, list]) => (
+                <div key={label} className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-2"><Chip tone={tone || undefined} plain={!tone}>{label}</Chip><span className="muted">{list.length}</span></span>
+                  <span className="rv-stack">{list.map((seat) => <Avatar key={seat} name={titleOf(seat)} seat={seat} index={seatIndex.get(seat)} />)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+          <div>
+            <div className="rv-card-h">What would change each mind</div>
+            {parse<[string, string][]>(s.checks, []).map(([seat, check]) => (
+              <Fold key={seat} title={titleOf(seat)} lead={<Avatar name={titleOf(seat)} seat={seat} index={seatIndex.get(seat)} />}><p className="rv-prose">{check}</p></Fold>
+            ))}
+          </div>
+        </Drawer>
+      );
+    }
+  } else if (what === "seat") {
+    const seat = committee.find((x) => x.seat === key);
+    if (seat) {
+      drawer = (
+        <Drawer closeHref={closeHref} title={seat.title} chips={<><Chip tone="ai">AI adviser</Chip><Chip plain>{seat.seat.replace(/_/g, " ")}</Chip></>}>
+          {seat.persona_text === null ? (
+            <p className="muted">Briefed from a file, because this is a simulated run. It cannot be edited here.</p>
+          ) : (
+            <>
+              <p className="rv-prose">{seat.persona_text}</p>
+              <Fold title="Edit this brief"><BriefForm runId={runId} seat={seat} /></Fold>
+            </>
+          )}
+        </Drawer>
+      );
+    }
+  }
 
   return (
     <div className="rv">
       <AutoRefresh active={pending.length > 0} />
+      {drawer ? <EscClose href={closeHref} /> : null}
 
-      <header className="rv-masthead">
-        <div>
+      <header className="rv-top">
+        <div className="flex flex-wrap items-center gap-2.5">
           <h1 className="rv-org">{org?.name ?? scopeLabel(scope)}</h1>
           {org ? (
-            <blockquote className="rv-direction">
-              “{org.risk_appetite}”
-              <cite>The board’s direction on AI. The committee argues from it.</cite>
-            </blockquote>
-          ) : (
-            <p className="rv-direction" style={{ fontStyle: "normal", fontFamily: "var(--font-ui)", fontSize: 14 }}>
-              A simulated run. Its organisation is fictional and its committee is briefed from files.
-            </p>
-          )}
+            <details className="rv-pop">
+              <summary><span className="rv-btn rv-btn-sm">Board direction</span></summary>
+              <div className="rv-pop-card"><p style={{ fontStyle: "italic" }}>“{org.risk_appetite}”</p><p className="rv-hint">The committee argues from this.</p></div>
+            </details>
+          ) : <Chip plain>Simulated run</Chip>}
         </div>
-        {scopes.length > 1 ? <WorkspacePicker scopes={scopeOptions} current={runId} /> : null}
+        <div className="rv-top-actions">
+          {scopes.length > 1 ? <WorkspacePicker scopes={scopeOptions} current={runId} /> : null}
+          <Link href={to({ open: "submit" })} scroll={false} className="rv-btn rv-btn-you"><Icon name="plus" /> Submit a matter</Link>
+        </div>
       </header>
 
-      <nav aria-label="Where matters are">
-        <ol className="rv-flow">
-          <li><a href="#queue"><span className="rv-flow-count">{queue.length}</span><span className="rv-flow-label">waiting for a review</span></a></li>
-          <li><a href="#work"><span className="rv-flow-count">{reviewing}</span><span className="rv-flow-label">with the committee</span></a></li>
-          <li>
-            <a href="#decide" className={decisions.length ? "is-yours" : undefined}>
-              <span className="rv-flow-count">{decisions.length}</span>
-              <span className="rv-flow-label">{decisions.length === 1 ? "needs your decision" : "need your decision"}</span>
-            </a>
-          </li>
-          <li><a href={`${href("/reviews", sp, { view: "record" })}#after`}><span className="rv-flow-count">{decided}</span><span className="rv-flow-label">decided</span></a></li>
-        </ol>
-      </nav>
+      <div className="rv-tiles">
+        {tiles.map((t) => (
+          <Link key={t.label} href={to({ tab: t.tab, open: null })} scroll={false} data-tone={t.tone}
+            className={`rv-tile${t.count > 0 && t.tone === "you" ? " is-hot" : ""}`} aria-current={tab === t.tab && t.tone !== "ai" ? "true" : undefined}>
+            <span className="rv-tile-icon"><Icon name={t.icon} /></span>
+            <span><span className="rv-tile-count">{t.count}</span><span className="rv-tile-label">{t.label}</span></span>
+          </Link>
+        ))}
+      </div>
 
-      {pending.length + failed.length > 0 ? (
-        <ul className="rv-work" id="work" aria-live="polite">
-          {pending.map((w) => (
-            <li key={w.command_id}><span className="rv-dot is-live" aria-hidden /><span>{describeWork(w.kind, w.payload)}.</span></li>
-          ))}
-          {stale ? (
-            <li>
-              <span className="rv-dot" aria-hidden />
-              <span className="muted">Still waiting. The committee only works while the worker is running: <code>python -m sim serve</code></span>
-            </li>
-          ) : null}
-          {failed.map((w) => (
-            <li key={w.command_id}>
-              <span className="rv-dot is-failed" aria-hidden />
-              <span><span style={{ color: "var(--plum)", fontWeight: 600 }}>{describeWork(w.kind, w.payload)} did not go through.</span>{" "}
-                {errorOf(w.result)} <span className="muted">({when(w.created_at)})</span></span>
-            </li>
-          ))}
-        </ul>
-      ) : <span id="work" />}
-
-      <section className="rv-section" id="decide">
-        <div className="rv-h2"><h2>Needs your decision</h2></div>
-        {decisions.length === 0 ? (
-          <p className="rv-quiet">
-            Nothing is waiting on you. {queue.length ? "Convene a review of the matters below and its recommendations will land here." : "Submit a matter to get started."}
-          </p>
-        ) : decisions.map((d) => {
-          const bench = benchFor(committee, ballots.filter((b) => b.decision_id === d.decision_id), d.recommended);
-          const agentOf = new Map(ballots.filter((b) => b.decision_id === d.decision_id).map((b) => [b.seat, b.agent_id]));
-          const dissents = bench.filter((s) => s.dissent).map((s) => ({ agent_id: agentOf.get(s.seat) ?? s.seat, title: s.title, rationale: s.rationale }));
-          return (
-            <article key={d.decision_id} className="rv-case">
-              <div className="rv-case-advice">
-                <div className="rv-case-meta">
-                  <span>{d.item_id}</span>
-                  <span>{KIND_LABELS[d.item_kind ?? d.kind] ?? d.kind}</span>
-                  {d.risk_tier ? <span className={d.risk_tier === "high" ? "rv-tier-high" : undefined}>{d.risk_tier} risk</span> : null}
-                  {d.submitted_by ? <span>from {d.submitted_by}</span> : null}
-                  <span>reviewed {d.meeting_date}</span>
-                </div>
-                <h3 className="rv-title">{d.title}</h3>
-                {d.description ? <p className="rv-desc">{d.description}</p> : null}
-                <div className="rv-rec">
-                  <span>
-                    <strong>The committee recommends {d.recommended === "approved" ? "approving" : "rejecting"} this.</strong>{" "}
-                    <span className="rv-machine">Advice from AI advisers. You decide.</span>
-                  </span>
-                  <Bench bench={bench} />
-                </div>
-              </div>
-              <div className="rv-case-yours">
-                <SignDecision runId={runId} decisionId={d.decision_id} recommended={d.recommended}
-                  mustWeighAll={d.risk_tier === "high"} dissents={dissents} operator={operator ?? "You"}
-                  reviewTotal={Number(d.review_total)} reviewSigned={Number(d.review_signed)} />
-              </div>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="rv-section" id="queue">
-        <div className="rv-h2">
-          <h2>Waiting for a review</h2>
-          <span className="rv-aside inline-flex flex-wrap items-center gap-2">
-            {queue.length ? (ranked ? `Ranked ${when(ranked.at)}` : "Not ranked yet") : null}
-            {queue.length ? <RefreshRanking runId={runId} /> : null}
+      {openRisk.length > 0 ? (
+        <div className="rv-riskbar">
+          <span>Open risk</span>
+          <span className="rv-riskbar-track" role="img" aria-label={`${riskCount("high")} high, ${riskCount("medium")} medium, ${riskCount("low")} low, ${riskCount(null)} not rated`}>
+            {(["high", "medium", "low"] as const).map((tier) => riskCount(tier) ? <span key={tier} data-tone={tier} style={{ flex: riskCount(tier) }} /> : null)}
+            {riskCount(null) ? <span style={{ flex: riskCount(null), background: "var(--border)" }} /> : null}
           </span>
+          {(["high", "medium", "low"] as const).map((tier) => riskCount(tier) ? <span key={tier} className="rv-key" data-tone={tier}>{riskCount(tier)} {tier}</span> : null)}
+          {riskCount(null) ? <span className="rv-key">{riskCount(null)} not rated</span> : null}
         </div>
-        <p className="rv-lede">
-          Most urgent first. The number weighs risk, how long it has waited, and whether it was put off before.
-          The committee never sees it.
-        </p>
-        <div className="mb-4"><SubmitMatter runId={runId} /></div>
-        {queue.length === 0
-          ? <p className="rv-quiet">The queue is empty. Anything you submit waits here until you convene a review of it.</p>
-          : <Queue runId={runId} entries={queue} />}
-      </section>
+      ) : null}
 
-      <section className="rv-section" id="after">
-        <nav className="rv-tabs" aria-label="What has been said and done">
-          <a href={`${href("/reviews", sp, { view: "advice" })}#after`} aria-current={tab === "advice" ? "page" : undefined}>Advice given ({syntheses.length})</a>
-          <a href={`${href("/reviews", sp, { view: "record" })}#after`} aria-current={tab === "record" ? "page" : undefined}>The record ({record.length})</a>
-          <a href={`${href("/reviews", sp, { view: "committee" })}#after`} aria-current={tab === "committee" ? "page" : undefined}>The committee ({committee.length})</a>
+      {pending.map((w) => (
+        <div key={w.command_id} className="rv-banner" data-tone="ai" aria-live="polite"><span className="rv-dot is-live" /><span>{describeWork(w.kind, w.payload)}…</span></div>
+      ))}
+      {stale ? <div className="rv-banner" data-tone="wait"><Icon name="alert" /><span>Still waiting. Is the worker running? <code>python -m sim serve</code></span></div> : null}
+      {failed.map((w) => (
+        <div key={w.command_id} className="rv-banner" data-tone="no">
+          <Icon name="alert" /><span className="flex-1">{describeWork(w.kind, w.payload)} did not go through.</span>
+          <details className="rv-pop"><summary><span className="rv-btn rv-btn-sm">Why</span></summary><div className="rv-pop-card is-right"><p>{errorOf(w.result)}</p><p className="rv-hint">{when(w.created_at)}</p></div></details>
+        </div>
+      ))}
+
+      <section className="rv-board">
+        <nav className="rv-tabs" aria-label="Matters">
+          {tabs.map((t) => (
+            <Link key={t.id} href={to({ tab: t.id, open: null })} scroll={false} className="rv-tab" aria-current={tab === t.id ? "page" : undefined}>
+              {t.label}<span className="rv-tab-count" data-tone={t.count ? t.tone : undefined}>{t.count}</span>
+            </Link>
+          ))}
+          <span className="ml-auto flex items-center gap-2 pb-1.5 pr-1">
+            {tab === "waiting" && queue.length ? <><span className="muted text-xs">{ranked ? `Ranked ${when(ranked.at)}` : "Not ranked"}</span><RefreshRanking runId={runId} /></> : null}
+            {tab === "waiting" ? <Help right><p><strong>Most urgent first.</strong> Priority weighs risk, how long it has waited, and earlier deferrals. The committee never sees it.</p></Help> : null}
+            {tab === "needs" ? <Help right><p><strong>The committee only recommends.</strong> Open a matter to see how each seat voted, weigh objections, and sign. Nothing takes effect until you do.</p></Help> : null}
+            {tab === "decided" && settled.length ? <span className="muted text-xs" title="Never overruling can mean advice is being waved through.">Overruled {overrides} of {settled.length}</span> : null}
+            {tab === "committee" ? <Help right><p><strong>Each seat is an AI adviser with its own lens.</strong> A review seats only the ones a matter needs. High risk seats everyone, and the chair always sits.</p></Help> : null}
+          </span>
         </nav>
 
-        {tab === "advice" ? (
-          syntheses.length === 0 ? <p className="rv-quiet">No questions have been put to the committee yet. Submit one as “A question”.</p> : syntheses.map((s) => {
-            const question = parse<{ item_id: string; title: string }[]>(s.agenda, []).find((i) => i.item_id === s.item_id)?.title ?? s.item_id;
-            const sides: [string, string[]][] = [["In favour", parse<string[]>(s.for_seats, [])], ["Against", parse<string[]>(s.against_seats, [])], ["Undecided", parse<string[]>(s.undecided_seats, [])]];
-            const titleOf = (seat: string) => committee.find((c) => c.seat === seat)?.title ?? seat.replace(/_/g, " ");
-            return (
-              <article key={s.synthesis_id} className="rv-advice">
-                <div className="rv-case-meta"><span>{s.item_id}</span><span>{s.sim_month}</span><span>{s.split ? "The committee was divided" : "The committee broadly agreed"}</span></div>
-                <h3 className="rv-title" style={{ fontSize: 20 }}>{question}</h3>
-                {s.narrative ? <p className="rv-desc">{s.narrative}</p> : null}
-                <dl className="rv-sides">
-                  {sides.map(([label, list]) => (
-                    <div key={label}><dt>{label}</dt><dd>{list.length ? list.map(titleOf).join(", ") : "No one"}</dd></div>
-                  ))}
-                </dl>
-                <ul className="rv-checks">
-                  <li style={{ display: "block", fontWeight: 650 }}>What would change each mind</li>
-                  {parse<[string, string][]>(s.checks, []).map(([seat, what]) => (
-                    <li key={seat}><span className="rv-seatname">{titleOf(seat)}</span><span>{what}</span></li>
-                  ))}
-                </ul>
-              </article>
-            );
-          })
+        {tab === "needs" ? (
+          decisions.length === 0 ? <EmptyState icon="check" tone="ok">Nothing needs you right now.</EmptyState> : (
+            <div className="rv-rows">
+              {decisions.map((d) => {
+                const objections = d.recommended === "approved" ? Number(d.no_votes) : Number(d.yes_votes);
+                return (
+                  <Link key={d.decision_id} href={to({ open: `decision:${d.decision_id}` })} scroll={false} className="rv-rowline">
+                    <span className="rv-riskmark" data-tone={d.risk_tier ?? undefined} />
+                    <span className="min-w-0">
+                      <span className="rv-rowtitle">{d.title}</span>
+                      <span className="rv-rowmeta">
+                        <KindChip kind={d.item_kind ?? d.kind} /><RiskChip tier={d.risk_tier} />
+                        <Chip tone="ai">Recommends {d.recommended === "approved" ? "approve" : "reject"}</Chip>
+                        {objections ? <Chip tone="objection">{plural(objections, "objection")}</Chip> : null}
+                      </span>
+                    </span>
+                    <span className="rv-rowend"><span className="is-wide"><VoteBar yes={Number(d.yes_votes)} no={Number(d.no_votes)} abstain={Number(d.abstentions)} /></span><Chip tone="you" solid>Sign</Chip><Icon name="chevron" className="rv-chev" /></span>
+                  </Link>
+                );
+              })}
+            </div>
+          )
         ) : null}
 
-        {tab === "record" ? (
-          record.length === 0 ? <p className="rv-quiet">Nothing has been signed yet.</p> : (
-            <>
-              <p className="rv-lede" style={{ marginTop: 0 }}>
-                {decidedSigned.length
-                  ? `You overruled the committee on ${overrides} of ${plural(decidedSigned.length, "decision")}.${overrides === 0 && decidedSigned.length >= 5 ? " Never overruling it can mean its advice is being waved through." : ""}`
-                  : "Only deferrals so far."}
-              </p>
-              <div className="overflow-x-auto">
-                <table className="rv-record">
-                  <thead><tr><th>Matter</th><th>Committee said</th><th>Decision</th><th>Signed by</th><th>Reasoning</th></tr></thead>
-                  <tbody>
-                    {record.map((r) => (
-                      <tr key={r.attestation_id}>
-                        <td><span className="muted">{r.item_id}</span><br />{r.title}</td>
-                        <td className="muted">{r.recommended === "approved" ? "Approve" : "Reject"}</td>
-                        <td>
-                          <span className={`rv-outcome is-${r.outcome}`}>{r.outcome === "approved" ? "Approved" : r.outcome === "rejected" ? "Rejected" : "Deferred"}</span>
-                          {r.outcome !== "deferred" && r.outcome !== r.recommended ? <><br /><span className="rv-flag" style={{ fontSize: 13 }}>overruled</span></> : null}
-                        </td>
-                        <td>
-                          <span className="rv-who">{r.actor}</span><br />
-                          <span className="muted" style={{ fontSize: 13 }}>
-                            {when(r.created_at)}{r.source === "dashboard_session" ? ", signed in here" : r.source === "cli_asserted" ? ", name given at the command line" : ""}
-                          </span>
-                        </td>
-                        <td style={{ maxWidth: "26rem" }}>{r.rationale}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+        {tab === "waiting" ? (
+          queue.length === 0 ? <EmptyState icon="inbox" tone="wait">Nothing is waiting. Submit a matter to start.</EmptyState>
+            : <WaitingRows runId={runId} entries={queue} openHrefs={Object.fromEntries(queue.map((m) => [m.ref_id, to({ open: `matter:${m.ref_id}` })]))} />
+        ) : null}
+
+        {tab === "decided" ? (
+          record.length === 0 ? <EmptyState icon="pen" tone="you">Nothing has been signed yet.</EmptyState> : (
+            <div className="rv-rows">
+              {record.map((r) => {
+                const [label, tone] = OUTCOME[r.outcome] ?? [r.outcome, undefined];
+                return (
+                  <Link key={r.attestation_id} href={to({ open: `record:${r.attestation_id}` })} scroll={false} className="rv-rowline">
+                    <span className="rv-riskmark" data-tone={r.risk_tier ?? undefined} />
+                    <span className="min-w-0">
+                      <span className="rv-rowtitle">{r.title}</span>
+                      <span className="rv-rowmeta">
+                        {tone ? <Chip tone={tone} dot>{label}</Chip> : <Chip plain>{label}</Chip>}
+                        {r.outcome !== "deferred" && r.outcome !== r.recommended ? <Chip tone="objection">Overruled</Chip> : null}
+                        <KindChip kind={r.item_kind ?? r.kind} />
+                      </span>
+                    </span>
+                    <span className="rv-rowend"><span className="is-wide inline-flex items-center gap-2"><Avatar name={r.actor} you />{r.actor}</span><span className="is-wide">{when(r.created_at)}</span><Icon name="chevron" className="rv-chev" /></span>
+                  </Link>
+                );
+              })}
+            </div>
+          )
+        ) : null}
+
+        {tab === "advice" ? (
+          syntheses.length === 0 ? <EmptyState icon="chat" tone="ai">No questions asked yet. Submit one as “A question”.</EmptyState> : (
+            <div className="rv-rows">
+              {syntheses.map((s) => {
+                const question = parse<{ item_id: string; title: string }[]>(s.agenda, []).find((i) => i.item_id === s.item_id)?.title ?? s.item_id;
+                return (
+                  <Link key={s.synthesis_id} href={to({ open: `advice:${s.synthesis_id}` })} scroll={false} className="rv-rowline">
+                    <span className="rv-riskmark" data-tone="ai" />
+                    <span className="min-w-0">
+                      <span className="rv-rowtitle">{question}</span>
+                      <span className="rv-rowmeta">{s.split ? <Chip tone="wait">Divided</Chip> : <Chip tone="ok">Agreed</Chip>}<Chip plain>Question</Chip></span>
+                    </span>
+                    <span className="rv-rowend">
+                      <span className="is-wide"><VoteBar yes={parse<string[]>(s.for_seats, []).length} no={parse<string[]>(s.against_seats, []).length} abstain={parse<string[]>(s.undecided_seats, []).length} /></span>
+                      <span className="is-wide">{s.sim_month}</span><Icon name="chevron" className="rv-chev" />
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
           )
         ) : null}
 
         {tab === "committee" ? (
-          <>
-            <p className="rv-lede" style={{ marginTop: 0 }}>
-              Each seat is an AI adviser with its own lens. A review seats only the ones a matter needs; the chair always sits.
-            </p>
-            <div className="rv-seats">
-              {committee.map((seat) => (
-                <details key={seat.seat}>
-                  <summary>{seat.title} <span>{displayId(seat.seat).replace(/_/g, " ")}</span></summary>
-                  {seat.persona_text === null
-                    ? <p className="rv-brief muted">Briefed from a file, because this is a simulated run. It cannot be edited here.</p>
-                    : <><p className="rv-brief">{seat.persona_text}</p><BriefForm runId={runId} seat={seat} /></>}
-                </details>
-              ))}
-            </div>
-          </>
+          <div className="rv-seatgrid">
+            {committee.map((seat, i) => (
+              <Link key={seat.seat} href={to({ open: `seat:${seat.seat}` })} scroll={false} className="rv-seatcard"
+                style={{ "--seat": `var(--border)` } as React.CSSProperties}>
+                <Avatar name={seat.title} seat={seat.seat} index={i} large />
+                <span className="min-w-0">
+                  <span className="block font-semibold">{seat.title}</span>
+                  <span className="muted block truncate text-xs">{firstSentence(seat.persona_text, 60) || "Briefed from a file"}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
         ) : null}
       </section>
+
+      {drawer}
     </div>
   );
 }

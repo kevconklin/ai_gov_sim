@@ -53,7 +53,14 @@ function Menu() {
   );
 }
 
-const BRAND = { fontFamily: "var(--font-doc)", fontSize: 19, lineHeight: 1.2, fontWeight: 500 } as const;
+function Brand() {
+  return (
+    <span className="inline-flex items-center gap-2 font-bold" style={{ fontSize: 15, letterSpacing: "-0.01em" }}>
+      <span aria-hidden className="inline-grid place-items-center rounded-lg text-white" style={{ width: 26, height: 26, background: "var(--you)", fontSize: 12 }}>AI</span>
+      Governance
+    </span>
+  );
+}
 
 /** A sidebar where there is room for one; on a phone, a bar with the menu folded away under it. */
 export function Nav() {
@@ -61,12 +68,12 @@ export function Nav() {
   return (
     <>
       <nav className="sticky top-0 hidden h-screen w-44 shrink-0 flex-col gap-4 overflow-y-auto border-r p-3 md:flex" style={surface}>
-        <div style={BRAND}>AI governance</div>
+        <Brand />
         <Menu />
       </nav>
       <details className="border-b md:hidden" style={surface}>
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
-          <span style={BRAND}>AI governance</span>
+          <Brand />
           <span className="btn">Menu</span>
         </summary>
         <div className="flex flex-col gap-4 px-3 pb-4">

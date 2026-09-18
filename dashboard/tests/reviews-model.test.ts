@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { benchFor, describeWork, mergeQueue, tally, type WaitingRow } from "@/lib/reviews/model";
+import { ageOf, benchFor, seatCode, describeWork, firstSentence, initials, mergeQueue, seatColor, tally, type WaitingRow } from "@/lib/reviews/model";
 
 const row = (over: Partial<WaitingRow>): WaitingRow => ({
   ref_id: "ws/item/IT-001", source: "item", item_kind: "vendor", title: "Lumen", risk_tier: "medium",
@@ -63,5 +63,39 @@ describe("work in progress", () => {
     expect(describeWork("convene", JSON.stringify({ advisory: ["q"] }))).toBe("The committee is reviewing 1 matter");
     expect(describeWork("attest", "{}")).toBe("Recording your decision");
     expect(describeWork("submit", "not json")).toContain("a matter");
+  });
+});
+
+describe("compact labels", () => {
+  it("stands two letters in for a seat or a person", () => {
+    expect(initials("Chief Risk Officer")).toBe("RI");
+    expect(initials("Chief Information Security Officer")).toBe("IS");
+    expect(initials("General Counsel")).toBe("GC");
+    expect(initials("kevin@northwind.example")).toBe("KE");
+    expect(initials("Kevin Conklin, CRO")).toBe("KC");
+  });
+
+  it("gives every seat on a committee a different code, which titles alone do not", () => {
+    const product = ["chair", "technology", "security", "legal", "risk", "finance", "business", "customer"].map(seatCode);
+    const simulated = ["coo_chair", "cio", "ciso", "general_counsel", "cro", "cfo", "head_consumer_lending", "head_marketing"].map(seatCode);
+    expect(new Set(product).size).toBe(8);
+    expect(new Set(simulated).size).toBe(8);
+    expect(product.slice(0, 2)).toEqual(["CH", "TE"]);
+  });
+
+  it("gives a seat the same colour wherever it appears", () => {
+    expect(seatColor(2)).toBe(seatColor(2));
+    expect(seatColor(8)).toBe(seatColor(0));
+  });
+
+  it("keeps a row to one sentence and leaves the rest for the drill-down", () => {
+    expect(firstSentence("You answer for delivery. You favour building.")).toBe("You answer for delivery.");
+    expect(firstSentence("x".repeat(200)).length).toBeLessThanOrEqual(110);
+  });
+
+  it("says how long a matter has waited in the fewest words", () => {
+    const now = new Date("2026-09-18T18:00:00").getTime();
+    expect(ageOf("2026-09-18", now)).toBe("today");
+    expect(ageOf("2026-09-06", now)).toBe("12 days");
   });
 });
