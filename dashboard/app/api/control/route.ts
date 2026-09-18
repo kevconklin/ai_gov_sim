@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sameOrigin } from "@/lib/auth/origin";
 import { hasValidSession } from "@/lib/auth/session";
+import { commandResult } from "@/lib/control/result";
 import { submitCommand, submitIntervention, type ControlResult } from "@/lib/control/submit";
 
 const MAX_BODY_BYTES = 16_000;
@@ -38,4 +39,16 @@ export async function POST(request: Request) {
   if (type === "intervention") return reply(await submitIntervention(rest));
   if (type === "command" || type === undefined) return reply(await submitCommand(rest));
   return error(400, "type must be 'command' or 'intervention'.");
+}
+
+/**
+ * GET /api/control?command=<id>
+ * Reads one queued command and its result. Governance commands (candidates, convene, attest)
+ * are answered by the worker, so callers POST the command and poll this for the outcome.
+ */
+export async function GET(request: Request) {
+  if (!(await hasValidSession())) return error(401, "Unauthorized");
+  const commandId = new URL(request.url).searchParams.get("command") ?? "";
+  const result = await commandResult(commandId);
+  return NextResponse.json(result, { status: result.success ? 200 : 404 });
 }

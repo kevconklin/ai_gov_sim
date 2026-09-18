@@ -13,7 +13,8 @@ from sim.db import Database, utc_now_iso
 
 log = logging.getLogger(__name__)
 
-KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap"})
+KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap",
+                   "candidates", "convene", "attest"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -95,4 +96,58 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
             raise ValueError("spend cap must be positive")
         db.update("runs", {"spend_cap_usd_per_month": cap}, where={"run_id": run_id})
         return {"spend_cap_usd_per_month": cap}
+    if kind in ("candidates", "convene", "attest"):
+        return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
+
+
+def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], payload: Mapping[str, Any],
+                run: Mapping[str, Any]) -> Any:
+    """The human loop: rank candidates, convene on a set agenda, attest to what carried.
+
+    Nothing here applies a decision on its own. 'attest' does so only when asked, and only
+    once every item in that meeting has a person on record for it.
+    """
+    from datetime import date
+
+    from sim.agenda import candidates
+    from sim.attestation import apply_meeting, record_attestation
+    from sim.config import load_agenda_priority, load_attestation
+    from sim.packet import AgendaItem
+    from sim.world import REPO_ROOT
+
+    kind, run_id = command["kind"], command["run_id"]
+    config_dir = REPO_ROOT / "config"
+
+    if kind == "candidates":
+        ranked = candidates(db, run_id, load_agenda_priority(config_dir),
+                            today=payload.get("today") or date.today().isoformat())
+        return {"candidates": [{"kind": c.kind, "ref_id": c.ref_id, "title": c.title, "priority": c.priority,
+                                "reasons": list(c.reasons), "deferrals": c.deferral_count,
+                                "escalated": c.escalated} for c in ranked]}
+
+    if kind == "convene":
+        items = [AgendaItem(i["item_id"], i["kind"], i["title"], i.get("ref_id")) for i in payload.get("agenda", [])]
+        items += [AgendaItem(f"ADV-{n:03d}", "advisory", q)
+                  for n, q in enumerate(payload.get("advisory", []), start=len(items) + 1)]
+        if not items:
+            raise ValueError("convene needs an agenda: pass 'agenda' items, 'advisory' questions, or both")
+        result = orchestrator.convene(run_id, agenda=items, month=payload.get("month"))
+        return {"meeting_id": result.meeting_id, "date": result.meeting_date.isoformat(),
+                "recommendations": [{"decision_id": d.decision_id, "item_id": d.item.item_id,
+                                     "recommended": d.outcome, "yes": d.tally.yes, "no": d.tally.no,
+                                     "abstain": d.tally.abstain} for d in result.decisions]}
+
+    attested = record_attestation(db, run_id, decision_id=payload["decision_id"], actor=payload["actor"],
+                                  outcome=payload["outcome"], rationale=payload.get("rationale", ""),
+                                  responded_to=payload.get("responded_to", ()),
+                                  config=load_attestation(config_dir))
+    out: dict[str, Any] = {"attestation_id": attested.attestation_id, "outcome": attested.outcome}
+    if payload.get("apply"):
+        meeting = db.fetch_one("SELECT meeting_id, sim_month, meeting_date FROM meetings WHERE meeting_id = "
+                               "(SELECT meeting_id FROM decisions WHERE decision_id = ?)", (payload["decision_id"],))
+        out["applied"] = meeting["meeting_id"]
+        out["problems"] = apply_meeting(orchestrator.context(run_id), meeting["meeting_id"],
+                                        month=meeting["sim_month"],
+                                        meeting_date=date.fromisoformat(meeting["meeting_date"]))
+    return out

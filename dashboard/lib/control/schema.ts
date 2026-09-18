@@ -10,6 +10,9 @@ export const COMMAND_KINDS = [
   "inject_event",
   "fork",
   "set_spend_cap",
+  "candidates",
+  "convene",
+  "attest",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -32,6 +35,15 @@ export const injectEventSchema = z
   .strict();
 
 const empty = z.object({}).strict();
+
+export const agendaItemSchema = z
+  .object({
+    item_id: z.string().trim().min(1).max(60),
+    kind: z.enum(["use_case", "policy_edit", "status_change", "advisory"]),
+    title: z.string().trim().min(1).max(400),
+    ref_id: z.string().trim().min(1).max(400).optional(),
+  })
+  .strict();
 
 export const commandSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("start"), run_id: runId, reason, payload: empty }).strict(),
@@ -66,6 +78,52 @@ export const commandSchema = z.discriminatedUnion("kind", [
       run_id: runId,
       reason,
       payload: z.object({ usd_per_sim_month: z.number().positive().finite().max(1_000_000) }).strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("candidates"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({ today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.").optional() })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("convene"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          agenda: z.array(agendaItemSchema).max(40).optional(),
+          advisory: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
+          month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use YYYY-MM.").optional(),
+        })
+        .strict()
+        .refine((p) => (p.agenda?.length ?? 0) + (p.advisory?.length ?? 0) > 0, {
+          message: "A meeting needs at least one agenda item or advisory question.",
+        }),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("attest"),
+      run_id: runId,
+      reason,
+      // The rationale minimum lives in config/attestation.yaml and is enforced by the worker,
+      // so it is not repeated here. This only checks the shape.
+      payload: z
+        .object({
+          decision_id: z.string().trim().min(1).max(400),
+          actor: z.string().trim().min(1).max(200),
+          outcome: z.enum(["approved", "rejected", "deferred"]),
+          rationale: z.string().trim().min(1, "Write your own reasoning.").max(4000),
+          responded_to: z.array(z.string().trim().min(1).max(400)).max(20).optional(),
+          apply: z.boolean().optional(),
+        })
+        .strict(),
     })
     .strict(),
 ]);

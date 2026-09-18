@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { commandStatements } from "@/lib/control/rows";
-import { commandFromForm, commandSchema, interventionSchema } from "@/lib/control/schema";
+import { commandFromForm, commandSchema, interventionSchema, issuesToMessages } from "@/lib/control/schema";
 
 const reason = "Testing the control path end to end";
 
@@ -78,5 +78,89 @@ describe("commandStatements", () => {
     expect(stmts[1]!.sql).toMatch(/INSERT INTO interventions/);
     expect(stmts[1]!.sql).toContain("'dashboard'");
     expect(stmts[1]!.params[2]).toBe("2027-03");
+  });
+});
+
+describe("governance commands", () => {
+  const base = { run_id: "run1", reason: "Governance review requested by the CRO." };
+
+  it("accepts a candidates request with no payload", () => {
+    expect(commandSchema.safeParse({ ...base, kind: "candidates", payload: {} }).success).toBe(true);
+  });
+
+  it("rejects a malformed as-of date", () => {
+    const parsed = commandSchema.safeParse({ ...base, kind: "candidates", payload: { today: "1 Feb 2027" } });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts a meeting called on advisory questions alone", () => {
+    const parsed = commandSchema.safeParse({
+      ...base,
+      kind: "convene",
+      payload: { advisory: ["Where should model risk oversight sit?"] },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("refuses a meeting with nothing to discuss", () => {
+    const parsed = commandSchema.safeParse({ ...base, kind: "convene", payload: {} });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(issuesToMessages(parsed.error).join(" ")).toContain("at least one agenda item");
+    }
+  });
+
+  it("accepts an agenda item with a ref", () => {
+    const parsed = commandSchema.safeParse({
+      ...base,
+      kind: "convene",
+      payload: {
+        agenda: [{ item_id: "UC-090", kind: "use_case", title: "Collections assistant", ref_id: "run1/uc/UC-090" }],
+      },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an agenda item of an unknown kind", () => {
+    const parsed = commandSchema.safeParse({
+      ...base,
+      kind: "convene",
+      payload: { agenda: [{ item_id: "X-1", kind: "budget", title: "Something" }] },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts an attestation that answers a dissent and applies", () => {
+    const parsed = commandSchema.safeParse({
+      ...base,
+      kind: "attest",
+      payload: {
+        decision_id: "run1/decision/UC-090",
+        actor: "k@bank.example",
+        outcome: "rejected",
+        rationale: "Overriding the committee: fair lending exposure is not quantified.",
+        responded_to: ["run1/agent/cro"],
+        apply: true,
+      },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects an outcome the gate does not offer", () => {
+    const parsed = commandSchema.safeParse({
+      ...base,
+      kind: "attest",
+      payload: { decision_id: "d", actor: "a", outcome: "maybe", rationale: "Because." },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("leaves the rationale minimum to the worker, which reads it from config", () => {
+    const parsed = commandSchema.safeParse({
+      ...base,
+      kind: "attest",
+      payload: { decision_id: "d", actor: "a", outcome: "approved", rationale: "ok" },
+    });
+    expect(parsed.success).toBe(true);
   });
 });
