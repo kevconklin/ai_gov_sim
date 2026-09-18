@@ -29,6 +29,19 @@ function checks(raw: string): [string, string][] {
   }
 }
 
+/** The advisory question, which lives in the meeting's agenda rather than on the synthesis. */
+function titleOf(agenda: string, itemId: string): string | null {
+  try {
+    const parsed = JSON.parse(agenda);
+    if (!Array.isArray(parsed)) return null;
+    const hit = parsed.find((i) => (i as { item_id?: string })?.item_id === itemId);
+    const title = (hit as { title?: unknown })?.title;
+    return typeof title === "string" ? title : null;
+  } catch {
+    return null;
+  }
+}
+
 function candidatesFrom(result: unknown): Candidate[] {
   const list = (result as { candidates?: unknown })?.candidates;
   return Array.isArray(list) ? (list as Candidate[]) : [];
@@ -150,8 +163,8 @@ export default async function GovernancePage({ searchParams }: { searchParams: P
               {syntheses.map((s) => (
                 <div key={s.synthesis_id}>
                   <div className="flex flex-wrap items-center gap-2">
-                    <strong>{s.item_id}</strong>
-                    <span className="muted">{s.sim_month}</span>
+                    <strong>{titleOf(s.agenda, s.item_id) ?? s.item_id}</strong>
+                    <span className="muted">{s.item_id} · {s.sim_month}</span>
                     {s.split ? <Chip color="var(--c-sev-med)">divided · spread {s.spread}</Chip> : <Chip>agreed</Chip>}
                   </div>
                   <p className="muted text-xs">

@@ -36,6 +36,7 @@ export interface SynthesisRow {
   undecided_seats: string;
   checks: string;
   narrative: string | null;
+  agenda: string;
 }
 
 export interface AttestedRow {
@@ -96,12 +97,17 @@ export async function dissentsAwaiting(runId: string): Promise<DissentRow[]> {
   );
 }
 
-/** Advisory items that were heard but never put to a vote. */
+/**
+ * Advisory items that were heard but never put to a vote.
+ *
+ * The meeting's agenda comes along because the question itself is only stored there: a panel
+ * that shows "ADV-001" without saying what was asked is no use to anyone reading it later.
+ */
 export async function recentSyntheses(runId: string): Promise<SynthesisRow[]> {
   const db = await readDb();
   return db.all<SynthesisRow>(
     `SELECT s.synthesis_id, s.meeting_id, m.sim_month, s.item_id, s.spread, s.split,
-            s.for_seats, s.against_seats, s.undecided_seats, s.checks, s.narrative
+            s.for_seats, s.against_seats, s.undecided_seats, s.checks, s.narrative, m.agenda
      FROM syntheses s JOIN meetings m ON m.meeting_id = s.meeting_id
      WHERE s.run_id = ? ORDER BY m.sim_month DESC, s.item_id LIMIT 50`,
     [runId],
