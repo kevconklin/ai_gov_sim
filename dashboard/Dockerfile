@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1
 FROM node:22-slim AS build
+# better-sqlite3 is a native module and node:22-slim carries no toolchain, so npm ci runs
+# node-gyp and fails without these. Build stage only: the runtime stage gets the compiled
+# binary through the standalone trace.
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
