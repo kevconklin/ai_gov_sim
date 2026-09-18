@@ -257,7 +257,8 @@ class Meeting:
     def hold(self) -> MeetingResult:
         self.ctx.db.insert("meetings", {"meeting_id": self.meeting_id, "run_id": self.ctx.run_id,
                                         "bank_id": self.ctx.run["bank_id"], "sim_month": self.month,
-                                        "meeting_date": self.date.isoformat(), "agenda": [], "status": "open"})
+                                        "meeting_date": self.date.isoformat(), "agenda": [], "status": "open",
+                                        "convened": self.convened})
         if not self.convened:
             self._circulate()                   # a human-set agenda is not open to additions
         circulated, advisory = self._decision_items(), self._advisory_items()

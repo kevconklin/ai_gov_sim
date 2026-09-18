@@ -120,3 +120,11 @@ def test_a_convened_meeting_applies_nothing_without_attestation(convened):
     assert db.fetch_one("SELECT status FROM use_cases WHERE use_case_id = ?", (ref,))["status"] == "proposed"
     assert db.fetch_one("SELECT COUNT(*) AS n FROM decisions WHERE run_id = ? AND ref_id = ?",
                         (run_id, ref))["n"] >= 1
+
+
+def test_only_called_meetings_are_marked_convened(held):
+    """The queue filters on this: a scheduled meeting's decisions are applied, not awaited."""
+    db, run_id, result = held
+    assert db.fetch_one("SELECT convened FROM meetings WHERE meeting_id = ?", (result.meeting_id,))["convened"]
+    scheduled = db.fetch_one("SELECT convened FROM meetings WHERE meeting_id = ?", (f"{run_id}/meeting/2027-01",))
+    assert not scheduled["convened"]
