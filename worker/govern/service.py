@@ -17,6 +17,27 @@ from govern.panels import panel_for
 from govern.review import MeetingResult, Review
 
 
+def recover_interrupted_reviews(db: Database, run_id: str) -> list[str]:
+    """Put back anything a review that never finished was holding.
+
+    A review that dies part-way leaves its meeting open and its matters marked as in review,
+    which hides them from the queue: nobody can convene them and nobody can sign them. Called
+    under the run lock, so an open review here is a dead one, not one in flight. Its unsigned
+    decisions go, its matters return to the queue, and the meeting is kept, marked failed.
+    """
+    dead = [r["meeting_id"] for r in db.fetch_all(
+        "SELECT meeting_id FROM meetings WHERE run_id = ? AND status = 'open' AND convened", (run_id,))]
+    for meeting_id in dead:
+        db.execute("DELETE FROM decisions WHERE meeting_id = ? AND decision_id NOT IN "
+                   "(SELECT decision_id FROM attestations)", (meeting_id,))
+        db.update("meetings", {"status": "failed"}, where={"meeting_id": meeting_id})
+    if dead:
+        db.execute("UPDATE items SET status = 'submitted' WHERE run_id = ? AND status = 'in_review'", (run_id,))
+        db.execute("UPDATE items SET status = 'submitted' WHERE run_id = ? AND status = 'recommended' AND item_id NOT IN "
+                   "(SELECT ref_id FROM decisions WHERE run_id = ?)", (run_id, run_id))
+    return dead
+
+
 class ReviewService:
     def __init__(self, *, db: Database, config: Config, llm: LLMClient, data_dir: Path,
                  panel_rules: Mapping[str, Any],
@@ -50,6 +71,14 @@ class ReviewService:
             raise ValueError("a review needs an agenda")
         with run_lock(self.data_dir, run_id, db=self.db):
             ctx = self.context(run_id)
+            recover_interrupted_reviews(self.db, run_id)
             seats = set(self.panel(ctx, agenda))
             members = [a for a in ctx.active_agents() if a.seat in seats]
-            return Review(ctx, agenda, on=on or date.today(), month=month, members=members).hold()
+            review = Review(ctx, agenda, on=on or date.today(), month=month, members=members)
+            if not review.agenda():
+                raise ValueError("nothing on this agenda is still waiting for a review")
+            try:
+                return review.hold()
+            except Exception:
+                recover_interrupted_reviews(self.db, run_id)
+                raise

@@ -51,10 +51,11 @@ export async function conveneAction(_prev: ControlResult | null, formData: FormD
       return { success: false, data: null, error: "An agenda item was not readable. Reload and try again." };
     }
   }
+  const n = agenda.length + advisory.length;
   return done(await submitCommand({
     kind: "convene",
     run_id: f.run_id ?? "",
-    reason: `${operator}: ${f.reason ?? ""}`,
+    reason: `${operator}: convening a review of ${n} ${n === 1 ? "matter" : "matters"}`,
     payload: { ...(agenda.length ? { agenda } : {}), ...(advisory.length ? { advisory } : {}) },
   }));
 }
@@ -84,7 +85,8 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
       outcome: f.outcome ?? "",
       rationale: f.rationale ?? "",
       ...(respondedTo.length ? { responded_to: respondedTo } : {}),
-      ...(f.apply === "on" ? { apply: true } : {}),
+      // A review takes effect when its last matter is signed; the worker reports "waiting" until then.
+      apply: true,
     },
   }));
 }

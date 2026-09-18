@@ -43,6 +43,7 @@ export interface AttestedRow {
   attestation_id: string;
   decision_id: string;
   item_id: string;
+  title: string;
   actor: string;
   outcome: string;
   recommended: string;
@@ -124,9 +125,11 @@ export async function recentSyntheses(runId: string): Promise<SynthesisRow[]> {
 export async function recentAttestations(runId: string): Promise<AttestedRow[]> {
   const db = await readDb();
   return db.all<AttestedRow>(
-    `SELECT a.attestation_id, a.decision_id, d.item_id, a.actor, a.outcome,
-            d.outcome AS recommended, a.rationale, a.created_at, a.source
+    `SELECT a.attestation_id, a.decision_id, d.item_id, COALESCE(i.title, u.title, d.item_id) AS title,
+            a.actor, a.outcome, d.outcome AS recommended, a.rationale, a.created_at, a.source
      FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id
+     LEFT JOIN items i ON i.item_id = d.ref_id
+     LEFT JOIN use_cases u ON u.use_case_id = d.ref_id
      WHERE a.run_id = ? ORDER BY a.created_at DESC LIMIT 50`,
     [runId],
   );
@@ -197,10 +200,165 @@ export interface OrgRow {
   name: string;
   risk_appetite: string;
   facts: string;
+  seats: string; // json list: speaking order
 }
 
 /** Present for a workspace; absent for a simulated run, whose organisation is a fictional bank. */
 export async function orgProfile(runId: string): Promise<OrgRow | undefined> {
   const db = await readDb();
-  return db.get<OrgRow>("SELECT name, risk_appetite, facts FROM org_profiles WHERE run_id = ?", [runId]);
+  return db.get<OrgRow>("SELECT name, risk_appetite, facts, seats FROM org_profiles WHERE run_id = ?", [runId]);
+}
+
+export interface DecisionRow {
+  decision_id: string;
+  meeting_id: string;
+  meeting_date: string;
+  item_id: string;
+  kind: string;
+  item_kind: string | null;
+  title: string;
+  description: string | null;
+  recommended: string;
+  risk_tier: string | null;
+  submitted_by: string | null;
+  review_total: number;
+  review_signed: number;
+}
+
+/**
+ * Decisions from reviews a person called that nobody has signed yet, with enough about each
+ * matter to decide on it: what it is called, what it is, and how far its review is from taking
+ * effect. A review applies when its last matter is signed, so the page shows "1 of 2 signed".
+ */
+export async function decisionsToSign(runId: string): Promise<DecisionRow[]> {
+  const db = await readDb();
+  return db.all<DecisionRow>(
+    `SELECT d.decision_id, d.meeting_id, m.meeting_date, d.item_id, d.kind, i.kind AS item_kind,
+            COALESCE(i.title, u.title, d.item_id) AS title, COALESCE(i.description, u.description) AS description,
+            d.outcome AS recommended, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, i.submitted_by,
+            (SELECT COUNT(*) FROM decisions d2 WHERE d2.meeting_id = d.meeting_id) AS review_total,
+            (SELECT COUNT(*) FROM decisions d3 JOIN attestations a3 ON a3.decision_id = d3.decision_id
+              WHERE d3.meeting_id = d.meeting_id) AS review_signed
+     FROM decisions d
+     JOIN meetings m ON m.meeting_id = d.meeting_id
+     LEFT JOIN attestations a ON a.decision_id = d.decision_id
+     LEFT JOIN items i ON i.item_id = d.ref_id
+     LEFT JOIN use_cases u ON u.use_case_id = d.ref_id
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened
+     ORDER BY m.meeting_date DESC, d.item_id`,
+    [runId],
+  );
+}
+
+export interface BallotRow {
+  decision_id: string;
+  agent_id: string;
+  seat: string;
+  vote: string;
+  rationale: string | null;
+}
+
+/** Every ballot on the decisions still to be signed, so the page can draw who sat and how they voted. */
+export async function ballotsToSign(runId: string): Promise<BallotRow[]> {
+  const db = await readDb();
+  return db.all<BallotRow>(
+    `SELECT d.decision_id, v.agent_id, ag.seat, v.vote, v.rationale
+     FROM decisions d
+     JOIN meetings m ON m.meeting_id = d.meeting_id
+     LEFT JOIN attestations a ON a.decision_id = d.decision_id
+     JOIN votes v ON v.meeting_id = d.meeting_id AND v.item_id = d.item_id
+     JOIN agents ag ON ag.agent_id = v.agent_id
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened`,
+    [runId],
+  );
+}
+
+export interface WaitingMatter {
+  ref_id: string;
+  source: "item" | "use_case" | "policy_edit" | "status_change";
+  item_kind: string;
+  title: string;
+  risk_tier: string | null;
+  since: string;
+  submitted_by: string | null;
+}
+
+/**
+ * Everything waiting for a review, whether it came through intake or a member raised it.
+ * Read straight from the tables, not from the last ranking, so a matter submitted a minute ago
+ * is on the page even though the worker has not ranked it yet.
+ */
+export async function waitingMatters(runId: string): Promise<WaitingMatter[]> {
+  const db = await readDb();
+  const [items, useCases, edits] = await Promise.all([
+    db.all<WaitingMatter>(
+      `SELECT item_id AS ref_id, 'item' AS source, kind AS item_kind, title, risk_tier, submitted_on AS since, submitted_by
+       FROM items WHERE run_id = ? AND status = 'submitted'`, [runId]),
+    db.all<WaitingMatter>(
+      `SELECT use_case_id AS ref_id, 'use_case' AS source, 'use_case' AS item_kind, title, risk_tier,
+              proposed_month AS since, NULL AS submitted_by
+       FROM use_cases WHERE run_id = ? AND status = 'proposed'`, [runId]),
+    db.all<WaitingMatter>(
+      `SELECT edit_id AS ref_id, 'policy_edit' AS source, 'policy_edit' AS item_kind, section AS title,
+              NULL AS risk_tier, sim_month AS since, NULL AS submitted_by
+       FROM policy_edits WHERE run_id = ? AND status = 'proposed'`, [runId]),
+  ]);
+  return [...items, ...useCases, ...edits];
+}
+
+export interface WorkRow {
+  command_id: string;
+  kind: string;
+  payload: string | null;
+  status: string;
+  result: string | null;
+  created_at: string;
+}
+
+/** What has been asked of the worker and not finished, plus anything that failed in the last day. */
+export async function openWork(runId: string): Promise<WorkRow[]> {
+  const db = await readDb();
+  return db.all<WorkRow>(
+    `SELECT command_id, kind, payload, status, result, created_at FROM commands
+     WHERE run_id = ? AND kind IN ('candidates', 'convene', 'attest', 'submit', 'set_brief')
+       AND (status IN ('pending', 'processing')
+            OR (status = 'failed' AND created_at > ?
+                -- a failed ranking that a later one replaced is no longer news
+                AND NOT (kind = 'candidates' AND EXISTS (
+                  SELECT 1 FROM commands later WHERE later.run_id = commands.run_id AND later.kind = 'candidates'
+                    AND later.status = 'done' AND later.created_at > commands.created_at))))
+     ORDER BY created_at DESC LIMIT 12`,
+    [runId, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()],
+  );
+}
+
+/** How many matters have been settled: signed decisions plus questions that were answered. */
+export async function decidedCount(runId: string): Promise<number> {
+  const db = await readDb();
+  const row = await db.get<{ n: number }>(
+    `SELECT (SELECT COUNT(*) FROM attestations WHERE run_id = ? AND outcome <> 'deferred')
+          + (SELECT COUNT(*) FROM items WHERE run_id = ? AND status = 'advised') AS n`,
+    [runId, runId],
+  );
+  return Number(row?.n ?? 0);
+}
+
+export interface ScopeRow {
+  run_id: string;
+  bank_id: string;
+  condition: string;
+  org_name: string | null;
+  experiment_name: string;
+  started_at: string;
+}
+
+/** Every committee a person could be looking at: organisations first, then simulated runs. */
+export async function reviewScopes(): Promise<ScopeRow[]> {
+  const db = await readDb();
+  return db.all<ScopeRow>(
+    `SELECT r.run_id, r.bank_id, r.condition, o.name AS org_name, e.name AS experiment_name, r.started_at
+     FROM runs r JOIN experiments e ON e.experiment_id = r.experiment_id
+     LEFT JOIN org_profiles o ON o.run_id = r.run_id
+     ORDER BY CASE WHEN r.condition = 'workspace' THEN 0 ELSE 1 END, r.started_at DESC`,
+  );
 }

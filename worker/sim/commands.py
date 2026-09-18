@@ -53,6 +53,11 @@ def process_pending(db: Database, orchestrator: Any, data_dir: Path) -> list[str
     processed = []
     for row in db.fetch_all("SELECT * FROM commands WHERE status = 'pending' ORDER BY created_at"):
         command = dict(row)
+        # Claim it first. Two workers can both see a command as pending; only the one whose
+        # update lands may run it, or a review could be convened twice and paid for twice.
+        if not db.update("commands", {"status": "processing"},
+                         where={"command_id": command["command_id"], "status": "pending"}):
+            continue
         payload = json.loads(command["payload"] or "{}")
         try:
             result = _apply(db, orchestrator, data_dir, command, payload)
@@ -161,8 +166,15 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
     if payload.get("apply"):
         meeting = db.fetch_one("SELECT meeting_id, sim_month, meeting_date FROM meetings WHERE meeting_id = "
                                "(SELECT meeting_id FROM decisions WHERE decision_id = ?)", (payload["decision_id"],))
-        out["applied"] = meeting["meeting_id"]
-        out["problems"] = apply_meeting(orchestrator.context(run_id), meeting["meeting_id"],
-                                        month=meeting["sim_month"],
-                                        meeting_date=date.fromisoformat(meeting["meeting_date"]))
+        # A review takes effect when its last matter is signed. Signing an earlier one is not a
+        # failure, so it is reported as waiting rather than raised: the person did the right thing.
+        from govern.attestation import AttestationRequired
+        try:
+            out["problems"] = apply_meeting(orchestrator.context(run_id), meeting["meeting_id"],
+                                            month=meeting["sim_month"],
+                                            meeting_date=date.fromisoformat(meeting["meeting_date"]))
+            out["applied"] = meeting["meeting_id"]
+        except AttestationRequired as waiting:
+            out["applied"] = None
+            out["waiting_on"] = str(waiting)
     return out

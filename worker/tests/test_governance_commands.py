@@ -147,3 +147,37 @@ def test_a_brief_rewritten_through_the_queue_is_attributed_to_the_dashboard(work
     assert out["status"] == "done"
     row = db.fetch_one("SELECT source FROM interventions WHERE run_id = ? AND kind = 'prompt_edit'", (run_id,))
     assert row["source"] == "dashboard"
+
+
+def test_signing_the_first_of_two_matters_waits_rather_than_fails(workspace):
+    """A review takes effect when its last matter is signed; signing an earlier one is not an error."""
+    db, _, run_id, _ = workspace
+    refs = []
+    for title in ("Notetaker for board meetings", "Translation of member letters"):
+        out = run_command(workspace, "submit", {"kind": "tool", "title": title, "risk_tier": "low",
+                          "description": "A low-risk productivity tool for internal staff use only.",
+                          "submitted_by": "ops@northwind.example"})
+        refs.append(out["result"]["item_id"])
+    held = run_command(workspace, "convene", {"agenda": [
+        {"item_id": r.rsplit("/", 1)[-1], "kind": "item", "title": "AI tool", "ref_id": r} for r in refs]})
+    first, second = [d["decision_id"] for d in held["result"]["recommendations"]]
+    sign = {"actor": "cro@northwind.example", "outcome": "approved", "apply": True,
+            "rationale": "Approved for internal staff use with no member data."}
+
+    one = run_command(workspace, "attest", {**sign, "decision_id": first})
+    assert one["status"] == "done" and one["result"]["applied"] is None
+    assert "no human attestation" in one["result"]["waiting_on"]
+    assert db.fetch_one("SELECT status FROM items WHERE item_id = ?", (refs[0],))["status"] == "recommended"
+
+    two = run_command(workspace, "attest", {**sign, "decision_id": second})
+    assert two["result"]["applied"] == held["result"]["meeting_id"]
+    assert {db.fetch_one("SELECT status FROM items WHERE item_id = ?", (r,))["status"] for r in refs} == {"approved"}
+
+
+def test_a_command_another_worker_claimed_is_left_alone(queued):
+    """Two workers can both see a command as pending. Only one may run it."""
+    db, orch, run_id, data_dir = queued
+    command_id = commands.enqueue(db, kind="candidates", run_id=run_id, reason=REASON, payload={}, source="test")
+    db.update("commands", {"status": "processing"}, where={"command_id": command_id})     # the other worker got there first
+    assert command_id not in commands.process_pending(db, orch, data_dir)
+    assert db.fetch_one("SELECT status FROM commands WHERE command_id = ?", (command_id,))["status"] == "processing"

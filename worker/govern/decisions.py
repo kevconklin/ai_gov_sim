@@ -50,6 +50,18 @@ def tally(votes: Mapping[str, str], chair_agent_id: str) -> Tally:
     return Tally(yes, no, abstain, approved=yes > 0 and votes.get(chair_agent_id) == "yes", tie_broken=yes > 0)
 
 
+def _decision_id(ctx: ReviewContext, meeting_id: str, item_id: str) -> str:
+    """One id per decision, not per matter.
+
+    A matter a person defers comes back and is reviewed again, so it can be decided more than
+    once. The first decision keeps the established id; a later one carries its review's suffix.
+    """
+    plain = ids.scoped(ctx.run_id, "decision", item_id)
+    if ctx.db.fetch_one("SELECT 1 AS taken FROM decisions WHERE decision_id = ?", (plain,)) is None:
+        return plain
+    return ids.scoped(ctx.run_id, "decision", f"{item_id}@{meeting_id.rsplit('/', 1)[-1]}")
+
+
 def record_decisions(ctx: ReviewContext, *, meeting_id: str, month: str, items: Sequence[AgendaItem],
                      chair_agent_id: str) -> list[Decision]:
     decisions = []
@@ -57,7 +69,7 @@ def record_decisions(ctx: ReviewContext, *, meeting_id: str, month: str, items: 
         rows = ctx.db.fetch_all("SELECT agent_id, vote FROM votes WHERE meeting_id = ? AND item_id = ?",
                                 (meeting_id, item.item_id))
         result = tally({r["agent_id"]: r["vote"] for r in rows}, chair_agent_id)
-        decision = Decision(ids.scoped(ctx.run_id, "decision", item.item_id), item, result)
+        decision = Decision(_decision_id(ctx, meeting_id, item.item_id), item, result)
         ctx.db.insert("decisions", {
             "decision_id": decision.decision_id, "run_id": ctx.run_id, "bank_id": ctx.run["bank_id"],
             "meeting_id": meeting_id, "sim_month": month, "item_id": item.item_id, "kind": item.kind,

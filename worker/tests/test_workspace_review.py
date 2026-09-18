@@ -203,3 +203,53 @@ def test_a_deferred_item_comes_back_as_a_candidate(product):
     apply_meeting(service.context(run_id), result.meeting_id, month="2026-11", meeting_date=date(2026, 11, 3))
     back = [c for c in candidates(db, run_id, load_agenda_priority(CONFIG), today=date(2026, 11, 4)) if c.ref_id == item]
     assert back and back[0].deferral_count == 1 and "deferred 1x" in back[0].reasons
+
+
+# ---- a matter can be reviewed more than once ------------------------------
+
+
+def test_a_deferred_matter_can_be_reviewed_and_signed_again(product):
+    """Deferral is a core path: the second review of a matter must not collide with the first."""
+    db, service, run_id = product
+    item = submit_item(db, run_id, kind="tool", title="Slide drafting assistant", risk_tier="low",
+                       submitted_by="ops@northwind.example", today=TODAY,
+                       description="Drafts internal presentation slides from meeting notes for staff.")
+    agenda = [AgendaItem("IT-X", "item", "AI tool", item)]
+    first = service.convene(run_id, agenda, on=date(2026, 11, 10))
+    record_attestation(db, run_id, decision_id=first.decisions[0].decision_id, actor="cro@northwind.example",
+                       outcome="deferred", rationale="Deferred until the vendor answers the retention question.",
+                       config=load_attestation(CONFIG))
+    apply_meeting(service.context(run_id), first.meeting_id, month="2026-11", meeting_date=date(2026, 11, 10))
+
+    second = service.convene(run_id, agenda, on=date(2026, 11, 24))
+    assert second.decisions[0].decision_id != first.decisions[0].decision_id
+    record_attestation(db, run_id, decision_id=second.decisions[0].decision_id, actor="cro@northwind.example",
+                       outcome="approved", rationale="Approved now that retention is ruled out in the contract.",
+                       config=load_attestation(CONFIG))
+    apply_meeting(service.context(run_id), second.meeting_id, month="2026-11", meeting_date=date(2026, 11, 24))
+    assert get_item(db, item)["status"] == "approved"
+
+
+def test_an_agenda_with_nothing_still_waiting_is_refused(product):
+    db, service, run_id = product
+    gone = AgendaItem("IT-X", "item", "AI tool", f"{run_id}/item/IT-999")
+    before = db.fetch_one("SELECT COUNT(*) AS n FROM meetings WHERE run_id = ?", (run_id,))["n"]
+    with pytest.raises(ValueError, match="still waiting"):
+        service.convene(run_id, [gone], on=date(2026, 12, 1))
+    assert db.fetch_one("SELECT COUNT(*) AS n FROM meetings WHERE run_id = ?", (run_id,))["n"] == before
+
+
+def test_a_review_that_died_gives_its_matters_back(product):
+    """Otherwise they are hidden from the queue for good: nobody can convene them or sign them."""
+    from govern.service import recover_interrupted_reviews
+    db, service, run_id = product
+    item = submit_item(db, run_id, kind="tool", title="Inbox triage assistant", risk_tier="low",
+                       submitted_by="ops@northwind.example", today=TODAY,
+                       description="Sorts the shared member-services inbox into queues for staff.")
+    db.insert("meetings", {"meeting_id": f"{run_id}/meeting/2026-12-9", "run_id": run_id, "bank_id": "x",
+                           "sim_month": "2026-12", "meeting_date": "2026-12-02", "agenda": [], "status": "open",
+                           "convened": True})
+    db.update("items", {"status": "in_review"}, where={"item_id": item})
+    assert recover_interrupted_reviews(db, run_id) == [f"{run_id}/meeting/2026-12-9"]
+    assert get_item(db, item)["status"] == "submitted"
+    assert db.fetch_one("SELECT status FROM meetings WHERE meeting_id = ?", (f"{run_id}/meeting/2026-12-9",))["status"] == "failed"
