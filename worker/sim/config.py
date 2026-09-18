@@ -185,3 +185,31 @@ def _load_attestation(data: Mapping[str, Any]) -> AttestationConfig:
 
 def load_attestation(config_dir: Path) -> AttestationConfig:
     return _load_attestation(_read_yaml(Path(config_dir) / "attestation.yaml"))
+
+
+@dataclass(frozen=True)
+class AdvisoryConfig:
+    """Advisory items, which take no vote (config/advisory.yaml)."""
+
+    split_at: int
+    stance_min: int
+    stance_max: int
+    for_at_least: int
+    against_at_most: int
+
+
+def _load_advisory(data: Mapping[str, Any]) -> AdvisoryConfig:
+    source = "advisory.yaml"
+    values = {k: int(_require(data, k, source))
+              for k in ("split_at", "stance_min", "stance_max", "for_at_least", "against_at_most")}
+    if values["stance_min"] >= values["stance_max"]:
+        raise ConfigError(f"{source} stance_min must be below stance_max")
+    if values["split_at"] < 1:
+        raise ConfigError(f"{source} split_at must be at least 1; every committee has some spread")
+    if not values["stance_min"] <= values["against_at_most"] < values["for_at_least"] <= values["stance_max"]:
+        raise ConfigError(f"{source} against_at_most must sit below for_at_least, both inside the stance scale")
+    return AdvisoryConfig(**values)
+
+
+def load_advisory(config_dir: Path) -> AdvisoryConfig:
+    return _load_advisory(_read_yaml(Path(config_dir) / "advisory.yaml"))
