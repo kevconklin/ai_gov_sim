@@ -18,7 +18,7 @@ from govern.db import Database, utc_now_iso
 from sim.engine.resolve import load_state, run_engine_month, write_report
 from govern.llm import LLMClient, StopRequested
 from govern.locks import run_lock
-from govern.meeting import Meeting, MeetingResult
+from sim.meeting import Meeting, MeetingResult
 from govern.packet import AgendaItem
 from sim.metrics import compute_month
 from sim.world import World

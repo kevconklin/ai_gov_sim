@@ -11,7 +11,7 @@ from govern.agents.memory import latest_memory
 from govern.calendar import long_date
 from govern.context import Agent, ReviewContext
 from govern.llm import LLMRequest
-from govern.tools import TOOLS, ToolSession, execute
+from govern.tools import ToolSession, execute, tools_for
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def run_turn(ctx: ReviewContext, session: ToolSession, *, instruction: str, pack
         result = ctx.llm.call(LLMRequest(
             role="committee", purpose=purpose, run_id=ctx.run_id, agent_id=agent.agent_id, sim_month=session.month,
             system_fixed=(fixed_block(ctx, agent),), system_dynamic=(notes, packet),
-            messages=tuple(messages), tools=TOOLS if tools_enabled else (), max_tokens=max_tokens,
+            messages=tuple(messages), tools=tools_for(ctx.org.disclosed) if tools_enabled else (), max_tokens=max_tokens,
             tool_choice={"type": "tool", "name": required_tool} if forced else None,
         ))
         if result.text.strip():

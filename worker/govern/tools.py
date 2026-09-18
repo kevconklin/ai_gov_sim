@@ -17,6 +17,18 @@ from govern.context import Agent, ReviewContext, display_id, next_display_id
 from govern.policy import read_section
 
 TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("committee/tools.yaml"))
+# A real organisation has no curated news feed or simulated inbox, and is not necessarily a bank.
+# Same definitions, minus the feeds, with the one bank-specific phrase generalised.
+_FEEDS = frozenset({"read_news", "read_inbox"})
+REVIEW_TOOLS: tuple[Mapping[str, Any], ...] = tuple(
+    {**tool, "description": str(tool["description"]).replace("the bank's", "the organisation's")}
+    for tool in TOOLS if tool["name"] not in _FEEDS)
+
+
+def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
+    return REVIEW_TOOLS if disclosed else TOOLS
+
+
 READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox"})
 PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_status_change"})
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {

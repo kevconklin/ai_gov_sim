@@ -25,6 +25,7 @@ from govern.config import AttestationConfig
 from govern.context import ReviewContext
 from govern.db import Database, utc_now_iso
 from govern.decisions import Decision, apply_decisions, decisions_for_meeting
+from govern.intake import OPEN, mark_items
 
 DEFERRED = "deferred"
 TABLED = "tabled"
@@ -86,7 +87,9 @@ def dissents(db: Database, decision: Decision) -> tuple[Dissent, ...]:
 
 
 def _risk_tier(db: Database, row: Mapping[str, Any]) -> str | None:
-    if row["kind"] == "use_case":
+    if row["kind"] == "item":
+        found = db.fetch_one("SELECT risk_tier FROM items WHERE item_id = ?", (row["ref_id"],))
+    elif row["kind"] == "use_case":
         found = db.fetch_one("SELECT risk_tier FROM use_cases WHERE use_case_id = ?", (row["ref_id"],))
     elif row["kind"] == "status_change":
         found = db.fetch_one(
@@ -162,6 +165,7 @@ def apply_attested(ctx: ReviewContext, decisions: Sequence[Decision], *, month: 
             record_deferral(ctx.db, ctx.run_id, ref_id=decision.item.ref_id,
                             meeting_id=_decision_row(ctx.db, decision.decision_id)["meeting_id"],
                             sim_month=month, reason=TABLED)
+            mark_items(ctx.db, [decision.item.ref_id], OPEN)      # tabled, so it is a candidate again
             continue
         applying.append(replace(decision, attested_outcome=attested.outcome))
     return apply_decisions(ctx, applying, month=month, meeting_date=meeting_date)

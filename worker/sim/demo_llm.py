@@ -159,7 +159,7 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
             return [_tool("propose_policy_edit", {"section": section, "text": text,
                                                   "rationale": "We need clear, written requirements before we scale."}, key)]
         return [{"type": "text", "text": "Nothing to add to the agenda this month."}]
-    items = re.findall(r"- ((?:UC|PE|SC|ADV)-\d{3}):", instruction)
+    items = re.findall(r"- ((?:UC|PE|SC|ADV|IT)-\d{3}):", instruction)
     if "confidential position" in instruction:
         return [_tool("submit_position", {"item_id": i, "support": 1 + _h(key, i) % 5, "summary": REMARKS[_h(key, i) % len(REMARKS)],
                                           "concerns": ["delivery capacity"], "conditions": ["quarterly reporting"]}, (key, i))
@@ -192,7 +192,7 @@ COMMITTEE_FORCED = {"cast_vote", "submit_position", "submit_perspective", "recor
 
 def _forced_committee(params: Mapping[str, Any], name: str) -> list[dict[str, Any]]:
     instruction = params["messages"][0]["content"]
-    items = re.findall(r"- ((?:UC|PE|SC|ADV)-\d{3}):", instruction)
+    items = re.findall(r"- ((?:UC|PE|SC|ADV|IT)-\d{3}):", instruction)
     done = {b["input"].get("item_id") for m in params["messages"] if m["role"] == "assistant" and isinstance(m["content"], list)
             for b in m["content"] if b.get("type") == "tool_use" and b.get("name") == name}
     remaining = [i for i in items if i not in done] or items[:1]

@@ -1,4 +1,14 @@
-"""One monthly committee meeting (SPEC 5 steps 3-7, 9)."""
+"""A review: a committee of targeted advisers considers an agenda a person set, and recommends.
+
+This is the product. A person convenes it and chooses what it takes. Members record sealed
+positions on items for decision and sealed perspectives on advisory ones, debate, and vote by
+secret ballot. What comes out is a recommendation with its dissent, and a synthesis for anything
+advisory. Nothing is applied here: `govern.attestation` is where a named person makes it real.
+
+The simulation's monthly meeting is a subclass (`sim.meeting.Meeting`) that adds what only a
+simulation needs: members proposing their own agenda, standing items, and outcomes that apply
+with no person in the loop.
+"""
 
 from __future__ import annotations
 
@@ -11,28 +21,42 @@ from govern import ids, prompts
 from govern.advisory import perspectives_for, synthesize
 from govern.agents.memory import save_memory
 from govern.agents.runner import run_turn
-from govern.calendar import long_date, meeting_date as meeting_date_for
+from govern.calendar import long_date
 from govern.context import Agent, ReviewContext, display_id
-from govern.decisions import Decision, apply_decisions, minutes_text, record_decisions, results_text
+from govern.decisions import Decision, minutes_text, record_decisions, results_text
+from govern.intake import KIND_LABELS, mark_items
 from govern.packet import AgendaItem, agenda_text, build_packet
 from govern.tools import ToolSession
 
 log = logging.getLogger(__name__)
 
-STANDING_ITEMS = (
-    AgendaItem("A-1", "discussion", "Board direction, correspondence, and last month's AI portfolio report"),
-    AgendaItem("A-2", "discussion", "AI strategy, pipeline, and policy"),
-)
-
-
-DECISION_KINDS = frozenset({"use_case", "policy_edit", "status_change"})
+DECISION_KINDS = frozenset({"use_case", "policy_edit", "status_change", "item"})
 ADVISORY = "advisory"
 
 
 def next_meeting_id(db, run_id: str, month: str) -> str:
-    """Keep the established id for a month's first meeting; number the rest, so a human can convene again."""
+    """Keep the established id for a month's first meeting; number the rest, so a person can convene again."""
     held = db.fetch_one("SELECT COUNT(*) AS n FROM meetings WHERE run_id = ? AND sim_month = ?", (run_id, month))["n"]
     return ids.scoped(run_id, "meeting", month) if not held else ids.scoped(run_id, "meeting", month, held + 1)
+
+
+def open_items(db, run_id: str) -> list[AgendaItem]:
+    """Everything undecided, as agenda items: what came through intake, and what members proposed."""
+    items = [AgendaItem(display_id(r["item_id"]), ADVISORY if r["kind"] == "question" else "item",
+                        r["title"] if r["kind"] == "question" else f"{KIND_LABELS[r['kind']]}: {r['title']}", r["item_id"])
+             for r in db.fetch_all("SELECT item_id, kind, title FROM items WHERE run_id = ? AND status = 'submitted' "
+                                   "ORDER BY item_id", (run_id,))]
+    items += [AgendaItem(display_id(r["use_case_id"]), "use_case", f"New AI initiative: {r['title']}", r["use_case_id"])
+              for r in db.fetch_all("SELECT use_case_id, title FROM use_cases WHERE run_id = ? AND status = 'proposed' "
+                                    "ORDER BY use_case_id", (run_id,))]
+    items += [AgendaItem(display_id(r["edit_id"]), "policy_edit", f"Policy language: {r['section']}", r["edit_id"])
+              for r in db.fetch_all("SELECT edit_id, section FROM policy_edits WHERE run_id = ? AND status = 'proposed' "
+                                    "ORDER BY edit_id", (run_id,))]
+    items += [AgendaItem(display_id(r["change_id"]), "status_change",
+                         f"Change {display_id(r['use_case_id'])} to {r['new_status']}", r["change_id"])
+              for r in db.fetch_all("SELECT change_id, use_case_id, new_status FROM status_changes WHERE run_id = ? "
+                                    "AND status = 'proposed' ORDER BY change_id", (run_id,))]
+    return items
 
 
 @dataclass(frozen=True)
@@ -43,16 +67,22 @@ class MeetingResult:
     minutes_text: str
 
 
-class Meeting:
-    def __init__(self, ctx: ReviewContext, month: str, *, agenda: Sequence[AgendaItem] | None = None) -> None:
+class Review:
+    convened = True          # a person set this agenda, so nothing applies without an attestation
+
+    def __init__(self, ctx: ReviewContext, agenda: Sequence[AgendaItem], *, on: date, month: str | None = None,
+                 members: Sequence[Agent] | None = None) -> None:
         self.ctx = ctx
-        self.month = month
-        self.date = meeting_date_for(month)
-        self.given = tuple(agenda) if agenda is not None else None
-        self.meeting_id = next_meeting_id(ctx.db, ctx.run_id, month)
+        self.given = tuple(agenda)
+        self.date = on
+        self.month = month or on.isoformat()[:7]
+        self.meeting_id = next_meeting_id(ctx.db, ctx.run_id, self.month)
         self._slug = self.meeting_id.rsplit("/", 1)[-1]   # "2027-01" or "2027-01-2": keeps msg ids unique
-        self.members = ctx.active_agents()
         self.chair = ctx.chair()
+        # A panel is a subset of the committee chosen for this agenda. The chair always sits: it
+        # opens and closes discussion, breaks ties, and writes the minutes.
+        seated = list(members) if members is not None else ctx.active_agents()
+        self.members = seated if any(a.agent_id == self.chair.agent_id for a in seated) else [self.chair, *seated]
         self._seq = 0
 
     # ---- helpers --------------------------------------------------------
@@ -75,54 +105,33 @@ class Meeting:
         })
 
     def _pending_items(self) -> list[AgendaItem]:
-        db, run_id = self.ctx.db, self.ctx.run_id
-        items = [AgendaItem(display_id(r["use_case_id"]), "use_case", f"New AI initiative: {r['title']}", r["use_case_id"])
-                 for r in db.fetch_all("SELECT use_case_id, title FROM use_cases WHERE run_id = ? AND status = 'proposed' "
-                                       "ORDER BY use_case_id", (run_id,))]
-        items += [AgendaItem(display_id(r["edit_id"]), "policy_edit", f"Policy language: {r['section']}", r["edit_id"])
-                  for r in db.fetch_all("SELECT edit_id, section FROM policy_edits WHERE run_id = ? AND status = 'proposed' "
-                                        "ORDER BY edit_id", (run_id,))]
-        items += [AgendaItem(display_id(r["change_id"]), "status_change",
-                             f"Change {display_id(r['use_case_id'])} to {r['new_status']}", r["change_id"])
-                  for r in db.fetch_all("SELECT change_id, use_case_id, new_status FROM status_changes WHERE run_id = ? "
-                                        "AND status = 'proposed' ORDER BY change_id", (run_id,))]
-        return items
+        return open_items(self.ctx.db, self.ctx.run_id)
 
-    @property
-    def convened(self) -> bool:
-        """True when a human set the agenda, which also means nothing applies without an attestation."""
-        return self.given is not None
+    # ---- what this review takes ------------------------------------------
 
-    def _decision_items(self) -> list[AgendaItem]:
-        if self.given is None:
-            return self._pending_items()
+    def decision_items(self) -> list[AgendaItem]:
+        """The given items still open, in the order given. One decided since the agenda was built drops out."""
         open_now = {i.ref_id: i for i in self._pending_items()}
         return [open_now[i.ref_id] for i in self.given if i.kind in DECISION_KINDS and i.ref_id in open_now]
 
-    def _advisory_items(self) -> list[AgendaItem]:
-        return [i for i in (self.given or ()) if i.kind == ADVISORY]
+    def advisory_items(self) -> list[AgendaItem]:
+        return [i for i in self.given if i.kind == ADVISORY]
+
+    def full_agenda(self, decision_items: Sequence[AgendaItem]) -> list[AgendaItem]:
+        return [*decision_items, *self.advisory_items()]
 
     def agenda(self) -> list[AgendaItem]:
-        """What the meeting will take. A human-set agenda is used as given; otherwise it is derived."""
-        if self.given is None:
-            return [*STANDING_ITEMS, *self._pending_items()]
-        return [*self._decision_items(), *self._advisory_items()]
+        return self.full_agenda(self.decision_items())
 
-    def _agenda(self, decision_items: Sequence[AgendaItem]) -> list[AgendaItem]:
-        if self.given is None:
-            return [*STANDING_ITEMS, *decision_items]
-        return [*decision_items, *self._advisory_items()]
+    def prepare(self) -> None:
+        """Before positions. A person set this agenda, so it is not open to additions."""
+
+    def conclude(self, decisions: Sequence[Decision]) -> None:
+        """After the ballot. A review recommends; `govern.attestation.apply_attested` is what applies."""
+        log.info("%s recorded %d recommendation(s); nothing applies until a person attests",
+                 self.meeting_id, len(decisions))
 
     # ---- phases ---------------------------------------------------------
-
-    def _circulate(self) -> None:
-        packet = build_packet(self.ctx, month=self.month, meeting_date=self.date, agenda=self._agenda([]))
-        instruction = prompts.render("committee/phase_circulate.md", date=long_date(self.date))
-        for agent in self.members:
-            turn = run_turn(self.ctx, self._session(agent, "circulate"), instruction=instruction, packet=packet,
-                            purpose="committee_circulate", max_tokens=self._tokens("circulate"))
-            if turn.text:
-                self._message(agent, "circulate", turn.text)
 
     def _scaled_tokens(self, name: str, items: int) -> int:
         return self._tokens(name) + items * self._tokens(f"{name}_per_item")
@@ -182,7 +191,7 @@ class Meeting:
         others = [a for a in self.members if a.agent_id != self.chair.agent_id][: max(0, max_speakers - 1)]
 
         def speak(agent: Agent, cue: str, round_no: int) -> bool:
-            agenda = agenda_text(self._agenda(self._decision_items()))
+            agenda = agenda_text(self.full_agenda(self.decision_items()))
             instruction = prompts.render("committee/phase_debate.md", date=long_date(self.date), agenda=agenda,
                                          transcript="\n\n".join(transcript) or "(The meeting has just opened.)", cue=cue)
             session = self._session(agent, "debate")
@@ -259,35 +268,36 @@ class Meeting:
                                         "bank_id": self.ctx.run["bank_id"], "sim_month": self.month,
                                         "meeting_date": self.date.isoformat(), "agenda": [], "status": "open",
                                         "convened": self.convened})
-        if not self.convened:
-            self._circulate()                   # a human-set agenda is not open to additions
-        circulated, advisory = self._decision_items(), self._advisory_items()
-        packet = build_packet(self.ctx, month=self.month, meeting_date=self.date, agenda=self._agenda(circulated))
+        self.prepare()
+        circulated, advisory = self.decision_items(), self.advisory_items()
+        mark_items(self.ctx.db, [i.ref_id for i in (*circulated, *advisory)], "in_review")
+        packet = build_packet(self.ctx, month=self.month, meeting_date=self.date, agenda=self.full_agenda(circulated))
         if circulated:
             self._positions(circulated, packet)
         if advisory:
             self._perspectives(advisory, packet)
         self._debate(packet)
-        to_decide = self._decision_items()
-        self.ctx.db.update("meetings", {"agenda": [i.to_json() for i in self._agenda(to_decide)]},
+        to_decide = [i for i in self.decision_items_after_debate(circulated)]
+        self.ctx.db.update("meetings", {"agenda": [i.to_json() for i in self.full_agenda(to_decide)]},
                            where={"meeting_id": self.meeting_id})
-        final_packet = build_packet(self.ctx, month=self.month, meeting_date=self.date, agenda=self._agenda(to_decide))
+        final_packet = build_packet(self.ctx, month=self.month, meeting_date=self.date,
+                                    agenda=self.full_agenda(to_decide))
         if to_decide:
             self._vote(to_decide, final_packet)
         decisions = record_decisions(self.ctx, meeting_id=self.meeting_id, month=self.month, items=to_decide,
                                      chair_agent_id=self.chair.agent_id)
-        if self.convened:
-            log.info("%s recorded %d recommendation(s); nothing applies until a human attests",
-                     self.meeting_id, len(decisions))
-        else:
-            problems = apply_decisions(self.ctx, decisions, month=self.month, meeting_date=self.date)
-            if problems:
-                log.warning("policy edits not applied: %s", problems)
+        mark_items(self.ctx.db, [d.item.ref_id for d in decisions], "recommended")
+        self.conclude(decisions)
         for item in advisory:
             if perspectives_for(self.ctx.db, self.meeting_id, item.item_id):
                 synthesize(self.ctx, meeting_id=self.meeting_id, item_id=item.item_id,
                            config=self.ctx.config.advisory)
+                mark_items(self.ctx.db, [item.ref_id], "advised", decided_on=self.date)
         text = self._minutes(decisions, final_packet)
         self._memories(decisions, final_packet)
         self.ctx.db.update("meetings", {"status": "closed"}, where={"meeting_id": self.meeting_id})
         return MeetingResult(self.meeting_id, self.date, tuple(decisions), text)
+
+    def decision_items_after_debate(self, before: Sequence[AgendaItem]) -> list[AgendaItem]:
+        """What goes to the ballot. For a review, exactly what was given: items raised in debate wait."""
+        return list(before)

@@ -1,0 +1,17 @@
+# Which seats review which kind of item. Not every matter needs the whole committee, and every
+# seat convened is paid for in model calls. The chair always sits.
+#
+# PLACEHOLDER composition. Revisit against the organisation's own committee charter, and record
+# the basis here before relying on it. A workspace can override any rule (panel_rules table).
+
+# At these tiers the whole committee sits regardless of kind.
+full_committee_tiers: [high]
+
+rules:
+  use_case: all
+  question: all
+  vendor: [security, legal, risk, finance]
+  tool: [technology, security, risk]
+  policy_change: [legal, risk, security, technology]
+  exception: [legal, risk, security]
+  incident: [security, legal, risk, technology, customer]

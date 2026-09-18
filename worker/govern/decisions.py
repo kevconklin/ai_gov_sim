@@ -96,6 +96,9 @@ def apply_decisions(ctx: ReviewContext, decisions: Sequence[Decision], *, month:
     for d in decisions:
         if d.item.kind == "use_case":
             set_use_case_status(ctx, d.item.ref_id, month, d.outcome, source="committee", decision_id=d.decision_id)
+        elif d.item.kind == "item":
+            from govern.intake import mark_items
+            mark_items(ctx.db, [d.item.ref_id], d.outcome, decided_on=meeting_date)
         elif d.item.kind == "policy_edit":
             edit = ctx.db.fetch_one("SELECT section, text FROM policy_edits WHERE edit_id = ?", (d.item.ref_id,))
             status = d.outcome

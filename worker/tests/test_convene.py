@@ -10,7 +10,7 @@ from govern.config import load_config
 from govern.db import Database
 from sim.demo_llm import DemoAnthropic
 from govern.llm import LLMClient
-from govern.meeting import STANDING_ITEMS, Meeting, next_meeting_id
+from sim.meeting import STANDING_ITEMS, Meeting, next_meeting_id
 from sim.orchestrator import Orchestrator
 from govern.packet import AgendaItem
 from sim.setup import create_experiment
