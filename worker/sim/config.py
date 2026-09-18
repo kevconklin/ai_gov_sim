@@ -112,3 +112,49 @@ def load_config(config_dir: Path) -> Config:
         models=_load_models(_read_yaml(config_dir / "models.yaml")),
         budget=_load_budget(_read_yaml(config_dir / "budget.yaml")),
     )
+
+
+@dataclass(frozen=True)
+class AgendaPriorityConfig:
+    """Ranking for the candidate list a human picks an agenda from (config/agenda_priority.yaml)."""
+
+    escalate_after: int
+    count: str
+    counts_as_deferral: tuple[str, ...]
+    escalation: str
+    age_days_full_at: int
+    risk_tier_factors: Mapping[str, float]
+    weights: Mapping[str, int]
+
+
+WEIGHT_KEYS = ("age_days", "risk_tier", "control_gap", "blocking", "deferral")
+
+
+def _load_agenda_priority(data: Mapping[str, Any]) -> AgendaPriorityConfig:
+    source = "agenda_priority.yaml"
+    deferral = _require(data, "deferral", source)
+    weights = {k: int(v) for k, v in _require(data, "weights", source).items()}
+    missing = sorted(set(WEIGHT_KEYS) - set(weights))
+    if missing:
+        raise ConfigError(f"{source} is missing weights: {', '.join(missing)}")
+    if sum(weights.values()) != 100:
+        raise ConfigError(f"{source} weights must sum to 100, got {sum(weights.values())}")
+    escalate_after = int(_require(deferral, "escalate_after", f"{source} deferral"))
+    if escalate_after < 1:
+        raise ConfigError(f"{source} deferral.escalate_after must be at least 1")
+    if deferral.get("count") not in ("cumulative", "consecutive"):
+        raise ConfigError(f"{source} deferral.count must be 'cumulative' or 'consecutive'")
+    return AgendaPriorityConfig(
+        escalate_after=escalate_after,
+        count=deferral["count"],
+        counts_as_deferral=tuple(_require(deferral, "counts_as_deferral", f"{source} deferral")),
+        escalation=str(_require(deferral, "escalation", f"{source} deferral")),
+        age_days_full_at=int(_require(data, "age_days_full_at", source)),
+        risk_tier_factors=MappingProxyType({k: float(v) for k, v in _require(data, "risk_tier_factors", source).items()}),
+        weights=MappingProxyType(weights),
+    )
+
+
+def load_agenda_priority(config_dir: Path) -> AgendaPriorityConfig:
+    return _load_agenda_priority(_read_yaml(Path(config_dir) / "agenda_priority.yaml"))
+

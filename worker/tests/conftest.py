@@ -38,3 +38,14 @@ def run_id(db):
 def world():
     from sim.world import load_world
     return load_world(REPO_ROOT / "config")
+
+
+@pytest.fixture
+def agenda_yaml():
+    return (REPO_ROOT / "config" / "agenda_priority.yaml").read_text()
+
+
+@pytest.fixture
+def agenda_config():
+    from sim.config import load_agenda_priority
+    return load_agenda_priority(REPO_ROOT / "config")
