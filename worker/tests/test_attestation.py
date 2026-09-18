@@ -257,3 +257,9 @@ def test_an_unstated_source_is_recorded_as_unknown_not_assumed_verified(ctx, att
     decision = make_decision(ctx)
     attest(ctx, decision, attest_config)
     assert attestation_for(ctx.db, decision.decision_id).source == "unknown"
+
+
+def test_a_deferral_is_not_an_override(ctx, attest_config):
+    """Declining to decide is a different signal from overruling, and is counted as a deferral instead."""
+    decision = make_decision(ctx, approved=True)
+    assert attest(ctx, decision, attest_config, outcome="deferred").overrides(decision) is False

@@ -154,3 +154,53 @@ export async function latestCandidates(runId: string): Promise<{ at: string; res
     return { at: row.processed_at ?? row.created_at, result: null };
   }
 }
+
+export interface ItemRow {
+  item_id: string;
+  kind: string;
+  title: string;
+  description: string;
+  risk_tier: string | null;
+  status: string;
+  submitted_by: string;
+  submitted_on: string;
+  decided_on: string | null;
+}
+
+/** Everything that has come through intake, newest first. */
+export async function intakeItems(runId: string): Promise<ItemRow[]> {
+  const db = await readDb();
+  return db.all<ItemRow>(
+    `SELECT item_id, kind, title, description, risk_tier, status, submitted_by, submitted_on, decided_on
+     FROM items WHERE run_id = ? ORDER BY submitted_on DESC, item_id DESC LIMIT 200`,
+    [runId],
+  );
+}
+
+export interface SeatRow {
+  seat: string;
+  name: string;
+  title: string;
+  persona_text: string | null;
+}
+
+/** The committee as it sits now. A null brief means the member is briefed from a persona file (the simulation). */
+export async function committeeSeats(runId: string): Promise<SeatRow[]> {
+  const db = await readDb();
+  return db.all<SeatRow>(
+    `SELECT seat, name, title, persona_text FROM agents WHERE run_id = ? AND active_to IS NULL ORDER BY seat`,
+    [runId],
+  );
+}
+
+export interface OrgRow {
+  name: string;
+  risk_appetite: string;
+  facts: string;
+}
+
+/** Present for a workspace; absent for a simulated run, whose organisation is a fictional bank. */
+export async function orgProfile(runId: string): Promise<OrgRow | undefined> {
+  const db = await readDb();
+  return db.get<OrgRow>("SELECT name, risk_appetite, facts FROM org_profiles WHERE run_id = ?", [runId]);
+}

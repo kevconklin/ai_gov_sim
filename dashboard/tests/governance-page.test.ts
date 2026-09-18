@@ -117,3 +117,38 @@ describe("binding an attestation to the session", () => {
     expect(bindActor(input, null)).toEqual(input);
   });
 });
+
+describe("intake and briefs", () => {
+  const base = { run_id: "run1", reason: "kevin@bank.example: submitting a vendor for review" };
+
+  it("accepts a submission of every kind the committee can take", () => {
+    for (const kind of ["use_case", "tool", "vendor", "policy_change", "exception", "incident", "question"]) {
+      const parsed = commandSchema.safeParse({
+        ...base,
+        kind: "submit",
+        payload: { kind, title: "Lumen transcript analytics", description: "Scores call transcripts for complaint risk.", submitted_by: "k" },
+      });
+      expect(parsed.success, kind).toBe(true);
+    }
+  });
+
+  it("refuses a submission a committee could not act on", () => {
+    const parsed = commandSchema.safeParse({
+      ...base, kind: "submit", payload: { kind: "vendor", title: "Lumen", description: "short", submitted_by: "k" },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts an intake item on a convened agenda", () => {
+    const parsed = commandSchema.safeParse({
+      ...base, kind: "convene",
+      payload: { agenda: [{ item_id: "IT-001", kind: "item", title: "AI vendor: Lumen", ref_id: "run1/item/IT-001" }] },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("refuses a brief too thin to argue from", () => {
+    const parsed = commandSchema.safeParse({ ...base, kind: "set_brief", payload: { seat: "risk", brief: "Be careful." } });
+    expect(parsed.success).toBe(false);
+  });
+});

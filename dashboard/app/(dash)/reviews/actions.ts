@@ -16,7 +16,7 @@ function fieldsOf(formData: FormData): Record<string, string> {
 }
 
 function done(result: ControlResult): ControlResult {
-  if (result.success) revalidatePath("/governance");
+  if (result.success) revalidatePath("/reviews");
   return result;
 }
 
@@ -86,5 +86,37 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
       ...(respondedTo.length ? { responded_to: respondedTo } : {}),
       ...(f.apply === "on" ? { apply: true } : {}),
     },
+  }));
+}
+
+/** Put a matter in front of the committee. It becomes a ranked candidate; a person decides when it is heard. */
+export async function submitItemAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return done(await submitCommand({
+    kind: "submit",
+    run_id: f.run_id ?? "",
+    reason: `${operator}: submitting "${(f.title ?? "").slice(0, 80)}" for review`,
+    payload: {
+      kind: f.kind ?? "",
+      title: f.title ?? "",
+      description: f.description ?? "",
+      submitted_by: operator,
+      ...(f.risk_tier ? { risk_tier: f.risk_tier } : {}),
+    },
+  }));
+}
+
+/** Rewrite one member's brief. The worker logs it as an intervention, because it changes how the member argues. */
+export async function setBriefAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return done(await submitCommand({
+    kind: "set_brief",
+    run_id: f.run_id ?? "",
+    reason: `${operator}: ${f.reason ?? ""}`,
+    payload: { seat: f.seat ?? "", brief: f.brief ?? "" },
   }));
 }

@@ -13,6 +13,8 @@ export const COMMAND_KINDS = [
   "candidates",
   "convene",
   "attest",
+  "submit",
+  "set_brief",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -36,10 +38,12 @@ export const injectEventSchema = z
 
 const empty = z.object({}).strict();
 
+export const ITEM_KINDS = ["use_case", "tool", "vendor", "policy_change", "exception", "incident", "question"] as const;
+
 export const agendaItemSchema = z
   .object({
     item_id: z.string().trim().min(1).max(60),
-    kind: z.enum(["use_case", "policy_edit", "status_change", "advisory"]),
+    kind: z.enum(["use_case", "policy_edit", "status_change", "advisory", "item"]),
     title: z.string().trim().min(1).max(400),
     ref_id: z.string().trim().min(1).max(400).optional(),
   })
@@ -125,6 +129,35 @@ export const commandSchema = z.discriminatedUnion("kind", [
           // How the actor's identity was established, for the ledger. The dashboard sets this
           // from the signed session; the CLI records that it was merely asserted.
           source: z.enum(["dashboard_session", "cli_asserted", "unknown"]).optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("submit"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          kind: z.enum(ITEM_KINDS),
+          title: z.string().trim().min(3).max(200),
+          description: z.string().trim().min(10, "Say enough for a committee to act on.").max(4000),
+          submitted_by: z.string().trim().min(1).max(200),
+          risk_tier: z.enum(["low", "medium", "high"]).optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("set_brief"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          seat: z.string().trim().min(1).max(60),
+          brief: z.string().trim().min(40, "A brief needs enough to argue from.").max(4000),
         })
         .strict(),
     })

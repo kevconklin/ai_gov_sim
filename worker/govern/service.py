@@ -43,7 +43,8 @@ class ReviewService:
             matters.append((item["kind"], item["risk_tier"]))
         return panel_for(self.db, ctx.run_id, matters, org=ctx.org, rules=self.panel_rules)
 
-    def convene(self, run_id: str, agenda: Sequence[AgendaItem], *, on: date | None = None) -> MeetingResult:
+    def convene(self, run_id: str, agenda: Sequence[AgendaItem], *, on: date | None = None,
+                month: str | None = None) -> MeetingResult:
         """Hold a review a person called, on the agenda they set. Nothing it recommends applies here."""
         if not agenda:
             raise ValueError("a review needs an agenda")
@@ -51,4 +52,4 @@ class ReviewService:
             ctx = self.context(run_id)
             seats = set(self.panel(ctx, agenda))
             members = [a for a in ctx.active_agents() if a.seat in seats]
-            return Review(ctx, agenda, on=on or date.today(), members=members).hold()
+            return Review(ctx, agenda, on=on or date.today(), month=month, members=members).hold()

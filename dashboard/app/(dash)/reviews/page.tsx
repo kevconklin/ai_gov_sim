@@ -3,13 +3,16 @@ import { Chip, Empty, Panel, Stat, TableWrap } from "@/components/ui";
 import type { SearchParams } from "@/lib/params";
 import {
   awaitingAttestation,
+  committeeSeats,
   dissentsAwaiting,
+  intakeItems,
   latestCandidates,
+  orgProfile,
   recentAttestations,
   recentSyntheses,
 } from "@/lib/queries/governance";
 import { pickRun, resolveSelection } from "@/lib/queries/runs";
-import { AttestForm, ConveneForm, RefreshCandidates, type Candidate } from "./forms";
+import { AttestForm, BriefForm, ConveneForm, IntakeForm, RefreshCandidates, type Candidate } from "./forms";
 
 function list(raw: string): string[] {
   try {
@@ -51,28 +54,35 @@ export default async function GovernancePage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const sel = await resolveSelection(sp);
   const run = pickRun(sel, sp);
-  if (!run) return <><SelectionHeader title="Governance" sel={sel} /><NoRuns /></>;
+  if (!run) return <><SelectionHeader title="Reviews" sel={sel} /><NoRuns /></>;
 
-  const [awaiting, dissents, syntheses, attested, ranked] = await Promise.all([
+  const [awaiting, dissents, syntheses, attested, ranked, items, seats, org] = await Promise.all([
     awaitingAttestation(run.run_id),
     dissentsAwaiting(run.run_id),
     recentSyntheses(run.run_id),
     recentAttestations(run.run_id),
     latestCandidates(run.run_id),
+    intakeItems(run.run_id),
+    committeeSeats(run.run_id),
+    orgProfile(run.run_id),
   ]);
+  const waiting = items.filter((i) => i.status === "submitted").length;
 
   const candidates = candidatesFrom(ranked?.result);
-  const overrides = attested.filter((a) => a.outcome !== a.recommended).length;
+  // A deferral declines to decide; it is not the person overruling the committee.
+  const decided = attested.filter((a) => a.outcome !== "deferred");
+  const overrides = decided.filter((a) => a.outcome !== a.recommended).length;
+  const deferrals = attested.length - decided.length;
 
   return (
     <>
       <SelectionHeader
-        title="Governance"
-        subtitle="The committee recommends. Nothing takes effect until a person is on record for it."
+        title="Reviews"
+        subtitle="You convene the committee and set its agenda. It recommends. Nothing takes effect until a person is on record for it."
         sel={sel}
       />
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <BankTabs path="/governance" sp={sp} sel={sel} current={run} />
+        <BankTabs path="/reviews" sp={sp} sel={sel} current={run} />
       </div>
 
       <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -80,10 +90,51 @@ export default async function GovernancePage({ searchParams }: { searchParams: P
         <Stat label="Attested" value={attested.length} />
         <Stat
           label="Overridden"
-          value={attested.length ? `${overrides} of ${attested.length}` : "—"}
-          hint={attested.length && overrides === 0 ? "Zero overrides can mean rubber-stamping" : undefined}
+          value={decided.length ? `${overrides} of ${decided.length}` : "—"}
+          hint={decided.length && overrides === 0 ? "Zero overrides can mean rubber-stamping"
+            : deferrals ? `${deferrals} deferred, counted separately` : undefined}
         />
         <Stat label="Advisory items heard" value={syntheses.length} />
+      </div>
+
+      {org ? (
+        <Panel title={org.name} className="mb-3">
+          <p className="muted text-xs">Board direction on AI</p>
+          <p>&ldquo;{org.risk_appetite}&rdquo;</p>
+        </Panel>
+      ) : (
+        <p className="muted mb-3 text-xs">
+          This is a simulated run: its organisation is a fictional bank and its committee is briefed from persona files.
+        </p>
+      )}
+
+      <div className="mb-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <Panel title="Submit a matter for review">
+          <IntakeForm runId={run.run_id} />
+        </Panel>
+        <Panel title={`Intake (${items.length}, ${waiting} waiting)`}>
+          {items.length === 0 ? (
+            <Empty>Nothing has been submitted yet.</Empty>
+          ) : (
+            <TableWrap>
+              <table>
+                <thead><tr><th>Item</th><th>Kind</th><th>Tier</th><th>Status</th><th>By</th><th>Submitted</th></tr></thead>
+                <tbody>
+                  {items.map((i) => (
+                    <tr key={i.item_id}>
+                      <td>{i.item_id.split("/").pop()} {i.title}</td>
+                      <td>{i.kind.replace("_", " ")}</td>
+                      <td>{i.risk_tier ?? "—"}</td>
+                      <td>{i.status === "submitted" ? <Chip color="var(--c-sev-med)">waiting</Chip> : i.status.replace("_", " ")}</td>
+                      <td className="muted">{i.submitted_by}</td>
+                      <td className="muted">{i.submitted_on}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableWrap>
+          )}
+        </Panel>
       </div>
 
       <div className="mb-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -182,6 +233,25 @@ export default async function GovernancePage({ searchParams }: { searchParams: P
           )}
         </Panel>
 
+        <Panel title={`The committee (${seats.length} seats)`}>
+          <p className="muted mb-2 text-xs">
+            Each seat is a targeted adviser. A review seats only the lenses a matter needs; anything high tier seats
+            everyone, and the chair always sits.
+          </p>
+          <div className="flex flex-col gap-3">
+            {seats.map((seat) => (
+              <details key={seat.seat}>
+                <summary><strong>{seat.title}</strong> <span className="muted">· {seat.seat}</span></summary>
+                {seat.persona_text === null ? (
+                  <p className="muted">Briefed from a persona file; not editable here.</p>
+                ) : (
+                  <BriefForm runId={run.run_id} seat={seat} />
+                )}
+              </details>
+            ))}
+          </div>
+        </Panel>
+
         <Panel title={`On record (${attested.length})`}>
           {attested.length === 0 ? (
             <Empty>No attestations yet.</Empty>
@@ -197,9 +267,11 @@ export default async function GovernancePage({ searchParams }: { searchParams: P
                       <td>{a.item_id}</td>
                       <td className="muted">{a.recommended}</td>
                       <td>
-                        {a.outcome !== a.recommended
-                          ? <Chip color="var(--c-sev-high)">{a.outcome} · override</Chip>
-                          : a.outcome}
+                        {a.outcome === "deferred"
+                          ? <Chip color="var(--c-sev-med)">deferred</Chip>
+                          : a.outcome !== a.recommended
+                            ? <Chip color="var(--c-sev-high)">{a.outcome} · override</Chip>
+                            : a.outcome}
                       </td>
                       <td>{a.actor}</td>
                       <td className="muted">

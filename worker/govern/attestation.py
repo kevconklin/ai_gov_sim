@@ -58,9 +58,13 @@ class Attestation:
     source: str = "unknown"
 
     def overrides(self, decision: Decision) -> bool:
-        """True when the human landed somewhere other than the committee's recommendation."""
+        """True when the person decided the other way from the committee.
+
+        A deferral is not an override. It declines to decide, which is its own signal and is
+        counted where it belongs, in the deferral record that drives escalation.
+        """
         recommended = "approved" if decision.tally.approved else "rejected"
-        return self.outcome != recommended
+        return self.outcome != DEFERRED and self.outcome != recommended
 
 
 # ---- dissent --------------------------------------------------------------

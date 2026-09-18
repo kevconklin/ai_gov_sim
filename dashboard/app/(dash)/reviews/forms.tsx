@@ -3,7 +3,9 @@
 import { useActionState } from "react";
 import type { ControlResult } from "@/lib/control/submit";
 import type { AwaitingRow, DissentRow } from "@/lib/queries/governance";
-import { attestAction, conveneAction, refreshCandidatesAction } from "./actions";
+import { ITEM_KINDS } from "@/lib/control/schema";
+import type { SeatRow } from "@/lib/queries/governance";
+import { attestAction, conveneAction, refreshCandidatesAction, setBriefAction, submitItemAction } from "./actions";
 
 export interface Candidate {
   kind: string;
@@ -60,7 +62,8 @@ export function ConveneForm({ runId, candidates }: { runId: string; candidates: 
                 type="checkbox"
                 name="item"
                 value={JSON.stringify({
-                  item_id: `ITEM-${String(i + 1).padStart(3, "0")}`,
+                  // The committee refers to a matter by the tail of its id (IT-004, UC-002).
+                  item_id: c.ref_id.split("/").pop() ?? `ITEM-${i + 1}`,
                   kind: c.kind,
                   title: c.title,
                   ref_id: c.ref_id,
@@ -145,6 +148,69 @@ export function AttestForm({ runId, row, dissents }: { runId: string; row: Await
       <button className="btn w-fit" type="submit" disabled={pending}>
         {pending ? "Recording…" : "Record attestation"}
       </button>
+      <ResultBox state={state} />
+    </form>
+  );
+}
+
+const KIND_LABELS: Record<(typeof ITEM_KINDS)[number], string> = {
+  use_case: "AI use case",
+  tool: "AI tool",
+  vendor: "AI vendor",
+  policy_change: "Policy change",
+  exception: "Policy exception",
+  incident: "AI incident",
+  question: "Question for the committee (advice, no vote)",
+};
+
+export function IntakeForm({ runId }: { runId: string }) {
+  const [state, action, pending] = useActionState(submitItemAction, null);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="run_id" value={runId} />
+      <div className="flex flex-wrap gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="muted">What is it</span>
+          <select className="field" name="kind" required defaultValue="use_case">
+            {ITEM_KINDS.map((k) => <option key={k} value={k}>{KIND_LABELS[k]}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="muted">Risk tier, if you know it</span>
+          <select className="field" name="risk_tier" defaultValue="">
+            <option value="">Not rated</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High (whole committee sits)</option>
+          </select>
+        </label>
+      </div>
+      <label className="flex flex-col gap-1">
+        <span className="muted">Title</span>
+        <input className="field" name="title" required minLength={3} maxLength={200} />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="muted">What the committee needs to know</span>
+        <textarea className="field" name="description" rows={3} required minLength={10} />
+      </label>
+      <button className="btn w-fit" type="submit" disabled={pending}>{pending ? "Submitting…" : "Submit for review"}</button>
+      <ResultBox state={state} />
+    </form>
+  );
+}
+
+export function BriefForm({ runId, seat }: { runId: string; seat: SeatRow }) {
+  const [state, action, pending] = useActionState(setBriefAction, null);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="run_id" value={runId} />
+      <input type="hidden" name="seat" value={seat.seat} />
+      <textarea className="field" name="brief" rows={4} required minLength={40} defaultValue={seat.persona_text ?? ""} />
+      <label className="flex flex-col gap-1">
+        <span className="muted">Why it is changing (recorded as an intervention)</span>
+        <input className="field" name="reason" required minLength={10} />
+      </label>
+      <button className="btn w-fit" type="submit" disabled={pending}>{pending ? "Saving…" : "Rewrite brief"}</button>
       <ResultBox state={state} />
     </form>
   );

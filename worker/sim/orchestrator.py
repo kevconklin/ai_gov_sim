@@ -40,6 +40,14 @@ class Orchestrator:
     uploader: Any | None = None
     on_month_complete: Callable[[str, str], None] | None = None
 
+    @property
+    def reviews(self) -> "ReviewService":
+        """The review core, handed this orchestrator's contexts so a simulated run reviews as its fictional bank."""
+        from govern.panels import load_panels
+        from govern.service import ReviewService
+        return ReviewService(db=self.db, config=self.config, llm=self.llm, data_dir=self.data_dir,
+                             panel_rules=load_panels(self.world.config_dir), context_factory=self.context)
+
     def context(self, run_id: str) -> RunContext:
         row = self.db.fetch_one("SELECT * FROM runs WHERE run_id = ?", (run_id,))
         if row is None:
@@ -58,6 +66,9 @@ class Orchestrator:
             return self._advance_locked(run_id)
 
     def _advance_locked(self, run_id: str) -> str:
+        from govern.workspace import is_workspace
+        if is_workspace(self.db.fetch_one("SELECT condition FROM runs WHERE run_id = ?", (run_id,))):
+            raise RunNotActive("a workspace has no clock to advance; convene a review instead")
         if check_hard_cap(self.db, self.config):
             self._set_status(run_id, "paused", "hard monthly spend cap reached", source="worker")
             raise RunNotActive("hard monthly spend cap reached")
@@ -92,16 +103,22 @@ class Orchestrator:
         return month
 
     def convene(self, run_id: str, *, agenda: Sequence[AgendaItem], month: str | None = None) -> MeetingResult:
-        """Hold a meeting a human called, on the agenda they set.
+        """Hold a review a person called, on the agenda they set.
 
-        Nothing the committee recommends applies here: the decisions come back for attestation,
-        and sim.attestation.apply_attested is what makes them real.
+        A workspace is reviewed on today's date. A simulated run is reviewed on its own calendar,
+        in the month given or the one it has reached. Either way nothing applies here:
+        govern.attestation.apply_attested is what makes a recommendation real.
         """
-        with run_lock(self.data_dir, run_id, db=self.db):
-            ctx = self.context(run_id)
-            self._check_pinned_models(ctx)
-            run = self.db.fetch_one("SELECT current_month, start_month FROM runs WHERE run_id = ?", (run_id,))
-            return Meeting(ctx, month or run["current_month"] or run["start_month"], agenda=agenda).hold()
+        from govern.calendar import meeting_date as meeting_date_for
+        from govern.workspace import is_workspace
+
+        ctx = self.context(run_id)
+        self._check_pinned_models(ctx)
+        if is_workspace(ctx.run):
+            return self.reviews.convene(run_id, agenda)
+        run = self.db.fetch_one("SELECT current_month, start_month FROM runs WHERE run_id = ?", (run_id,))
+        month = month or run["current_month"] or run["start_month"]
+        return self.reviews.convene(run_id, agenda, on=meeting_date_for(month), month=month)
 
     def _recover_interrupted(self, ctx: RunContext, month: str) -> None:
         """A snapshot still stored for this month means a process died mid-month. Restore it before retrying.

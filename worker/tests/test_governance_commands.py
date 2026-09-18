@@ -94,3 +94,56 @@ def test_every_governance_command_is_logged_as_an_intervention(queued):
     db, _, run_id, _ = queued
     kinds = {r["kind"] for r in db.fetch_all("SELECT kind FROM interventions WHERE run_id = ?", (run_id,))}
     assert {"command_candidates", "command_convene", "command_attest"} <= kinds
+
+
+# ---- a workspace through the same queue -----------------------------------
+
+
+@pytest.fixture(scope="module")
+def workspace(queued):
+    from govern.workspace import create_workspace
+    db, orch, _, data_dir = queued
+    run_id = create_workspace(db, orch.config, config_dir=REPO_ROOT / "config", data_dir=data_dir,
+                              name="Northwind Credit Union",
+                              risk_appetite="Adopt AI where it improves service, never at the cost of a fair lending finding.")
+    return db, orch, run_id, data_dir
+
+
+def test_a_matter_is_submitted_through_the_queue(workspace):
+    out = run_command(workspace, "submit", {
+        "kind": "vendor", "title": "Lumen transcript analytics", "risk_tier": "medium",
+        "description": "Scores member call transcripts for complaint risk.", "submitted_by": "cx@northwind.example"})
+    assert out["status"] == "done"
+    assert out["result"]["item_id"].endswith("/item/IT-001")
+    ranked = run_command(workspace, "candidates", {})["result"]["candidates"]
+    assert [c["kind"] for c in ranked] == ["item"]
+    assert ranked[0]["title"].startswith("AI vendor:")
+
+
+def test_a_workspace_is_reviewed_on_todays_date_by_its_panel(workspace):
+    from datetime import date
+    db, _, run_id, _ = workspace
+    ranked = run_command(workspace, "candidates", {})["result"]["candidates"]
+    out = run_command(workspace, "convene", {"agenda": [
+        {"item_id": "IT-001", "kind": "item", "title": ranked[0]["title"], "ref_id": ranked[0]["ref_id"]}]})
+    assert out["status"] == "done", out
+    assert out["result"]["date"] == date.today().isoformat()
+    sat = db.fetch_one("SELECT COUNT(DISTINCT agent_id) AS n FROM votes WHERE meeting_id = ?",
+                       (out["result"]["meeting_id"],))["n"]
+    assert sat == 5          # chair, security, legal, risk, finance: not the whole committee
+
+
+def test_the_clock_refuses_a_workspace(workspace):
+    from sim.orchestrator import RunNotActive
+    _, orch, run_id, _ = workspace
+    with pytest.raises(RunNotActive, match="convene a review"):
+        orch.advance(run_id)
+
+
+def test_a_brief_rewritten_through_the_queue_is_attributed_to_the_dashboard(workspace):
+    db, _, run_id, _ = workspace
+    out = run_command(workspace, "set_brief", {"seat": "finance", "brief":
+                      "You answer for spend and return, and you will not accept a pilot with no stopping rule."})
+    assert out["status"] == "done"
+    row = db.fetch_one("SELECT source FROM interventions WHERE run_id = ? AND kind = 'prompt_edit'", (run_id,))
+    assert row["source"] == "dashboard"

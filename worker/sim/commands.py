@@ -16,7 +16,7 @@ from govern.db import Database, utc_now_iso
 log = logging.getLogger(__name__)
 
 KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap",
-                   "candidates", "convene", "attest"})
+                   "candidates", "convene", "attest", "submit", "set_brief"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -98,7 +98,7 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
             raise ValueError("spend cap must be positive")
         db.update("runs", {"spend_cap_usd_per_month": cap}, where={"run_id": run_id})
         return {"spend_cap_usd_per_month": cap}
-    if kind in ("candidates", "convene", "attest"):
+    if kind in ("candidates", "convene", "attest", "submit", "set_brief"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
 
@@ -127,6 +127,18 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
         return {"candidates": [{"kind": c.kind, "ref_id": c.ref_id, "title": c.title, "priority": c.priority,
                                 "reasons": list(c.reasons), "deferrals": c.deferral_count,
                                 "escalated": c.escalated} for c in ranked]}
+
+    if kind == "submit":
+        from govern.intake import submit_item
+        item_id = submit_item(db, run_id, kind=payload["kind"], title=payload["title"],
+                              description=payload["description"], submitted_by=payload["submitted_by"],
+                              risk_tier=payload.get("risk_tier"), details=payload.get("details"))
+        return {"item_id": item_id}
+
+    if kind == "set_brief":
+        from govern.committee import set_brief
+        set_brief(db, run_id, payload["seat"], payload["brief"], reason=command["reason"], source="dashboard")
+        return {"seat": payload["seat"]}
 
     if kind == "convene":
         items = [AgendaItem(i["item_id"], i["kind"], i["title"], i.get("ref_id")) for i in payload.get("agenda", [])]
