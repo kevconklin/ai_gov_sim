@@ -28,3 +28,25 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render the Kubernetes manifests
+        run: kubectl kustomize deploy/k8s > /tmp/rendered.yaml
+      - name: Every secretKeyRef must exist, and no real value may be committed
+        run: python3 .github/scripts/check_manifests.py /tmp/rendered.yaml
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Built, not pushed. A Dockerfile that stopped building is only found here otherwise.
+      - name: Worker image
+        uses: docker/build-push-action@v6
+        with: {context: ., file: worker/Dockerfile, push: false, cache-from: "type=gha", cache-to: "type=gha,mode=max"}
+      - name: Dashboard image
+        uses: docker/build-push-action@v6
+        with: {context: dashboard, file: dashboard/Dockerfile, push: false, cache-from: "type=gha", cache-to: "type=gha,mode=max"}

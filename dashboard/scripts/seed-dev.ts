@@ -1,6 +1,6 @@
 /**
  * npm run seed:dev
- * Creates dashboard/.dev/sim.sqlite from ../db/migrations/0001_init.sql and loads DEV FIXTURE data.
+ * Creates dashboard/.dev/sim.sqlite (or SEED_DB_PATH) from ../db/migrations/0001_init.sql and loads DEV FIXTURE data.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -16,7 +16,7 @@ import { seedEngine, seedPortfolio } from "./fixture/portfolio";
 import { seedWorld } from "./fixture/world";
 
 const root = path.resolve(import.meta.dirname, "..");
-const dbPath = path.join(root, ".dev", "sim.sqlite");
+const dbPath = process.env.SEED_DB_PATH ?? path.join(root, ".dev", "sim.sqlite");
 const migrations = path.resolve(root, "..", "db", "migrations");
 
 function main(): void {
@@ -30,7 +30,15 @@ function main(): void {
   // one is invisible here otherwise, and the page that reads it fails at runtime, not at build.
   const files = readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort();
   if (files.length === 0) throw new Error(`no migrations found in ${migrations}`);
-  for (const file of files) db.exec(readFileSync(path.join(migrations, file), "utf8"));
+  db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)");
+  const record = db.prepare("INSERT INTO schema_migrations VALUES (?, ?)");
+  const now = new Date().toISOString();
+  for (const file of files) {
+    db.exec(readFileSync(path.join(migrations, file), "utf8"));
+    // Recorded the way the worker's migrator records them, so a worker pointed at a dev
+    // database does not try to apply them all over again.
+    record.run(file, now);
+  }
   console.log(`applied ${files.length} migration(s): ${files.join(", ")}`);
 
   const counts = new Map<string, number>();
