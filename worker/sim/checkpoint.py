@@ -18,7 +18,7 @@ from sim.policy import PolicyRepo
 # Insert order respects foreign keys; deletes run in reverse.
 RUN_TABLES: tuple[str, ...] = (
     "sim_months", "agents", "agent_memories", "meetings", "messages", "positions", "votes", "decisions", "use_cases",
-    "use_case_history", "policy_edits", "status_changes", "agenda_deferrals", "policy_versions", "engine_decisions", "engine_draws",
+    "attestations", "use_case_history", "policy_edits", "status_changes", "agenda_deferrals", "policy_versions", "engine_decisions", "engine_draws",
     "outcome_reports", "events", "inbox_items", "news_items", "exams", "findings", "board_memos", "coded_measures",
     "metrics",
 )

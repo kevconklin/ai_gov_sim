@@ -158,3 +158,30 @@ def _load_agenda_priority(data: Mapping[str, Any]) -> AgendaPriorityConfig:
 def load_agenda_priority(config_dir: Path) -> AgendaPriorityConfig:
     return _load_agenda_priority(_read_yaml(Path(config_dir) / "agenda_priority.yaml"))
 
+
+@dataclass(frozen=True)
+class AttestationConfig:
+    """The human oversight gate (config/attestation.yaml)."""
+
+    outcomes: tuple[str, ...]
+    require_dissent_response_for_tiers: tuple[str, ...]
+    min_rationale_chars: int
+
+
+def _load_attestation(data: Mapping[str, Any]) -> AttestationConfig:
+    source = "attestation.yaml"
+    outcomes = tuple(_require(data, "outcomes", source))
+    if "deferred" not in outcomes:
+        raise ConfigError(f"{source} outcomes must include 'deferred'; a human must be able to table an item")
+    min_chars = int(_require(data, "min_rationale_chars", source))
+    if min_chars < 1:
+        raise ConfigError(f"{source} min_rationale_chars must be at least 1; a blank rationale is not oversight")
+    return AttestationConfig(
+        outcomes=outcomes,
+        require_dissent_response_for_tiers=tuple(_require(data, "require_dissent_response_for_tiers", source)),
+        min_rationale_chars=min_chars,
+    )
+
+
+def load_attestation(config_dir: Path) -> AttestationConfig:
+    return _load_attestation(_read_yaml(Path(config_dir) / "attestation.yaml"))

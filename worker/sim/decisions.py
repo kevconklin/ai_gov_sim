@@ -30,9 +30,13 @@ class Decision:
     decision_id: str
     item: AgendaItem
     tally: Tally
+    attested_outcome: str | None = None   # set by sim.attestation once a human is on record
 
     @property
     def outcome(self) -> str:
+        """The human's outcome where one exists, otherwise the committee's recommendation."""
+        if self.attested_outcome:
+            return self.attested_outcome
         return "approved" if self.tally.approved else "rejected"
 
 
@@ -95,7 +99,7 @@ def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: st
         elif d.item.kind == "policy_edit":
             edit = ctx.db.fetch_one("SELECT section, text FROM policy_edits WHERE edit_id = ?", (d.item.ref_id,))
             status = d.outcome
-            if d.tally.approved:
+            if d.outcome == "approved":
                 try:
                     policy_text = apply_edit(policy_text, edit["section"], edit["text"])
                     adopted.append(d.item.item_id)
@@ -107,7 +111,7 @@ def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: st
             change = ctx.db.fetch_one("SELECT use_case_id, new_status FROM status_changes WHERE change_id = ?",
                                       (d.item.ref_id,))
             ctx.db.update("status_changes", {"status": d.outcome}, where={"change_id": d.item.ref_id})
-            if d.tally.approved:
+            if d.outcome == "approved":
                 target = change["new_status"]
                 if target == "resume":
                     uc = ctx.db.fetch_one("SELECT live_month FROM use_cases WHERE use_case_id = ?", (change["use_case_id"],))
