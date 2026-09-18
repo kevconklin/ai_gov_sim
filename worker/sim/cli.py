@@ -6,8 +6,12 @@ import argparse
 import json
 import logging
 import os
+import signal
 import sys
+import threading
 import time
+import socketserver
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from sim import commands
@@ -20,6 +24,68 @@ from sim.world import REPO_ROOT, load_world
 
 log = logging.getLogger("sim")
 
+# Set by SIGTERM. A scheduler drains a pod by sending it; the worker must finish the month it is
+# in or roll it back, never be cut off part-way, so this is checked between months and inside the
+# LLM client's stop hook rather than tearing the process down where the signal lands.
+_TERMINATING = threading.Event()
+
+
+def terminating() -> bool:
+    return _TERMINATING.is_set()
+
+
+def _install_shutdown_handlers() -> None:
+    def handle(signum: int, _frame: object) -> None:
+        log.info("received %s; finishing or rolling back the current month, then exiting",
+                 signal.Signals(signum).name)
+        _TERMINATING.set()
+
+    for received in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(received, handle)
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    """Liveness and readiness. 503 while draining, so a probe stops sending work to a dying pod."""
+
+    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler's spelling
+        draining = terminating()
+        body = json.dumps({"status": "draining" if draining else "ok"}).encode()
+        self.send_response(503 if draining else 200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *_args: object) -> None:
+        return          # probes run every few seconds; they are not worth a log line each
+
+
+class _HealthServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def server_bind(self) -> None:
+        """Bind without HTTPServer's socket.getfqdn() call.
+
+        That reverse lookup can stall for tens of seconds on a host with slow or absent DNS,
+        which in a cluster is exactly when the probe matters most. Nothing here reads
+        server_name.
+        """
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name, self.server_port = str(host), port
+
+
+def start_health_server(port: int, host: str = "") -> ThreadingHTTPServer:
+    """Serve /healthz on a daemon thread. Port 0 picks a free one, which is what the tests use."""
+    server = _HealthServer((host, port), _HealthHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def stop_health_server(server: ThreadingHTTPServer) -> None:
+    server.shutdown()
+    server.server_close()
+
 
 def _data_dir() -> Path:
     return Path(os.environ.get("SIM_DATA_DIR", REPO_ROOT / "data"))
@@ -30,7 +96,10 @@ def _open_db() -> Database:
     if not target.startswith(("postgres://", "postgresql://")):
         Path(target).parent.mkdir(parents=True, exist_ok=True)
     db = Database.connect(target)
-    db.migrate(REPO_ROOT / "db" / "migrations")
+    # In a cluster several replicas would race the same CREATE TABLE, so migrations run once as
+    # their own step and the workers are told to skip them.
+    if os.environ.get("SIM_SKIP_MIGRATIONS") != "1":
+        db.migrate(REPO_ROOT / "db" / "migrations")
     return db
 
 
@@ -45,7 +114,7 @@ def _orchestrator(db: Database, *, demo: bool) -> Orchestrator:
     elif not os.environ.get("ANTHROPIC_API_KEY"):
         sys.exit("ANTHROPIC_API_KEY is not set. Use --demo for a free scripted run.")
     llm = LLMClient(db=db, config=config, client=client, sleep=(lambda s: None) if demo else time.sleep,
-                    should_stop=lambda: commands.stop_requested(db, data_dir),
+                    should_stop=lambda: terminating() or commands.stop_requested(db, data_dir),
                     on_failure_streak=lambda n, d: raise_alert(db, "api_failures", "critical", f"{n} consecutive failed API calls: {d}"),
                     price_scale=0.0 if demo else 1.0)
     return Orchestrator(db=db, world=world, config=config, llm=llm, data_dir=data_dir, uploader=SupabaseStorage.from_env())
@@ -84,8 +153,15 @@ def cmd_serve(args: argparse.Namespace) -> None:
     db = _open_db()
     orch = _orchestrator(db, demo=args.demo)
     data_dir = _data_dir()
+    _install_shutdown_handlers()
+    if args.health_port:
+        start_health_server(args.health_port)
+        log.info("health endpoint on :%d/healthz", args.health_port)
     log.info("worker started")
     while True:
+        if terminating():
+            log.info("draining; no further months will be started")
+            return
         if os.environ.get("SIM_STOP") == "1" or (data_dir / "STOP").exists():
             log.info("stop flag set; exiting")
             return
@@ -184,6 +260,18 @@ def cmd_attest(args: argparse.Namespace) -> None:
         print(json.dumps({"applied": meeting["meeting_id"], "problems": problems}, indent=2))
 
 
+def cmd_migrate(args: argparse.Namespace) -> None:
+    """Apply pending migrations and stop. This is the step a cluster runs before the workers start."""
+    target = os.environ.get("DATABASE_URL") or str(_data_dir() / "sim.sqlite")
+    if not target.startswith(("postgres://", "postgresql://")):
+        Path(target).parent.mkdir(parents=True, exist_ok=True)
+    db = Database.connect(target)
+    try:
+        print(json.dumps({"applied": db.migrate(REPO_ROOT / "db" / "migrations")}, indent=2))
+    finally:
+        db.close()
+
+
 def cmd_control(args: argparse.Namespace) -> None:
     db = _open_db()
     payload = json.loads(args.payload) if args.payload else {}
@@ -250,7 +338,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--demo", action="store_true", help="use the scripted client instead of the API")
     p.set_defaults(func=cmd_advance)
 
+    sub.add_parser("migrate", help="apply pending migrations and exit").set_defaults(func=cmd_migrate)
+
     p = sub.add_parser("serve", help="run the long-lived worker loop")
+    p.add_argument("--health-port", type=int, default=int(os.environ.get("SIM_HEALTH_PORT", "0")),
+                   help="serve /healthz on this port for liveness and readiness probes")
     p.add_argument("--poll-seconds", type=float, default=15)
     p.add_argument("--demo", action="store_true")
     p.add_argument("--once", action="store_true", help=argparse.SUPPRESS)

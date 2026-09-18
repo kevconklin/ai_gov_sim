@@ -134,14 +134,18 @@ def test_failed_month_rolls_back(pilot, monkeypatch):
 
 
 def test_hard_kill_mid_month_is_recovered_on_next_advance(pilot):
-    """Simulate SIGKILL: a snapshot file exists and partial rows were written, but no rollback ran."""
+    """Simulate SIGKILL: a snapshot is stored and partial rows were written, but no rollback ran.
+
+    The snapshot is read from the database, so this is also the case of a pod that died being
+    replaced by one on another host: the new worker finds the interrupted month and recovers it.
+    """
     from sim import checkpoint
     db, orch, run_ids, data_dir = pilot
     run_id = run_ids[0]
     ctx = orch.context(run_id)
     month = orch.next_month(run_id)
     snapshot = checkpoint.dump_run(db, run_id, ctx.policy_repo)
-    checkpoint.write_snapshot(snapshot, checkpoint.snapshot_path(data_dir, run_id, month))
+    checkpoint.save_snapshot(db, run_id, month, snapshot)
     db.insert("meetings", {"meeting_id": f"{run_id}/meeting/{month}", "run_id": run_id, "bank_id": ctx.run["bank_id"],
                            "sim_month": month, "meeting_date": "2027-05-11", "agenda": [], "status": "open"})
     db.update("runs", {"status": "running"}, where={"run_id": run_id})
@@ -149,7 +153,7 @@ def test_hard_kill_mid_month_is_recovered_on_next_advance(pilot):
     assert db.fetch_one("SELECT COUNT(*) AS n FROM meetings WHERE run_id = ? AND sim_month = ?", (run_id, month))["n"] == 1
     assert db.fetch_one("SELECT COUNT(*) AS n FROM interventions WHERE run_id = ? AND kind = 'recovered_interrupted_month'",
                         (run_id,))["n"] == 1
-    assert not checkpoint.snapshot_path(data_dir, run_id, month).exists()
+    assert checkpoint.load_snapshot(db, run_id, month) is None
 
 
 def test_every_member_records_every_position_and_ballot(pilot):

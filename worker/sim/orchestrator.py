@@ -54,7 +54,7 @@ class Orchestrator:
 
     def advance(self, run_id: str) -> str:
         """Advance one run by one month. Held under a per-run lock so workers cannot overlap."""
-        with run_lock(self.data_dir, run_id):
+        with run_lock(self.data_dir, run_id, db=self.db):
             return self._advance_locked(run_id)
 
     def _advance_locked(self, run_id: str) -> str:
@@ -67,8 +67,7 @@ class Orchestrator:
         self._recover_interrupted(ctx, month)
         started = time.monotonic()
         snapshot = checkpoint.dump_run(self.db, run_id, ctx.policy_repo)
-        snapshot_file = checkpoint.snapshot_path(self.data_dir, run_id, month)
-        checkpoint.write_snapshot(snapshot, snapshot_file)
+        checkpoint.save_snapshot(self.db, run_id, month, snapshot)
         try:
             self._run_month(ctx, month)
         except StopRequested:
@@ -85,7 +84,7 @@ class Orchestrator:
         self.db.update("sim_months", {"wall_clock_seconds": time.monotonic() - started, "completed_at": utc_now_iso()},
                        where={"run_id": run_id, "sim_month": month})
         self.db.update("runs", {"current_month": month}, where={"run_id": run_id})
-        snapshot_file.unlink(missing_ok=True)
+        checkpoint.clear_snapshot(self.db, run_id, month)
         if month_index(ctx.run["start_month"], month) % 3 == 0:
             checkpoint.write_checkpoint(self.db, run_id, month, ctx.policy_repo, self.data_dir, self.uploader)
         if self.on_month_complete:
@@ -98,18 +97,22 @@ class Orchestrator:
         Nothing the committee recommends applies here: the decisions come back for attestation,
         and sim.attestation.apply_attested is what makes them real.
         """
-        with run_lock(self.data_dir, run_id):
+        with run_lock(self.data_dir, run_id, db=self.db):
             ctx = self.context(run_id)
             self._check_pinned_models(ctx)
             run = self.db.fetch_one("SELECT current_month, start_month FROM runs WHERE run_id = ?", (run_id,))
             return Meeting(ctx, month or run["current_month"] or run["start_month"], agenda=agenda).hold()
 
     def _recover_interrupted(self, ctx: RunContext, month: str) -> None:
-        """A snapshot left on disk means a process died mid-month (e.g. killed). Restore it before retrying."""
-        path = checkpoint.snapshot_path(self.data_dir, ctx.run_id, month)
-        if not path.is_file():
+        """A snapshot still stored for this month means a process died mid-month. Restore it before retrying.
+
+        The snapshot is in the database, so this works when the replacement worker is a new pod
+        on a different host from the one that died.
+        """
+        snapshot = checkpoint.load_snapshot(self.db, ctx.run_id, month)
+        if snapshot is None:
             return
-        checkpoint.rollback(self.db, checkpoint.load_checkpoint(path), ctx.policy_repo)
+        checkpoint.rollback(self.db, snapshot, ctx.policy_repo)
         for batch in self.db.fetch_all("SELECT batch_id FROM llm_batches WHERE run_id = ? AND status = 'submitted'",
                                        (ctx.run_id,)):
             try:
@@ -121,7 +124,7 @@ class Orchestrator:
                                          "real_ts": utc_now_iso(), "kind": "recovered_interrupted_month",
                                          "description": f"{month} was interrupted; restored its starting snapshot and retried",
                                          "source": "worker"})
-        path.unlink()
+        checkpoint.clear_snapshot(self.db, ctx.run_id, month)
 
     def _check_pinned_models(self, ctx: RunContext) -> None:
         """Runs keep their pinned models. A differing config/models.yaml is flagged once, never silently applied."""

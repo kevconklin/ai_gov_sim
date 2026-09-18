@@ -76,17 +76,24 @@ def write_checkpoint(db: Database, run_id: str, month: str, policy_repo: PolicyR
     return uri
 
 
-def snapshot_path(data_dir: Path, run_id: str, month: str) -> Path:
-    return Path(data_dir) / "snapshots" / run_id / f"{month}.json.gz"
+def save_snapshot(db: Database, run_id: str, month: str, dump: Mapping[str, Any]) -> None:
+    """Written before a month starts. Its presence on the next start means the month was interrupted.
+
+    It lives in the database rather than on disk so a replacement worker on another host finds
+    it. A file would strand the month wherever the dead process happened to be running.
+    """
+    db.upsert("run_snapshots", {"run_id": run_id, "sim_month": month, "payload": json.dumps(dump),
+                                "created_at": utc_now_iso()}, key=("run_id", "sim_month"))
 
 
-def write_snapshot(dump: Mapping[str, Any], path: Path) -> None:
-    """Written before a month starts; its presence on the next start means the month was interrupted."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    with gzip.open(tmp, "wt", encoding="utf-8") as handle:
-        json.dump(dump, handle)
-    tmp.replace(path)
+def load_snapshot(db: Database, run_id: str, month: str) -> dict[str, Any] | None:
+    row = db.fetch_one("SELECT payload FROM run_snapshots WHERE run_id = ? AND sim_month = ?", (run_id, month))
+    return json.loads(row["payload"]) if row else None
+
+
+def clear_snapshot(db: Database, run_id: str, month: str) -> None:
+    """Called once a month completes. The absence of a snapshot is what says it finished."""
+    db.execute("DELETE FROM run_snapshots WHERE run_id = ? AND sim_month = ?", (run_id, month))
 
 
 def load_checkpoint(path: Path) -> dict[str, Any]:
