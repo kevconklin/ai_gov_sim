@@ -42,6 +42,7 @@ export interface SynthesisRow {
 export interface AttestedRow {
   attestation_id: string;
   decision_id: string;
+  meeting_id: string;
   item_id: string;
   title: string;
   item_kind: string | null;
@@ -130,7 +131,7 @@ export async function recentSyntheses(runId: string): Promise<SynthesisRow[]> {
 export async function recentAttestations(runId: string): Promise<AttestedRow[]> {
   const db = await readDb();
   return db.all<AttestedRow>(
-    `SELECT a.attestation_id, a.decision_id, d.item_id, COALESCE(i.title, u.title, d.item_id) AS title,
+    `SELECT a.attestation_id, a.decision_id, d.meeting_id, d.item_id, COALESCE(i.title, u.title, d.item_id) AS title,
             i.kind AS item_kind, d.kind, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, d.yes_votes, d.no_votes,
             a.actor, a.outcome, d.outcome AS recommended, a.rationale, a.created_at, a.source
      FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id

@@ -1068,3 +1068,112 @@ pre.code {
   color: var(--tone);
   margin-bottom: 0.2rem;
 }
+
+/* the trail of a review: one line per step, in the order it happened */
+.rv-drawer.is-wide {
+  width: min(44rem, 100vw);
+}
+.rv-trail {
+  display: grid;
+}
+.rv-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 0 0.75rem;
+  padding-bottom: 0.9rem;
+}
+/* the line that joins one step to the next */
+.rv-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 16.5px;
+  top: 34px;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--border);
+}
+.rv-step-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--tone);
+  position: relative;
+  z-index: 1;
+}
+.rv-step-mark svg {
+  width: 16px;
+  height: 16px;
+}
+/* a step not reached yet is an outline, not a filled marker */
+.rv-step.is-open .rv-step-mark {
+  color: var(--tone);
+  background: var(--panel);
+  border: 1.5px dashed var(--tone);
+}
+.rv-step-body {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.rv-step-body > summary,
+.rv-step-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.6rem;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+}
+.rv-step-body > summary {
+  cursor: pointer;
+}
+.rv-step-body > summary::-webkit-details-marker {
+  display: none;
+}
+.rv-step-body > summary:hover {
+  background: color-mix(in srgb, var(--tone) 6%, var(--panel));
+  border-radius: 10px;
+}
+.rv-step-body > summary .rv-chev {
+  margin-left: auto;
+  align-self: center;
+  transition: transform 0.12s;
+}
+.rv-step-body[open] > summary .rv-chev {
+  transform: rotate(90deg);
+}
+.rv-step-title {
+  font-weight: 700;
+}
+.rv-step-summary {
+  color: var(--muted);
+  font-size: 13px;
+}
+.rv-step-detail {
+  padding: 0.25rem 0.75rem 0.8rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+.rv-trail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 0.4rem;
+}
+.rv-turn {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem;
+}
+.rv-turn-who {
+  font-weight: 600;
+  font-size: 13px;
+}

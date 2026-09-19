@@ -20,9 +20,12 @@ import {
   waitingMatters,
   type ScopeRow,
 } from "@/lib/queries/governance";
+import { meetingDetail } from "@/lib/queries/meetings";
+import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
 import { AREA_LABELS, FRAMEWORK_LABELS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
 import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
 import { SubmitMatterForm } from "./intake-form";
+import { Trail } from "./trail";
 import { AddDocumentForm, BudgetForm, NewCustomerForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
 import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, VoteBar } from "./parts";
 
@@ -50,7 +53,7 @@ function errorOf(result: string | null): string {
 
 const STALE_MS = 45_000;
 const OUTCOME: Record<string, [string, string | undefined]> = { approved: ["Approved", "ok"], rejected: ["Rejected", "no"], deferred: ["Deferred", undefined] };
-type Tab = "needs" | "waiting" | "decided" | "advice" | "committee" | "settings" | "changes";
+type Tab = "needs" | "waiting" | "decided" | "advice" | "reviews" | "committee" | "settings" | "changes";
 const PANEL_KINDS = ["use_case", "tool", "vendor", "policy_change", "exception", "incident"] as const;
 const PROFILE_FIELDS: [string, "short" | "long" | "framework"][] = [["name", "short"], ["risk_appetite", "long"], ["framework", "framework"], ["facts", "long"], ["business_goals", "long"], ["ai_tools", "long"], ["ai_landscape", "long"]];
 
@@ -77,7 +80,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0]!;
   const runId = scope.run_id;
 
-  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap] = await Promise.all([
+  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held] = await Promise.all([
     currentOperator(),
     orgProfile(runId),
     decisionsToSign(runId),
@@ -92,6 +95,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     panelOverrides(runId),
     changeLog(runId),
     spendCap(runId),
+    reviewsHeld(runId),
   ]);
 
   const order = parse<string[]>(org?.seats, []);
@@ -108,7 +112,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const overrides = settled.filter((r) => r.outcome !== r.recommended).length;
 
   const wanted = first(sp, "tab") as Tab | undefined;
-  const tab: Tab = wanted && ["needs", "waiting", "decided", "advice", "committee", "settings", "changes"].includes(wanted)
+  const tab: Tab = wanted && ["needs", "waiting", "decided", "advice", "reviews", "committee", "settings", "changes"].includes(wanted)
     ? wanted : decisions.length ? "needs" : queue.length ? "waiting" : "decided";
   const open = first(sp, "open") ?? "";
   const to = (overrides_: Record<string, string | null>) => href("/reviews", sp, overrides_);
@@ -128,6 +132,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     { id: "waiting", label: "Waiting", count: queue.length, tone: "wait" },
     { id: "decided", label: "Signed", count: record.length, tone: "ok" },
     { id: "advice", label: "Advice", count: syntheses.length, tone: "ai" },
+    { id: "reviews", label: "Reviews", count: held.length, tone: "ai" },
     { id: "committee", label: "Committee", count: committee.length, tone: "ai" },
     { id: "settings", label: "Settings", count: docs.length + panels.length, tone: "you" },
     { id: "changes", label: "Changes", count: changes.length, tone: "you" },
@@ -141,7 +146,29 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const [what, ...rest] = open.split(":");
   const key = rest.join(":");
 
-  if (what === "submit") {
+  const trailHref = (meetingId: string, itemId?: string) => to({ open: `trail:${meetingId}${itemId ? `~${itemId}` : ""}` });
+  const trailButton = (meetingId: string, itemId?: string) => (
+    <Link href={trailHref(meetingId, itemId)} scroll={false} className="rv-btn rv-btn-sm w-fit"><Icon name="flag" /> See how the committee got here</Link>
+  );
+
+  if (what === "trail") {
+    const [meetingId = "", focus] = key.split("~");
+    const detail = await meetingDetail(meetingId);
+    if (detail && detail.meeting.run_id === runId) {
+      const [perspectives, signatures, convener] = await Promise.all([perspectivesFor(meetingId), signaturesFor(meetingId), convenerOf(runId, meetingId)]);
+      const input = {
+        status: detail.meeting.status, agenda: detail.agenda, minutes: detail.meeting.minutes_text, convener, perspectives, signatures,
+        messages: detail.messages, positions: detail.positions, votes: detail.votes,
+        decisions: detail.decisions.map((d) => ({ ...d, yes_votes: Number(d.yes_votes), no_votes: Number(d.no_votes), abstentions: Number(d.abstentions) })),
+      };
+      const state = detail.meeting.status === "closed" ? <Chip tone="ok" dot>Complete</Chip> : detail.meeting.status === "failed" ? <Chip tone="no" dot>Did not finish</Chip> : <Chip tone="ai" dot>In progress</Chip>;
+      drawer = (
+        <Drawer wide closeHref={closeHref} title={`Review of ${detail.meeting.meeting_date}`} chips={<>{state}<Chip plain>{plural(detail.agenda.length, "matter")}</Chip><Chip tone="ai">Recorded as it happened</Chip></>}>
+          <Trail input={input} committee={committee.map((c) => ({ seat: c.seat, title: c.title }))} focus={focus} />
+        </Drawer>
+      );
+    }
+  } else if (what === "submit") {
     drawer = (
       <Drawer closeHref={closeHref} title={key === "question" ? "Ask the committee" : "Submit a matter"} chips={<Chip tone="you">It joins Waiting</Chip>}>
         <SubmitMatterForm runId={runId} preset={key || undefined} />
@@ -213,6 +240,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             </div>
             <SeatVotes bench={bench} />
             <p className="rv-hint">Advice from AI advisers. {t.sat < t.of ? `${t.sat} of ${t.of} seats sat on this one. ` : ""}You decide.</p>
+            <div className="mt-2">{trailButton(d.meeting_id, d.item_id)}</div>
           </section>
           <section className="rv-card" data-tone="you">
             <SignDecision runId={runId} decisionId={d.decision_id} recommended={d.recommended} mustWeighAll={d.risk_tier === "high"}
@@ -260,6 +288,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           </section>
           <section className="rv-card" data-tone="ai">
             <div className="rv-card-h"><span>The committee recommended {r.recommended === "approved" ? "approving" : "rejecting"}</span><VoteBar yes={Number(r.yes_votes)} no={Number(r.no_votes)} /></div>
+            {trailButton(r.meeting_id, r.item_id)}
           </section>
         </Drawer>
       );
@@ -282,6 +311,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
               ))}
             </div>
           </section>
+          {trailButton(s.meeting_id, s.item_id)}
           <div>
             <div className="rv-card-h">What would change each mind</div>
             {parse<[string, string][]>(s.checks, []).map(([seat, check]) => (
@@ -376,6 +406,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             {tab === "waiting" ? <Help right><p><strong>Most urgent first.</strong> Priority weighs risk, how long it has waited, and earlier deferrals. The committee never sees it.</p></Help> : null}
             {tab === "needs" ? <Help right><p><strong>The committee only recommends.</strong> Open a matter to see how each seat voted, weigh objections, and sign. Nothing takes effect until you do.</p></Help> : null}
             {tab === "decided" && settled.length ? <span className="muted text-xs" title="Never overruling can mean advice is being waved through.">Overruled {overrides} of {settled.length}</span> : null}
+            {tab === "reviews" ? <Help right><p><strong>Every review you have called.</strong> Open one for its trail: who called it, who sat, what each adviser committed to before the debate, what was said, how they voted, and what you signed.</p></Help> : null}
             {tab === "settings" ? <Help right><p><strong>Everything the committee is told, and who reviews what.</strong> Every change asks why, and lands under Changes with your name.</p></Help> : null}
             {tab === "changes" ? <Help right><p><strong>The record of every configuration change.</strong> Who, when, what it was, what it became, and why. Nothing here can be edited or removed.</p></Help> : null}
             {tab === "committee" ? <Help right><p><strong>Each seat is an AI adviser with its own lens.</strong> A review seats only the ones a matter needs. High risk seats everyone, and the chair always sits.</p></Help> : null}
@@ -451,6 +482,32 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
                       <span className="is-wide"><VoteBar yes={parse<string[]>(s.for_seats, []).length} no={parse<string[]>(s.against_seats, []).length} abstain={parse<string[]>(s.undecided_seats, []).length} /></span>
                       <span className="is-wide">{s.sim_month}</span><Icon name="chevron" className="rv-chev" />
                     </span>
+                  </Link>
+                );
+              })}
+            </div>
+          )
+        ) : null}
+
+        {tab === "reviews" ? (
+          held.length === 0 ? <EmptyState icon="users" tone="ai">No reviews yet. Convene one from Waiting.</EmptyState> : (
+            <div className="rv-rows">
+              {held.map((m) => {
+                const matters = parse<{ title: string }[]>(m.agenda, []);
+                const unsigned = Number(m.decisions) - Number(m.signed);
+                return (
+                  <Link key={m.meeting_id} href={trailHref(m.meeting_id)} scroll={false} className="rv-rowline">
+                    <span className="rv-riskmark" data-tone="ai" />
+                    <span className="min-w-0">
+                      <span className="rv-rowtitle">{matters.map((x) => x.title).join(" · ") || "Review"}</span>
+                      <span className="rv-rowmeta">
+                        {m.status === "closed" ? <Chip tone="ok" dot>Complete</Chip> : m.status === "failed" ? <Chip tone="no" dot>Did not finish</Chip> : <Chip tone="ai" dot>In progress</Chip>}
+                        <Chip plain>{plural(matters.length, "matter")}</Chip>
+                        {Number(m.seats) ? <Chip plain>{plural(Number(m.seats), "adviser")}</Chip> : null}
+                        {unsigned > 0 && m.status === "closed" ? <Chip tone="you">{unsigned} to sign</Chip> : null}
+                      </span>
+                    </span>
+                    <span className="rv-rowend"><span className="is-wide">{m.meeting_date}</span><Icon name="chevron" className="rv-chev" /></span>
                   </Link>
                 );
               })}

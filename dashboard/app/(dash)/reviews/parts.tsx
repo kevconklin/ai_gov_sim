@@ -16,10 +16,10 @@ const PATHS: Record<string, ReactNode> = {
   alert: <><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17v.5" /></>,
 };
 
-export function Icon({ name, className }: { name: keyof typeof PATHS | string; className?: string }) {
+export function Icon({ name, className, style }: { name: keyof typeof PATHS | string; className?: string; style?: React.CSSProperties }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden className={className} width="18" height="18">
+      aria-hidden className={className} style={style} width="18" height="18">
       {PATHS[name]}
     </svg>
   );
@@ -88,20 +88,20 @@ export function Help({ children, right }: { children: ReactNode; right?: boolean
   );
 }
 
-export function Fold({ title, tone, open, children, lead }: { title: ReactNode; tone?: string; open?: boolean; children: ReactNode; lead?: ReactNode }) {
+export function Fold({ title, tone, open, children, lead, aside }: { title: ReactNode; tone?: string; open?: boolean; children: ReactNode; lead?: ReactNode; aside?: ReactNode }) {
   return (
     <details className="rv-fold" data-tone={tone} open={open}>
-      <summary className="rv-fold-head">{lead}<span>{title}</span><Icon name="chevron" className="rv-chev" /></summary>
+      <summary className="rv-fold-head">{lead}<span className="min-w-0 flex-1 truncate">{title}</span>{aside}<Icon name="chevron" className="rv-chev" style={{ marginLeft: 0 }} /></summary>
       <div className="rv-fold-body">{children}</div>
     </details>
   );
 }
 
-export function Drawer({ closeHref, chips, title, children }: { closeHref: string; chips?: ReactNode; title: string; children: ReactNode }) {
+export function Drawer({ closeHref, chips, title, children, wide }: { closeHref: string; chips?: ReactNode; title: string; children: ReactNode; wide?: boolean }) {
   return (
     <>
       <div className="rv-scrim"><Link href={closeHref} scroll={false} aria-label="Close" tabIndex={-1} /></div>
-      <aside className="rv-drawer" role="dialog" aria-modal="true" aria-label={title}>
+      <aside className={`rv-drawer${wide ? " is-wide" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
         <header className="rv-drawer-head">
           <div className="min-w-0">
             {chips ? <div className="flex flex-wrap items-center gap-1.5">{chips}</div> : null}
