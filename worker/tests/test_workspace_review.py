@@ -253,3 +253,33 @@ def test_a_review_that_died_gives_its_matters_back(product):
     assert recover_interrupted_reviews(db, run_id) == [f"{run_id}/meeting/2026-12-9"]
     assert get_item(db, item)["status"] == "submitted"
     assert db.fetch_one("SELECT status FROM meetings WHERE meeting_id = ?", (f"{run_id}/meeting/2026-12-9",))["status"] == "failed"
+
+
+# ---- the budget is enforced, not just recorded ----------------------------
+
+
+def test_a_review_is_refused_once_the_months_budget_is_spent(product):
+    from govern.budget import BudgetExceeded
+    from govern.db import utc_now_iso
+    db, service, run_id = product
+    item = submit_item(db, run_id, kind="tool", title="Spreadsheet formula helper", risk_tier="low",
+                       submitted_by="ops@northwind.example", today=TODAY,
+                       description="Suggests spreadsheet formulas for the finance team to check.")
+    db.update("runs", {"spend_cap_usd_per_month": 5.0}, where={"run_id": run_id})
+    db.insert("llm_calls", {"call_id": "spent-1", "run_id": run_id, "model": "m", "purpose": "committee_turn",
+                            "status": "ok", "attempt": 1, "input_tokens": 1, "cached_tokens": 0, "output_tokens": 1, "cost_usd": 5.25, "batch": False,
+                            "request": {}, "response": {}, "created_at": utc_now_iso()})
+    try:
+        with pytest.raises(BudgetExceeded, match="budget is spent"):
+            service.convene(run_id, [AgendaItem("IT-X", "item", "AI tool", item)])
+        assert get_item(db, item)["status"] == "submitted"          # nothing was started
+    finally:
+        db.execute("DELETE FROM llm_calls WHERE call_id = 'spent-1'")
+        db.update("runs", {"spend_cap_usd_per_month": 50.0}, where={"run_id": run_id})
+
+
+def test_a_new_customer_starts_with_the_customer_default_not_the_simulations(product):
+    db, _, run_id = product
+    fresh = create_workspace(db, load_config(CONFIG), config_dir=CONFIG, data_dir=REPO_ROOT / "worker" / ".pytest-ws",
+                             name="Default Check Co", risk_appetite="Adopt AI carefully and only where it clearly helps.")
+    assert db.fetch_one("SELECT spend_cap_usd_per_month AS cap FROM runs WHERE run_id = ?", (fresh,))["cap"] == 50.0

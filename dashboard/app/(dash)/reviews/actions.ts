@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { currentOperator, hasValidSession } from "@/lib/auth/session";
-import { submitCommand, type ControlResult } from "@/lib/control/submit";
+import { bindActor } from "@/lib/control/bind";
+import { submitCommand, submitWorkspace, type ControlResult } from "@/lib/control/submit";
+import { detailsFromFields } from "@/lib/reviews/model";
 
 const MAX_FIELD = 4000;
 const UNAUTHORIZED: ControlResult = { success: false, data: null, error: "Your session has expired. Sign in again." };
@@ -96,6 +98,7 @@ export async function submitItemAction(_prev: ControlResult | null, formData: Fo
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const details = detailsFromFields(formData.entries());
   return done(await submitCommand({
     kind: "submit",
     run_id: f.run_id ?? "",
@@ -106,6 +109,7 @@ export async function submitItemAction(_prev: ControlResult | null, formData: Fo
       description: f.description ?? "",
       submitted_by: operator,
       ...(f.risk_tier ? { risk_tier: f.risk_tier } : {}),
+      ...(Object.keys(details).length ? { details } : {}),
     },
   }));
 }
@@ -119,6 +123,66 @@ export async function setBriefAction(_prev: ControlResult | null, formData: Form
     kind: "set_brief",
     run_id: f.run_id ?? "",
     reason: `${operator}: ${f.reason ?? ""}`,
-    payload: { seat: f.seat ?? "", brief: f.brief ?? "" },
+    payload: { seat: f.seat ?? "", brief: f.brief ?? "", why: f.reason ?? "", actor: operator, source: "dashboard_session" },
   }));
+}
+
+/** Every configuration change goes through here, so every one carries the session's name and a reason. */
+async function configure(operator: string, runId: string, kind: string, why: string, payload: Record<string, unknown>): Promise<ControlResult> {
+  return done(await submitCommand(bindActor({ kind, run_id: runId, reason: `${operator}: ${why}`, payload: { ...payload, why } }, operator)));
+}
+
+/** Add a customer. The worker creates its committee; it shows in the picker once that is done. */
+export async function createCustomerAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const optional = Object.fromEntries(
+    (["facts", "framework", "business_goals", "ai_landscape", "ai_tools"] as const).filter((k) => f[k]?.trim()).map((k) => [k, f[k]]),
+  );
+  return done(await submitWorkspace({
+    reason: `${operator}: adding ${(f.name ?? "a customer").slice(0, 80)} as a customer`,
+    payload: { name: f.name ?? "", risk_appetite: f.risk_appetite ?? "", ...optional, actor: operator, source: "dashboard_session" },
+  }));
+}
+
+export async function updateProfileAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "update_profile", f.why ?? "", { changes: { [f.field ?? ""]: f.value ?? "" } });
+}
+
+export async function addDocumentAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const body = formData.get("body");
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "add_document", f.why ?? "",
+    { kind: f.kind ?? "", title: f.title ?? "", body: typeof body === "string" ? body : "" });
+}
+
+export async function retireDocumentAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "retire_document", f.why ?? "", { document_id: f.document_id ?? "" });
+}
+
+export async function setPanelAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const seats = formData.getAll("seat").filter((v): v is string => typeof v === "string");
+  return configure(operator, f.run_id ?? "", "set_panel", f.why ?? "", { kind: f.kind ?? "", seats });
+}
+
+export async function setBudgetAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return done(await submitCommand(bindActor({
+    kind: "set_spend_cap", run_id: f.run_id ?? "", reason: `${operator}: ${f.why ?? ""}`,
+    payload: { usd_per_sim_month: Number(f.usd) },
+  }, operator)));
 }

@@ -16,7 +16,8 @@ from govern.db import Database, utc_now_iso
 log = logging.getLogger(__name__)
 
 KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap",
-                   "candidates", "convene", "attest", "submit", "set_brief"})
+                   "candidates", "convene", "attest", "submit", "set_brief",
+                   "create_workspace", "update_profile", "add_document", "retire_document", "set_panel"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -71,6 +72,14 @@ def process_pending(db: Database, orchestrator: Any, data_dir: Path) -> list[str
 
 def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str, Any], payload: Mapping[str, Any]) -> Any:
     kind, run_id = command["kind"], command["run_id"]
+    if kind == "create_workspace":          # the one command with no run yet: it makes one
+        from govern.workspace import create_workspace
+        from sim.world import REPO_ROOT
+        new_run = create_workspace(db, orchestrator.config, config_dir=REPO_ROOT / "config", data_dir=data_dir,
+                                   name=payload["name"], risk_appetite=payload["risk_appetite"],
+                                   facts=payload.get("facts", ""), actor=payload.get("actor", "unknown"),
+                                   source=payload.get("source", "unknown"), profile=payload)
+        return {"run_id": new_run}
     run = db.fetch_one("SELECT * FROM runs WHERE run_id = ?", (run_id,)) if run_id else None
     if run is None:
         raise ValueError(f"unknown run {run_id}")
@@ -102,8 +111,13 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
         if cap <= 0:
             raise ValueError("spend cap must be positive")
         db.update("runs", {"spend_cap_usd_per_month": cap}, where={"run_id": run_id})
+        from govern.settings import record_change
+        record_change(db, run_id, actor=payload.get("actor", "unknown"), source=payload.get("source", "unknown"),
+                      area="budget", target="monthly spend cap (USD)", before=str(run["spend_cap_usd_per_month"]),
+                      after=str(cap), reason=command["reason"])
         return {"spend_cap_usd_per_month": cap}
-    if kind in ("candidates", "convene", "attest", "submit", "set_brief"):
+    if kind in ("candidates", "convene", "attest", "submit", "set_brief", "update_profile", "add_document",
+                "retire_document", "set_panel"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
 
@@ -140,10 +154,27 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
                               risk_tier=payload.get("risk_tier"), details=payload.get("details"))
         return {"item_id": item_id}
 
+    who = {"actor": payload.get("actor", "unknown"), "source": payload.get("source", "unknown")}
+    why = payload.get("why") or command["reason"]
+
     if kind == "set_brief":
         from govern.committee import set_brief
-        set_brief(db, run_id, payload["seat"], payload["brief"], reason=command["reason"], source="dashboard")
+        set_brief(db, run_id, payload["seat"], payload["brief"], reason=why, **who)
         return {"seat": payload["seat"]}
+
+    if kind in ("update_profile", "add_document", "retire_document", "set_panel"):
+        from govern import settings
+        if kind == "update_profile":
+            return {"changed": settings.update_profile(db, run_id, payload["changes"], reason=why, **who)}
+        if kind == "add_document":
+            return {"document_id": settings.add_document(db, run_id, kind=payload["kind"], title=payload["title"],
+                                                         body=payload["body"], reason=why, **who)}
+        if kind == "retire_document":
+            settings.retire_document(db, run_id, payload["document_id"], reason=why, **who)
+            return {"retired": payload["document_id"]}
+        settings.set_panel(db, run_id, kind=payload["kind"], seats=payload["seats"], config_dir=config_dir,
+                           risk_tier=payload.get("risk_tier", "*"), reason=why, **who)
+        return {"panel": payload["kind"]}
 
     if kind == "convene":
         items = [AgendaItem(i["item_id"], i["kind"], i["title"], i.get("ref_id")) for i in payload.get("agenda", [])]

@@ -145,8 +145,8 @@ def test_a_brief_rewritten_through_the_queue_is_attributed_to_the_dashboard(work
     out = run_command(workspace, "set_brief", {"seat": "finance", "brief":
                       "You answer for spend and return, and you will not accept a pilot with no stopping rule."})
     assert out["status"] == "done"
-    row = db.fetch_one("SELECT source FROM interventions WHERE run_id = ? AND kind = 'prompt_edit'", (run_id,))
-    assert row["source"] == "dashboard"
+    row = db.fetch_one("SELECT actor, area, target FROM config_changes WHERE run_id = ? AND area = 'brief'", (run_id,))
+    assert (row["area"], row["target"]) == ("brief", "finance")
 
 
 def test_signing_the_first_of_two_matters_waits_rather_than_fails(workspace):
@@ -181,3 +181,48 @@ def test_a_command_another_worker_claimed_is_left_alone(queued):
     db.update("commands", {"status": "processing"}, where={"command_id": command_id})     # the other worker got there first
     assert command_id not in commands.process_pending(db, orch, data_dir)
     assert db.fetch_one("SELECT status FROM commands WHERE command_id = ?", (command_id,))["status"] == "processing"
+
+
+# ---- customers and their configuration, through the queue -----------------
+
+
+def test_a_new_customer_is_created_without_an_existing_run(queued):
+    db, orch, _, data_dir = queued
+    command_id = commands.enqueue(db, kind="create_workspace", run_id=None, reason="Onboarding a new customer.", source="test",
+                                  payload={"name": "Harbor Health", "framework": "nist_ai_rmf", "actor": "kevin@example.invalid",
+                                           "source": "dashboard_session",
+                                           "risk_appetite": "Use AI to reduce clinician admin time, never to make a clinical decision."})
+    commands.process_pending(db, orch, data_dir)
+    row = db.fetch_one("SELECT status, result FROM commands WHERE command_id = ?", (command_id,))
+    assert row["status"] == "done", row["result"]
+    new_run = json.loads(row["result"])["run_id"]
+    assert db.fetch_one("SELECT name, framework FROM org_profiles WHERE run_id = ?", (new_run,))["framework"] == "nist_ai_rmf"
+    first = db.fetch_one("SELECT actor, area FROM config_changes WHERE run_id = ?", (new_run,))
+    assert (first["actor"], first["area"]) == ("kevin@example.invalid", "workspace")
+
+
+def test_configuration_changes_through_the_queue_carry_the_session_name(workspace):
+    db, _, run_id, _ = workspace
+    who = {"actor": "kevin@example.invalid", "source": "dashboard_session"}
+    out = run_command(workspace, "update_profile", {**who, "why": "The board revised its AI strategy.",
+                                                    "changes": {"business_goals": "Halve call handling time."}})
+    assert out["status"] == "done" and out["result"]["changed"] == ["business_goals"]
+    out = run_command(workspace, "add_document", {**who, "why": "Adopted by the board in September.", "kind": "charter",
+                                                  "title": "AI Committee Charter", "body": "The committee advises. The CRO decides."})
+    assert out["status"] == "done"
+    out = run_command(workspace, "set_panel", {**who, "why": "Tools always need legal review here.",
+                                               "kind": "tool", "seats": ["technology", "security", "legal"]})
+    assert out["status"] == "done"
+    rows = db.fetch_all("SELECT actor, area FROM config_changes WHERE run_id = ? AND area IN ('profile', 'document', 'panel')", (run_id,))
+    assert {r["area"] for r in rows} == {"profile", "document", "panel"}
+    assert {r["actor"] for r in rows} == {"kevin@example.invalid"}
+
+
+def test_a_submission_keeps_the_extra_facts_it_was_given(workspace):
+    db, _, run_id, _ = workspace
+    out = run_command(workspace, "submit", {
+        "kind": "vendor", "title": "Scribe clinical notes", "description": "Transcribes consultations into draft notes.",
+        "submitted_by": "kevin@example.invalid", "risk_tier": "high",
+        "details": {"vendor": "Scribe Inc", "data_shared": ["audio", "health records"], "customer_facing": False}})
+    stored = json.loads(db.fetch_one("SELECT details FROM items WHERE item_id = ?", (out["result"]["item_id"],))["details"])
+    assert stored["data_shared"] == ["audio", "health records"] and stored["customer_facing"] is False

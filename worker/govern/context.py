@@ -102,8 +102,24 @@ def load_org_profile(db: Database, run_id: str) -> OrgProfile | None:
     row = db.fetch_one("SELECT * FROM org_profiles WHERE run_id = ?", (run_id,))
     if row is None:
         return None
-    return OrgProfile(name=row["name"], risk_appetite=row["risk_appetite"], facts=row["facts"],
+    return OrgProfile(name=row["name"], risk_appetite=row["risk_appetite"], facts=_about(row),
                       seats=tuple(json.loads(row["seats"])), chair_seat=row["chair_seat"], disclosed=True)
+
+
+def _about(row: Mapping[str, Any]) -> str:
+    """Everything the organisation has said about itself, as the committee reads it."""
+    from govern.settings import FRAMEWORKS
+    keys = row.keys()
+    get = lambda k: (row[k] if k in keys else None) or ""      # noqa: E731 - columns added by a later migration
+    parts = [row["facts"]]
+    if get("framework") and get("framework") != "none":
+        parts.append(f"Control framework: {FRAMEWORKS.get(get('framework'), get('framework'))}. "
+                     "Tie concerns and conditions to it where you can.")
+    for key, label in (("business_goals", "Business goals"), ("ai_tools", "AI already in use"),
+                       ("ai_landscape", "What is happening around the organisation")):
+        if get(key):
+            parts.append(f"{label}: {get(key)}")
+    return "\n\n".join(parts)
 
 
 def display_id(scoped_id: str) -> str:

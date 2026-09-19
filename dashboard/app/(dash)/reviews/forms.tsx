@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
-import { ITEM_KINDS } from "@/lib/control/schema";
 import type { ControlResult } from "@/lib/control/submit";
 import type { SeatRow } from "@/lib/queries/governance";
 import { ageOf, initials, plural, seatCode, seatColor, type QueueEntry } from "@/lib/reviews/model";
-import { attestAction, conveneAction, refreshCandidatesAction, setBriefAction, submitItemAction } from "./actions";
+import { attestAction, conveneAction, refreshCandidatesAction, setBriefAction } from "./actions";
 
 /** What the page says back. Every action is queued for the worker, so "done" means "asked", and says so. */
 function Said({ state, ok }: { state: ControlResult | null; ok: string }) {
@@ -68,53 +67,6 @@ export function WorkspacePicker({ scopes, current }: { scopes: Scope[]; current:
   );
 }
 
-const KIND_CHOICES: Record<(typeof ITEM_KINDS)[number], string> = {
-  use_case: "A use case for AI",
-  tool: "An AI tool staff want to use",
-  vendor: "A vendor whose product uses AI",
-  policy_change: "A change to our AI policy",
-  exception: "An exception to our AI policy",
-  incident: "Something that went wrong",
-  question: "A question (advice only, no vote)",
-};
-
-export function SubmitMatterForm({ runId }: { runId: string }) {
-  const [state, action, pending] = useActionState(submitItemAction, null);
-  return (
-    <form action={action} className="grid gap-3">
-      <input type="hidden" name="run_id" value={runId} />
-      <div className="rv-grid2">
-        <label>
-          <span className="rv-label">What is it?</span>
-          <select className="rv-field" name="kind" required defaultValue="use_case">
-            {ITEM_KINDS.map((k) => <option key={k} value={k}>{KIND_CHOICES[k]}</option>)}
-          </select>
-        </label>
-        <label>
-          <span className="rv-label">Risk</span>
-          <select className="rv-field" name="risk_tier" defaultValue="">
-            <option value="">Not sure yet</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-      </div>
-      <label>
-        <span className="rv-label">Name</span>
-        <input className="rv-field" name="title" required minLength={3} maxLength={200} placeholder="Lumen transcript analytics" />
-      </label>
-      <label>
-        <span className="rv-label">What should the committee know?</span>
-        <textarea className="rv-field" name="description" rows={5} required minLength={10}
-          placeholder="What it does, whose data it touches, who wants it and why." />
-      </label>
-      <div><button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Submitting…" : "Submit for review"}</button></div>
-      <Said state={state} ok="Submitted. It will show under Waiting in a moment." />
-    </form>
-  );
-}
-
 export function RefreshRanking({ runId }: { runId: string }) {
   const [state, action, pending] = useActionState(refreshCandidatesAction, null);
   return (
@@ -129,12 +81,10 @@ export function RefreshRanking({ runId }: { runId: string }) {
 const TIER_WORDS: Record<string, string> = { high: "High risk", medium: "Medium risk", low: "Low risk" };
 
 /** The waiting matters: tick to choose, click to read. The action bar names what it will do. */
-export function WaitingRows({ runId, entries, openHrefs }: { runId: string; entries: QueueEntry[]; openHrefs: Record<string, string> }) {
+export function WaitingRows({ runId, entries, openHrefs, askHref }: { runId: string; entries: QueueEntry[]; openHrefs: Record<string, string>; askHref: string }) {
   const [state, action, pending] = useActionState(conveneAction, null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [question, setQuestion] = useState("");
-  const questions = question.split("\n").filter((line) => line.trim()).length;
-  const total = picked.size + questions;
+  const total = picked.size;
 
   function toggle(ref: string, on: boolean) {
     setPicked((before) => {
@@ -175,16 +125,7 @@ export function WaitingRows({ runId, entries, openHrefs }: { runId: string; entr
         ))}
       </div>
       <div className="rv-actionbar">
-        <details className="rv-pop">
-          <summary><span className="rv-btn rv-btn-sm">{questions ? `${plural(questions, "question")} added` : "Add a question"}</span></summary>
-          <div className="rv-pop-card">
-            <label>
-              <span className="rv-label">Ask the committee</span>
-              <textarea className="rv-field" name="advisory" rows={3} value={question} onChange={(e) => setQuestion(e.currentTarget.value)}
-                placeholder="One per line. Advice only, no vote." />
-            </label>
-          </div>
-        </details>
+        <Link href={askHref} scroll={false} className="rv-btn rv-btn-sm">Ask the committee a question</Link>
         <span className="flex flex-wrap items-center gap-3">
           <span className="rv-hint" style={{ marginTop: 0 }}>{total ? `${plural(total, "matter")} selected` : "Tick matters to review"}</span>
           <button className="rv-btn rv-btn-you" type="submit" disabled={pending || total === 0}>

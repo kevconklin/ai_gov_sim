@@ -17,7 +17,7 @@ from govern.policy import PolicyRepo
 
 # Insert order respects foreign keys; deletes run in reverse.
 RUN_TABLES: tuple[str, ...] = (
-    "sim_months", "org_profiles", "panel_rules", "agents", "items", "agent_memories", "meetings", "messages", "positions", "perspectives", "syntheses", "votes", "decisions", "use_cases",
+    "sim_months", "org_profiles", "panel_rules", "documents", "config_changes", "agents", "items", "agent_memories", "meetings", "messages", "positions", "perspectives", "syntheses", "votes", "decisions", "use_cases",
     "attestations", "use_case_history", "policy_edits", "status_changes", "agenda_deferrals", "policy_versions", "engine_decisions", "engine_draws",
     "outcome_reports", "events", "inbox_items", "news_items", "exams", "findings", "board_memos", "coded_measures",
     "metrics",

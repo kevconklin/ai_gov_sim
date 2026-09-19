@@ -27,6 +27,7 @@ export interface WaitingRow {
   since: string; // YYYY-MM-DD or YYYY-MM
   submitted_by: string | null;
   description?: string | null;
+  details?: string | null;
 }
 
 export interface Ranking {
@@ -144,6 +145,18 @@ export function describeWork(kind: string, payloadJson: string | null): string {
       return "Refreshing the ranking";
     case "set_brief":
       return `Updating the brief for the ${String(payload.seat ?? "").replace(/_/g, " ")} seat`;
+    case "create_workspace":
+      return `Setting up ${String(payload.name ?? "the new customer")}`;
+    case "update_profile":
+      return "Saving your settings";
+    case "add_document":
+      return `Adding “${String(payload.title ?? "a document")}”`;
+    case "retire_document":
+      return "Retiring a document";
+    case "set_panel":
+      return `Changing who reviews ${String(payload.kind ?? "").replace(/_/g, " ")} matters`;
+    case "set_spend_cap":
+      return "Changing the monthly budget";
     default:
       return kind.replace(/_/g, " ");
   }
@@ -190,4 +203,58 @@ export function ageOf(since: string, now: number = Date.now()): string {
   const day = since.length > 7 ? since : `${since}-01`;
   const days = Math.max(0, Math.floor((now - new Date(`${day}T00:00:00`).getTime()) / 86_400_000));
   return days === 0 ? "today" : days === 1 ? "1 day" : `${days} days`;
+}
+
+export const FRAMEWORK_LABELS: Record<string, string> = {
+  nist_ai_rmf: "NIST AI RMF",
+  iso_42001: "ISO/IEC 42001",
+  eu_ai_act: "EU AI Act",
+  sr_11_7: "SR 11-7",
+  none: "None chosen",
+};
+
+export const AREA_LABELS: Record<string, string> = {
+  workspace: "Customer",
+  profile: "Organisation",
+  brief: "Adviser brief",
+  panel: "Review panel",
+  document: "Document",
+  budget: "Budget",
+};
+
+export const PROFILE_LABELS: Record<string, string> = {
+  name: "Organisation name",
+  risk_appetite: "Board direction on AI",
+  facts: "About the organisation",
+  framework: "Control framework",
+  business_goals: "Business goals",
+  ai_landscape: "AI landscape",
+  ai_tools: "AI already in use",
+};
+
+/** What changed, in a line: "Board direction on AI", "Brief for the finance seat", "Who reviews vendor matters". */
+export function changeTitle(area: string, target: string): string {
+  if (area === "profile") return PROFILE_LABELS[target] ?? target;
+  if (area === "brief") return `Brief for the ${target.replace(/_/g, " ")} seat`;
+  if (area === "panel") return `Who reviews ${target.replace(/_/g, " ")} matters`;
+  if (area === "workspace") return "Customer created";
+  return target;
+}
+
+/** Form fields named d_<key> become a matter's details; d_<key>[] collects a checkbox group. */
+export function detailsFromFields(entries: Iterable<[string, FormDataEntryValue]>): Record<string, string | boolean | string[]> {
+  const out: Record<string, string | boolean | string[]> = {};
+  for (const [name, value] of entries) {
+    if (!name.startsWith("d_") || typeof value !== "string") continue;
+    const text = value.trim();
+    if (name.endsWith("[]")) {
+      const key = name.slice(2, -2);
+      if (text) out[key] = [...((out[key] as string[] | undefined) ?? []), text.slice(0, 100)];
+    } else if (text === "on") {
+      out[name.slice(2)] = true;
+    } else if (text) {
+      out[name.slice(2)] = text.slice(0, 2000);
+    }
+  }
+  return out;
 }

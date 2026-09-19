@@ -5,7 +5,11 @@ import { BANK_LABELS } from "@/lib/constants";
 import { first, href, type SearchParams } from "@/lib/params";
 import {
   ballotsToSign,
+  changeLog,
   committeeSeats,
+  documentsInForce,
+  panelOverrides,
+  spendCap,
   decisionsToSign,
   latestCandidates,
   openWork,
@@ -16,8 +20,10 @@ import {
   waitingMatters,
   type ScopeRow,
 } from "@/lib/queries/governance";
-import { ageOf, benchFor, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
-import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, SubmitMatterForm, WaitingRows, WorkspacePicker, type Scope } from "./forms";
+import { AREA_LABELS, FRAMEWORK_LABELS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
+import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
+import { SubmitMatterForm } from "./intake-form";
+import { AddDocumentForm, BudgetForm, NewCustomerForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
 import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, VoteBar } from "./parts";
 
 function parse<T>(raw: string | null | undefined, fallback: T): T {
@@ -44,7 +50,9 @@ function errorOf(result: string | null): string {
 
 const STALE_MS = 45_000;
 const OUTCOME: Record<string, [string, string | undefined]> = { approved: ["Approved", "ok"], rejected: ["Rejected", "no"], deferred: ["Deferred", undefined] };
-type Tab = "needs" | "waiting" | "decided" | "advice" | "committee";
+type Tab = "needs" | "waiting" | "decided" | "advice" | "committee" | "settings" | "changes";
+const PANEL_KINDS = ["use_case", "tool", "vendor", "policy_change", "exception", "incident"] as const;
+const PROFILE_FIELDS: [string, "short" | "long" | "framework"][] = [["name", "short"], ["risk_appetite", "long"], ["framework", "framework"], ["facts", "long"], ["business_goals", "long"], ["ai_tools", "long"], ["ai_landscape", "long"]];
 
 function EmptyState({ icon, tone, children }: { icon: string; tone: string; children: ReactNode }) {
   return (
@@ -69,7 +77,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0]!;
   const runId = scope.run_id;
 
-  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats] = await Promise.all([
+  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap] = await Promise.all([
     currentOperator(),
     orgProfile(runId),
     decisionsToSign(runId),
@@ -80,6 +88,10 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     recentSyntheses(runId),
     recentAttestations(runId),
     committeeSeats(runId),
+    documentsInForce(runId),
+    panelOverrides(runId),
+    changeLog(runId),
+    spendCap(runId),
   ]);
 
   const order = parse<string[]>(org?.seats, []);
@@ -96,7 +108,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const overrides = settled.filter((r) => r.outcome !== r.recommended).length;
 
   const wanted = first(sp, "tab") as Tab | undefined;
-  const tab: Tab = wanted && ["needs", "waiting", "decided", "advice", "committee"].includes(wanted)
+  const tab: Tab = wanted && ["needs", "waiting", "decided", "advice", "committee", "settings", "changes"].includes(wanted)
     ? wanted : decisions.length ? "needs" : queue.length ? "waiting" : "decided";
   const open = first(sp, "open") ?? "";
   const to = (overrides_: Record<string, string | null>) => href("/reviews", sp, overrides_);
@@ -117,7 +129,12 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     { id: "decided", label: "Signed", count: record.length, tone: "ok" },
     { id: "advice", label: "Advice", count: syntheses.length, tone: "ai" },
     { id: "committee", label: "Committee", count: committee.length, tone: "ai" },
+    { id: "settings", label: "Settings", count: docs.length + panels.length, tone: "you" },
+    { id: "changes", label: "Changes", count: changes.length, tone: "you" },
   ];
+  const profileValue = (field: string): string | null => (org ? ((org as unknown as Record<string, string | null>)[field] ?? null) : null);
+  const shown = (field: string): string => field === "framework" ? (FRAMEWORK_LABELS[profileValue(field) ?? "none"] ?? "None chosen") : (profileValue(field) ?? "");
+  const panelFor = (kind: string): string[] | null => { const row = panels.find((x) => x.kind === kind && x.risk_tier === "*"); return row ? parse<string[]>(row.seats, []) : null; };
 
   // ---- the drill-down ----------------------------------------------------------------------
   let drawer: ReactNode = null;
@@ -125,7 +142,59 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const key = rest.join(":");
 
   if (what === "submit") {
-    drawer = <Drawer closeHref={closeHref} title="Submit a matter" chips={<Chip tone="you">It joins Waiting</Chip>}><SubmitMatterForm runId={runId} /></Drawer>;
+    drawer = (
+      <Drawer closeHref={closeHref} title={key === "question" ? "Ask the committee" : "Submit a matter"} chips={<Chip tone="you">It joins Waiting</Chip>}>
+        <SubmitMatterForm runId={runId} preset={key || undefined} />
+      </Drawer>
+    );
+  } else if (what === "customer") {
+    drawer = <Drawer closeHref={closeHref} title="Add a customer" chips={<Chip tone="ai">Gets a committee of eight AI advisers</Chip>}><NewCustomerForm /></Drawer>;
+  } else if (what === "setting" && org) {
+    const spec = PROFILE_FIELDS.find(([f]) => f === key);
+    if (spec) {
+      drawer = (
+        <Drawer closeHref={closeHref} title={PROFILE_LABELS[key] ?? key} chips={<Chip tone="you">Organisation</Chip>}>
+          {shown(key) ? <section className="rv-card"><div className="rv-card-h">Now</div><p className="rv-prose">{shown(key)}</p></section> : null}
+          <ProfileFieldForm runId={runId} field={key} value={profileValue(key)} kind={spec[1]} />
+        </Drawer>
+      );
+    }
+  } else if (what === "document") {
+    const doc = docs.find((x) => x.document_id === key);
+    drawer = key === "new" ? (
+      <Drawer closeHref={closeHref} title="Add a governing document" chips={<Chip tone="ai">The committee can read and cite it</Chip>}><AddDocumentForm runId={runId} /></Drawer>
+    ) : doc ? (
+      <Drawer closeHref={closeHref} title={doc.title} chips={<><Chip plain>{doc.kind.replace(/_/g, " ")}</Chip><Chip tone="ok" dot>In force</Chip></>}>
+        <p className="rv-hint" style={{ marginTop: 0 }}>Added by {doc.added_by}, {when(doc.added_at)}</p>
+        <Fold title="Read it"><p className="rv-prose">{doc.body}</p></Fold>
+        <Fold title="Retire this document"><RetireDocumentForm runId={runId} documentId={doc.document_id} /></Fold>
+      </Drawer>
+    ) : null;
+  } else if (what === "panel" && (PANEL_KINDS as readonly string[]).includes(key)) {
+    drawer = (
+      <Drawer closeHref={closeHref} title={`Who reviews: ${KIND_LABELS[key] ?? key}`} chips={<Chip tone="ai">Review panel</Chip>}>
+        <PanelForm runId={runId} kind={key} seats={committee.map((c) => ({ seat: c.seat, title: c.title }))} chosen={panelFor(key)} />
+      </Drawer>
+    );
+  } else if (what === "budget") {
+    drawer = <Drawer closeHref={closeHref} title="Monthly budget" chips={<Chip tone="you">Budget</Chip>}><BudgetForm runId={runId} current={cap} /></Drawer>;
+  } else if (what === "change") {
+    const c = changes.find((x) => x.change_id === key);
+    if (c) {
+      drawer = (
+        <Drawer closeHref={closeHref} title={changeTitle(c.area, c.target)} chips={<><Chip tone="you">{AREA_LABELS[c.area] ?? c.area}</Chip><Chip plain>{when(c.changed_at)}</Chip></>}>
+          <section className="rv-card" data-tone="you">
+            <div className="rv-card-h"><span className="inline-flex items-center gap-2"><Avatar name={c.actor} you /> {c.actor}</span></div>
+            <p className="rv-prose">{c.reason}</p>
+            <p className="rv-hint">{c.source === "dashboard_session" ? "Signed in here under this name." : c.source === "cli_asserted" ? "Name given at the command line, not verified." : "How this name was established was not recorded."}</p>
+          </section>
+          <div className="rv-diff">
+            <div className="rv-diff-side" data-tone="no"><span className="rv-diff-tag">Before</span><p className="rv-prose">{c.before_value ?? "Nothing set"}</p></div>
+            <div className="rv-diff-side" data-tone="ok"><span className="rv-diff-tag">After</span><p className="rv-prose">{c.after_value ?? "Nothing set"}</p></div>
+          </div>
+        </Drawer>
+      );
+    }
   } else if (what === "decision") {
     const d = decisions.find((x) => x.decision_id === key);
     if (d) {
@@ -162,6 +231,9 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             <dl className="rv-facts">
               {m.submitted_by ? <><dt>From</dt><dd>{m.submitted_by}</dd></> : null}
               <dt>Waiting</dt><dd>{ageOf(m.since)}</dd>
+              {Object.entries(parse<Record<string, unknown>>(m.details, {})).map(([k, v]) => (
+                <span key={k} className="contents"><dt>{k.replace(/_/g, " ").replace(/^./, (ch) => ch.toUpperCase())}</dt><dd>{Array.isArray(v) ? v.join(", ") : v === true ? "Yes" : v === false ? "No" : String(v)}</dd></span>
+              ))}
               <dt>Priority</dt>
               <dd className="flex flex-wrap items-center gap-1.5">
                 {m.priority === null ? <Chip tone="you">Not ranked yet</Chip> : <strong>{m.priority} of 100</strong>}
@@ -254,6 +326,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="rv-top-actions">
           {scopes.length > 1 ? <WorkspacePicker scopes={scopeOptions} current={runId} /> : null}
+          <Link href={to({ open: "customer" })} scroll={false} className="rv-btn">New customer</Link>
           <Link href={to({ open: "submit" })} scroll={false} className="rv-btn rv-btn-you"><Icon name="plus" /> Submit a matter</Link>
         </div>
       </header>
@@ -303,6 +376,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             {tab === "waiting" ? <Help right><p><strong>Most urgent first.</strong> Priority weighs risk, how long it has waited, and earlier deferrals. The committee never sees it.</p></Help> : null}
             {tab === "needs" ? <Help right><p><strong>The committee only recommends.</strong> Open a matter to see how each seat voted, weigh objections, and sign. Nothing takes effect until you do.</p></Help> : null}
             {tab === "decided" && settled.length ? <span className="muted text-xs" title="Never overruling can mean advice is being waved through.">Overruled {overrides} of {settled.length}</span> : null}
+            {tab === "settings" ? <Help right><p><strong>Everything the committee is told, and who reviews what.</strong> Every change asks why, and lands under Changes with your name.</p></Help> : null}
+            {tab === "changes" ? <Help right><p><strong>The record of every configuration change.</strong> Who, when, what it was, what it became, and why. Nothing here can be edited or removed.</p></Help> : null}
             {tab === "committee" ? <Help right><p><strong>Each seat is an AI adviser with its own lens.</strong> A review seats only the ones a matter needs. High risk seats everyone, and the chair always sits.</p></Help> : null}
           </span>
         </nav>
@@ -332,8 +407,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         ) : null}
 
         {tab === "waiting" ? (
-          queue.length === 0 ? <EmptyState icon="inbox" tone="wait">Nothing is waiting. Submit a matter to start.</EmptyState>
-            : <WaitingRows runId={runId} entries={queue} openHrefs={Object.fromEntries(queue.map((m) => [m.ref_id, to({ open: `matter:${m.ref_id}` })]))} />
+          queue.length === 0 ? <EmptyState icon="inbox" tone="wait">Nothing is waiting. Submit a matter, or <Link href={to({ open: "submit:question" })} scroll={false}>ask the committee a question</Link>.</EmptyState>
+            : <WaitingRows runId={runId} entries={queue} askHref={to({ open: "submit:question" })} openHrefs={Object.fromEntries(queue.map((m) => [m.ref_id, to({ open: `matter:${m.ref_id}` })]))} />
         ) : null}
 
         {tab === "decided" ? (
@@ -396,6 +471,70 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
               </Link>
             ))}
           </div>
+        ) : null}
+        {tab === "settings" ? (
+          !org ? <EmptyState icon="flag" tone="ai">A simulated run is configured from files, not here.</EmptyState> : (
+            <div className="rv-settings">
+              <div className="rv-group-h">Organisation</div>
+              <div className="rv-setgrid">
+                {PROFILE_FIELDS.map(([field]) => (
+                  <Link key={field} href={to({ open: `setting:${field}` })} scroll={false} className="rv-set">
+                    <span className="min-w-0"><span className="rv-set-label">{PROFILE_LABELS[field]}</span><span className="rv-set-value">{firstSentence(shown(field), 70) || "Not set"}</span></span>
+                    <Icon name="chevron" className="rv-chev" />
+                  </Link>
+                ))}
+                <Link href={to({ open: "budget" })} scroll={false} className="rv-set">
+                  <span className="min-w-0"><span className="rv-set-label">Monthly budget</span><span className="rv-set-value">{cap === null ? "Not set" : `$${cap.toLocaleString("en-US")}`}</span></span>
+                  <Icon name="chevron" className="rv-chev" />
+                </Link>
+              </div>
+
+              <div className="rv-group-h"><span>Governing documents</span><Link href={to({ open: "document:new" })} scroll={false} className="rv-btn rv-btn-sm"><Icon name="plus" /> Add document</Link></div>
+              {docs.length === 0 ? <p className="muted px-1 pb-2">None yet. Add your acceptable use policy or committee charter so the committee can cite it.</p> : (
+                <div className="rv-setgrid">
+                  {docs.map((d) => (
+                    <Link key={d.document_id} href={to({ open: `document:${d.document_id}` })} scroll={false} className="rv-set">
+                      <span className="min-w-0"><span className="rv-set-label">{d.kind.replace(/_/g, " ")}</span><span className="rv-set-value">{d.title}</span></span>
+                      <Icon name="chevron" className="rv-chev" />
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              <div className="rv-group-h">Who reviews what</div>
+              <div className="rv-setgrid">
+                {PANEL_KINDS.map((kind) => {
+                  const chosen = panelFor(kind);
+                  return (
+                    <Link key={kind} href={to({ open: `panel:${kind}` })} scroll={false} className="rv-set">
+                      <span className="min-w-0">
+                        <span className="rv-set-label">{KIND_LABELS[kind]}</span>
+                        <span className="rv-set-value">{chosen ? <span className="rv-stack">{chosen.map((seat) => <Avatar key={seat} name={titleOf(seat)} seat={seat} index={seatIndex.get(seat)} />)}</span> : "Standard panel"}</span>
+                      </span>
+                      <Icon name="chevron" className="rv-chev" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        ) : null}
+
+        {tab === "changes" ? (
+          changes.length === 0 ? <EmptyState icon="flag" tone="you">No configuration changes yet.</EmptyState> : (
+            <div className="rv-rows">
+              {changes.map((c) => (
+                <Link key={c.change_id} href={to({ open: `change:${c.change_id}` })} scroll={false} className="rv-rowline">
+                  <Avatar name={c.actor} you />
+                  <span className="min-w-0">
+                    <span className="rv-rowtitle">{changeTitle(c.area, c.target)}</span>
+                    <span className="rv-rowmeta"><Chip tone="you">{AREA_LABELS[c.area] ?? c.area}</Chip><span className="muted truncate text-xs">{c.reason}</span></span>
+                  </span>
+                  <span className="rv-rowend"><span className="is-wide">{c.actor}</span><span className="is-wide">{when(c.changed_at)}</span><Icon name="chevron" className="rv-chev" /></span>
+                </Link>
+              ))}
+            </div>
+          )
         ) : null}
       </section>
 

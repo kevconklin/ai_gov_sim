@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageOf, benchFor, seatCode, describeWork, firstSentence, initials, mergeQueue, seatColor, tally, type WaitingRow } from "@/lib/reviews/model";
+import { ageOf, benchFor, changeTitle, detailsFromFields, seatCode, describeWork, firstSentence, initials, mergeQueue, seatColor, tally, type WaitingRow } from "@/lib/reviews/model";
 
 const row = (over: Partial<WaitingRow>): WaitingRow => ({
   ref_id: "ws/item/IT-001", source: "item", item_kind: "vendor", title: "Lumen", risk_tier: "medium",
@@ -97,5 +97,23 @@ describe("compact labels", () => {
     const now = new Date("2026-09-18T18:00:00").getTime();
     expect(ageOf("2026-09-18", now)).toBe("today");
     expect(ageOf("2026-09-06", now)).toBe("12 days");
+  });
+});
+
+describe("a matter's extra facts", () => {
+  it("collects text, ticks and tick-groups from the form, and drops what was left empty", () => {
+    const form: [string, string][] = [
+      ["title", "ignored"], ["d_owner", " Dana Lee "], ["d_customer_facing", "on"], ["d_links", ""],
+      ["d_data_involved[]", "personal data"], ["d_data_involved[]", "financial data"],
+    ];
+    expect(detailsFromFields(form)).toEqual({ owner: "Dana Lee", customer_facing: true, data_involved: ["personal data", "financial data"] });
+  });
+});
+
+describe("the change record", () => {
+  it("names a change the way a person would", () => {
+    expect(changeTitle("profile", "risk_appetite")).toBe("Board direction on AI");
+    expect(changeTitle("brief", "finance")).toBe("Brief for the finance seat");
+    expect(changeTitle("panel", "vendor")).toBe("Who reviews vendor matters");
   });
 });

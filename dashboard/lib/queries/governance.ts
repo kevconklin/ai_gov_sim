@@ -207,12 +207,16 @@ export interface OrgRow {
   risk_appetite: string;
   facts: string;
   seats: string; // json list: speaking order
+  framework: string | null;
+  business_goals: string | null;
+  ai_landscape: string | null;
+  ai_tools: string | null;
 }
 
 /** Present for a workspace; absent for a simulated run, whose organisation is a fictional bank. */
 export async function orgProfile(runId: string): Promise<OrgRow | undefined> {
   const db = await readDb();
-  return db.get<OrgRow>("SELECT name, risk_appetite, facts, seats FROM org_profiles WHERE run_id = ?", [runId]);
+  return db.get<OrgRow>("SELECT name, risk_appetite, facts, seats, framework, business_goals, ai_landscape, ai_tools FROM org_profiles WHERE run_id = ?", [runId]);
 }
 
 export interface DecisionRow {
@@ -292,6 +296,7 @@ export interface WaitingMatter {
   since: string;
   submitted_by: string | null;
   description: string | null;
+  details: string | null; // json
 }
 
 /**
@@ -303,15 +308,15 @@ export async function waitingMatters(runId: string): Promise<WaitingMatter[]> {
   const db = await readDb();
   const [items, useCases, edits] = await Promise.all([
     db.all<WaitingMatter>(
-      `SELECT item_id AS ref_id, 'item' AS source, kind AS item_kind, title, risk_tier, submitted_on AS since, submitted_by, description
+      `SELECT item_id AS ref_id, 'item' AS source, kind AS item_kind, title, risk_tier, submitted_on AS since, submitted_by, description, details
        FROM items WHERE run_id = ? AND status = 'submitted'`, [runId]),
     db.all<WaitingMatter>(
       `SELECT use_case_id AS ref_id, 'use_case' AS source, 'use_case' AS item_kind, title, risk_tier,
-              proposed_month AS since, NULL AS submitted_by, description
+              proposed_month AS since, NULL AS submitted_by, description, details
        FROM use_cases WHERE run_id = ? AND status = 'proposed'`, [runId]),
     db.all<WaitingMatter>(
       `SELECT edit_id AS ref_id, 'policy_edit' AS source, 'policy_edit' AS item_kind, section AS title,
-              NULL AS risk_tier, sim_month AS since, NULL AS submitted_by, text AS description
+              NULL AS risk_tier, sim_month AS since, NULL AS submitted_by, text AS description, NULL AS details
        FROM policy_edits WHERE run_id = ? AND status = 'proposed'`, [runId]),
   ]);
   return [...items, ...useCases, ...edits];
@@ -331,7 +336,9 @@ export async function openWork(runId: string): Promise<WorkRow[]> {
   const db = await readDb();
   return db.all<WorkRow>(
     `SELECT command_id, kind, payload, status, result, created_at FROM commands
-     WHERE run_id = ? AND kind IN ('candidates', 'convene', 'attest', 'submit', 'set_brief')
+     WHERE (run_id = ? OR (run_id IS NULL AND kind = 'create_workspace'))
+       AND kind IN ('candidates', 'convene', 'attest', 'submit', 'set_brief', 'create_workspace', 'update_profile',
+                    'add_document', 'retire_document', 'set_panel', 'set_spend_cap')
        AND (status IN ('pending', 'processing')
             OR (status = 'failed' AND created_at > ?
                 -- a failed ranking that a later one replaced is no longer news
@@ -372,4 +379,63 @@ export async function reviewScopes(): Promise<ScopeRow[]> {
      LEFT JOIN org_profiles o ON o.run_id = r.run_id
      ORDER BY CASE WHEN r.condition = 'workspace' THEN 0 ELSE 1 END, r.started_at DESC`,
   );
+}
+
+export interface DocumentRow {
+  document_id: string;
+  kind: string;
+  title: string;
+  body: string;
+  added_by: string;
+  added_at: string;
+}
+
+/** Governing documents in force. Retired ones stay in the table and out of this list. */
+export async function documentsInForce(runId: string): Promise<DocumentRow[]> {
+  const db = await readDb();
+  return db.all<DocumentRow>(
+    `SELECT document_id, kind, title, body, added_by, added_at FROM documents
+     WHERE run_id = ? AND retired_at IS NULL ORDER BY added_at, document_id`,
+    [runId],
+  );
+}
+
+export interface PanelRow {
+  kind: string;
+  risk_tier: string;
+  seats: string; // json list
+}
+
+/** Panels this customer has changed. A kind with no row here uses the platform default. */
+export async function panelOverrides(runId: string): Promise<PanelRow[]> {
+  const db = await readDb();
+  return db.all<PanelRow>("SELECT kind, risk_tier, seats FROM panel_rules WHERE run_id = ? ORDER BY kind, risk_tier", [runId]);
+}
+
+export interface ChangeRow {
+  change_id: string;
+  changed_at: string;
+  actor: string;
+  source: string;
+  area: string;
+  target: string;
+  before_value: string | null;
+  after_value: string | null;
+  reason: string;
+}
+
+/** The record of every configuration change, newest first. Append-only: nothing edits or removes a row. */
+export async function changeLog(runId: string): Promise<ChangeRow[]> {
+  const db = await readDb();
+  return db.all<ChangeRow>(
+    `SELECT change_id, changed_at, actor, source, area, target, before_value, after_value, reason
+     FROM config_changes WHERE run_id = ? ORDER BY changed_at DESC, change_id DESC LIMIT 300`,
+    [runId],
+  );
+}
+
+export async function spendCap(runId: string): Promise<number | null> {
+  const db = await readDb();
+  const row = await db.get<{ cap: number | null }>("SELECT spend_cap_usd_per_month AS cap FROM runs WHERE run_id = ?", [runId]);
+  return row?.cap ?? null;
 }

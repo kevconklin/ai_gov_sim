@@ -22,14 +22,14 @@ TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("committee/tools.
 _FEEDS = frozenset({"read_news", "read_inbox"})
 REVIEW_TOOLS: tuple[Mapping[str, Any], ...] = tuple(
     {**tool, "description": str(tool["description"]).replace("the bank's", "the organisation's")}
-    for tool in TOOLS if tool["name"] not in _FEEDS)
+    for tool in TOOLS if tool["name"] not in _FEEDS) + tuple(prompts.load_yaml("review/tools.yaml"))
 
 
 def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
     return REVIEW_TOOLS if disclosed else TOOLS
 
 
-READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox"})
+READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox", "read_document"})
 PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_status_change"})
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {
     "circulate": READ_TOOLS | PROPOSE_TOOLS,
@@ -155,6 +155,19 @@ def _read_inbox(s: ToolSession, args: Mapping[str, Any]) -> str:
         for r in rows)
 
 
+def _read_document(s: ToolSession, args: Mapping[str, Any]) -> str:
+    from govern.settings import documents
+    wanted = str(args.get("title", "")).strip().lower()
+    in_force = documents(s.ctx.db, s.ctx.run_id)
+    if not in_force:
+        return "The organisation has not provided any governing documents."
+    match = next((d for d in in_force if d["title"].lower() == wanted), None) or \
+        next((d for d in in_force if wanted and wanted in d["title"].lower()), None)
+    if match is None:
+        return "No document by that title. In force: " + "; ".join(d["title"] for d in in_force) + "."
+    return f"{match['title']}\n\n{match['body']}"
+
+
 def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
     item = str(args.get("item_id", "")).strip().upper()
     if item not in s.decision_items:
@@ -272,6 +285,7 @@ HANDLERS: Mapping[str, Callable[[ToolSession, Mapping[str, Any]], str]] = {
     "propose_status_change": _propose_status_change, "pass_turn": _pass_turn, "cast_vote": _cast_vote,
     "record_minutes": _record_minutes,
     "submit_perspective": _submit_perspective,
+    "read_document": _read_document,
 }
 
 

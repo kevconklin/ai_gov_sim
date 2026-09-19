@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from govern.budget import require_review_budget
 from govern.config import Config
 from govern.context import ReviewContext
 from govern.db import Database
@@ -15,6 +16,7 @@ from govern.locks import run_lock
 from govern.packet import AgendaItem
 from govern.panels import panel_for
 from govern.review import MeetingResult, Review
+from govern.workspace import is_workspace
 
 
 def recover_interrupted_reviews(db: Database, run_id: str) -> list[str]:
@@ -71,6 +73,8 @@ class ReviewService:
             raise ValueError("a review needs an agenda")
         with run_lock(self.data_dir, run_id, db=self.db):
             ctx = self.context(run_id)
+            if is_workspace(ctx.run):
+                require_review_budget(self.db, dict(ctx.run), self.config)
             recover_interrupted_reviews(self.db, run_id)
             seats = set(self.panel(ctx, agenda))
             members = [a for a in ctx.active_agents() if a.seat in seats]

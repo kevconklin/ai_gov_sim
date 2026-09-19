@@ -32,9 +32,29 @@ def agenda_text(items: Sequence[AgendaItem]) -> str:
                      for i, item in enumerate(items))
 
 
+def _fact(value: Any) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(v) for v in value) or "none"
+    return str(value)
+
+
+def _facts(details: Mapping[str, Any]) -> str:
+    return "\n".join(f"- {k.replace('_', ' ')}: {_fact(v)}" for k, v in details.items() if v not in (None, "", [], ()))
+
+
 def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
     blocks = []
     for item in items:
+        if item.kind == "advisory":
+            # A question arrives with its context too. Without this the committee was asked to
+            # advise on a one-line title and never saw why it was being asked.
+            row = ctx.db.fetch_one("SELECT * FROM items WHERE item_id = ?", (item.ref_id,)) if item.ref_id else None
+            if row is not None:
+                blocks.append(f"{item.item_id} Question from {row['submitted_by']}: {row['title']}\n{row['description']}\n"
+                              + _facts(json.loads(row["details"] or "{}")))
+            continue
         if item.kind == "use_case":
             row = ctx.db.fetch_one("SELECT u.*, a.name AS proposer FROM use_cases u LEFT JOIN agents a "
                                    "ON a.agent_id = u.proposer_agent_id WHERE use_case_id = ?", (item.ref_id,))
@@ -48,7 +68,7 @@ def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
             blocks.append(f"{item.item_id} {KIND_LABELS[row['kind']]}: {row['title']} (submitted by {row['submitted_by']})\n"
                           f"{row['description']}\n"
                           + (f"- submitted risk tier: {row['risk_tier']}\n" if row["risk_tier"] else "")
-                          + "\n".join(f"- {k.replace('_', ' ')}: {v}" for k, v in details.items()))
+                          + _facts(details))
         elif item.kind == "policy_edit":
             row = ctx.db.fetch_one("SELECT p.*, a.name AS proposer FROM policy_edits p LEFT JOIN agents a "
                                    "ON a.agent_id = p.agent_id WHERE edit_id = ?", (item.ref_id,))
@@ -114,10 +134,17 @@ def _review_packet(ctx: ReviewContext, *, meeting_date: date, agenda: Sequence[A
     """
     prev = ctx.db.fetch_one("SELECT minutes_text FROM meetings WHERE run_id = ? AND status = 'closed' "
                             "ORDER BY meeting_date DESC, meeting_id DESC LIMIT 1", (ctx.run_id,))
-    decisions = [i for i in agenda if i.kind != "discussion"]
+    from govern.settings import documents
+    decisions = [i for i in agenda if i.kind not in ("discussion", "advisory")]
+    questions = [i for i in agenda if i.kind == "advisory"]
     agenda_block = agenda_text(agenda)
     if decisions:
         agenda_block += "\n\nItems for decision\n" + decision_details(ctx, decisions)
+    if questions and decision_details(ctx, questions):
+        agenda_block += "\n\nItems for advice, with no vote\n" + decision_details(ctx, questions)
+    in_force = documents(ctx.db, ctx.run_id)
+    library = "\n".join(f"- {d['title']} ({d['kind'].replace('_', ' ')})" for d in in_force) + \
+        "\nUse read_document to read one in full." if in_force else "None have been provided."
     text = ctx.policy_repo.read()
     heads = list(sections(text))
     policy = (f"{len(heads)} sections, {len(stats(text).controls)} numbered requirements. Sections: "
@@ -125,7 +152,7 @@ def _review_packet(ctx: ReviewContext, *, meeting_date: date, agenda: Sequence[A
     return prompts.render(
         "review/packet.md", date=long_date(meeting_date), agenda=agenda_block,
         previous_minutes=prev["minutes_text"] if prev and prev["minutes_text"] else "None. This is the committee's first review.",
-        register=_register(ctx), inventory=_inventory(ctx), policy_summary=policy,
+        register=_register(ctx), inventory=_inventory(ctx), policy_summary=policy, documents=library,
     )
 
 

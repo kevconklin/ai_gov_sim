@@ -152,3 +152,43 @@ describe("intake and briefs", () => {
     expect(parsed.success).toBe(false);
   });
 });
+
+describe("customers and configuration", () => {
+  const base = { run_id: "run1", reason: "kevin@bank.example: the board revised its AI strategy" };
+
+  it("accepts a new customer with a name, the board's direction, and who is adding them", async () => {
+    const { workspaceSchema } = await import("@/lib/control/schema");
+    const ok = workspaceSchema.safeParse({ reason: base.reason, payload: {
+      name: "Harbor Health", framework: "nist_ai_rmf", actor: "kevin@bank.example", source: "dashboard_session",
+      risk_appetite: "Use AI to cut clinician admin time. Never let it make a clinical decision." } });
+    expect(ok.success).toBe(true);
+    const thin = workspaceSchema.safeParse({ reason: base.reason, payload: { name: "Harbor Health", risk_appetite: "Be careful.", actor: "k", source: "dashboard_session" } });
+    expect(thin.success).toBe(false);
+  });
+
+  it("stamps a configuration change with the session's name, discarding any the caller sent", () => {
+    const bound = bindActor({ ...base, kind: "update_profile", payload: { changes: { framework: "iso_42001" }, why: "Board decision.", actor: "someone.else@evil.example" } }, "real@bank.example");
+    expect((bound.payload as Record<string, unknown>).actor).toBe("real@bank.example");
+    expect(commandSchema.safeParse(bound).success).toBe(true);
+  });
+
+  it("refuses a configuration change with no reason", () => {
+    const parsed = commandSchema.safeParse({ ...base, kind: "update_profile", payload: { changes: { framework: "iso_42001" }, why: "" } });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("refuses a framework the platform does not know", () => {
+    const parsed = commandSchema.safeParse({ ...base, kind: "update_profile", payload: { changes: { framework: "made_up" }, why: "Board decision last week." } });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts a document, a panel, and a submission with extra facts", () => {
+    const why = "Adopted by the board in September.";
+    expect(commandSchema.safeParse({ ...base, kind: "add_document", payload: { kind: "charter", title: "AI Committee Charter", body: "The committee advises. The CRO decides.", why } }).success).toBe(true);
+    expect(commandSchema.safeParse({ ...base, kind: "set_panel", payload: { kind: "vendor", seats: ["security", "legal"], why } }).success).toBe(true);
+    expect(commandSchema.safeParse({ ...base, kind: "set_panel", payload: { kind: "vendor", seats: [], why } }).success).toBe(false);
+    expect(commandSchema.safeParse({ ...base, kind: "submit", payload: {
+      kind: "vendor", title: "Scribe clinical notes", description: "Transcribes consultations into draft notes.", submitted_by: "k",
+      details: { vendor: "Scribe Inc", data_shared: ["audio", "health data"], customer_facing: false } } }).success).toBe(true);
+  });
+});

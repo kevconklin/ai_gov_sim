@@ -32,7 +32,8 @@ def _slug(name: str) -> str:
 
 def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir: Path, name: str,
                      risk_appetite: str, facts: str = "", today: date | None = None,
-                     committee: Mapping[str, Mapping[str, Any]] | None = None, source: str = "cli") -> str:
+                     committee: Mapping[str, Mapping[str, Any]] | None = None, source: str = "cli",
+                     actor: str = "unknown", profile: Mapping[str, Any] | None = None) -> str:
     if len(name.strip()) < 2:
         raise ValueError("a workspace needs the organisation's name")
     if len(risk_appetite.strip()) < 20:
@@ -49,7 +50,7 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
         "run_id": run_id, "experiment_id": experiment_id, "bank_id": slug, "condition": WORKSPACE, "replicate": 1,
         "seed": 0, "model_versions": dict(config.models.roles), "config_hash": "workspace", "start_month": month,
         "current_month": None, "status": WORKSPACE,
-        "spend_cap_usd_per_month": float(config.budget.raw["spend_caps_usd"]["per_bank_per_sim_month"]),
+        "spend_cap_usd_per_month": float(config.budget.raw["spend_caps_usd"]["per_workspace_per_month"]),
         "started_at": utc_now_iso(),
     })
     db.insert("org_profiles", {
@@ -57,7 +58,12 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
         "facts": facts.strip() or f"{name.strip()} has not yet described itself to the committee.",
         "seats": list(seats), "chair_seat": next(s for s, v in seats.items() if v.get("chair")),
         "created_at": utc_now_iso(),
+        **{k: (str(v).strip() or None) for k, v in (profile or {}).items()
+           if k in ("framework", "business_goals", "ai_landscape", "ai_tools")},
     })
+    from govern.settings import record_change
+    record_change(db, run_id, actor=actor, source=source, area="workspace", target="created",
+                  before=None, after=name.strip(), reason=f"New customer with {len(seats)} committee seats")
     for seat_id, seat in seats.items():
         db.insert("agents", {"agent_id": ids.scoped(run_id, "agent", seat_id), "run_id": run_id, "bank_id": slug,
                              "seat": seat_id, "name": seat["name"], "title": seat["title"],

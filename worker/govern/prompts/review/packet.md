@@ -14,3 +14,6 @@ $inventory
 
 AI policy
 $policy_summary
+
+Governing documents
+$documents

@@ -14,7 +14,8 @@ Two packages under `worker/`:
 - The opposite rule holds for a workspace: its members must be told they are AI advisers, that output is advisory, and that a person decides. That brief is `worker/govern/prompts/review/fixed.md`; `python -m sim disclosure-check` runs in CI. Never route a disclosed workspace through the simulation's brief or the reverse.
 - Nothing a review recommends may apply without an attestation. `govern.review.Review` never calls `apply_decisions`; only `govern.attestation.apply_attested` does, and only the simulation's `Meeting` applies without a person.
 - Priority is computed (`govern/agenda.py`), never asked of a model, and never shown to members.
-- Changing a member's brief (`govern.committee.set_brief`) is a prompt change and is logged in `interventions`.
+- Every change to a customer's configuration goes through `govern/settings.py` (or `committee.set_brief`, `workspace.create_workspace`), which appends who, when, before, after and why to `config_changes`. That table is append-only: never add code that updates or deletes from it. The name comes from the signed session (`lib/control/bind.ts`), never from a request body.
+- A setting must do something. The review budget is enforced in `ReviewService.convene`; do not add a setting the code never reads.
 - Every random draw goes through `worker/sim/engine/rng.py` (seeded, stateless, logged to `engine_draws`). No bare `random` calls.
 - Every LLM call goes through `worker/govern/llm.py`. No direct SDK calls elsewhere.
 - Numbers in `config/engine_params.yaml` are placeholders until a source is cited next to them.
@@ -29,7 +30,7 @@ Two packages under `worker/`:
 - `review.py` a review: sealed positions and perspectives, debate, secret ballot, synthesis; applies nothing. `service.py` convenes one (lock, panel, date)
 - `intake.py` how a matter arrives; `agenda.py` ranked candidates and deferrals; `panels.py` which seats a matter needs
 - `attestation.py` the person on record, dissent responses, `apply_attested`; `advisory.py` perspectives and computed synthesis
-- `workspace.py` an organisation's committee with no simulation behind it; `committee.py` seats and briefs as data; `context.py` `ReviewContext` and `OrgProfile`
+- `settings.py` profile, documents, panels, and the append-only change record; `workspace.py` an organisation's committee with no simulation behind it; `committee.py` seats and briefs as data; `context.py` `ReviewContext` and `OrgProfile`
 - `disclosure.py`, `prompts/` (registry: roots and per-directory checks), `llm.py`, `db.py`, `locks.py`, `agents/`, `tools.py`, `packet.py`, `decisions.py`, `policy.py`
 
 ## Layout (worker/sim) - the simulation
