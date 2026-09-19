@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from sim.llm import LLMClient, LLMRequest, LLMResult
+from govern.llm import LLMClient, LLMRequest, LLMResult
 
 
 class StructuredOutputError(RuntimeError):

@@ -14,10 +14,11 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Sequence
 
-from sim import ids
-from sim.config import AgendaPriorityConfig
-from sim.context import display_id
-from sim.db import Database
+from govern import ids
+from govern.config import AgendaPriorityConfig
+from govern.context import display_id
+from govern.db import Database
+from govern.intake import KIND_LABELS
 
 UNCLASSIFIED_TIER = "medium"
 
@@ -106,18 +107,23 @@ def deferral_count(db: Database, run_id: str, ref_id: str) -> int:
 # ---- candidates -----------------------------------------------------------
 
 
-def _month_start(month: str) -> date:
-    year, _, mon = month.partition("-")
-    return date(int(year), int(mon), 1)
+def _opened(when: str) -> date:
+    """A full date for intake items; the first of the month for items proposed inside a meeting."""
+    return date.fromisoformat(when if len(when) > 7 else f"{when}-01")
 
 
-def _age_days(month: str, today: date) -> int:
-    return max((today - _month_start(month)).days, 0)
+def _age_days(when: str, today: date) -> int:
+    return max((today - _opened(when)).days, 0)
 
 
 def _rows(db: Database, run_id: str) -> list[tuple[str, str, str, str, str | None]]:
     """(kind, ref_id, title, proposed_month, risk_tier) for every undecided item."""
     out: list[tuple[str, str, str, str, str | None]] = []
+    out += [("advisory" if r["kind"] == "question" else "item", r["item_id"],
+             r["title"] if r["kind"] == "question" else f"{KIND_LABELS[r['kind']]}: {r['title']}",
+             r["submitted_on"], r["risk_tier"])
+            for r in db.fetch_all("SELECT item_id, kind, title, submitted_on, risk_tier FROM items "
+                                  "WHERE run_id = ? AND status = 'submitted' ORDER BY item_id", (run_id,))]
     out += [("use_case", r["use_case_id"], r["title"], r["proposed_month"], r["risk_tier"])
             for r in db.fetch_all("SELECT use_case_id, title, proposed_month, risk_tier FROM use_cases "
                                   "WHERE run_id = ? AND status = 'proposed' ORDER BY use_case_id", (run_id,))]

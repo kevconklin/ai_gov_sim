@@ -19,12 +19,13 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Mapping, Sequence
 
-from sim import ids
-from sim.agenda import record_deferral
-from sim.config import AttestationConfig
-from sim.context import RunContext
-from sim.db import Database, utc_now_iso
-from sim.decisions import Decision, apply_decisions, decisions_for_meeting
+from govern import ids
+from govern.agenda import record_deferral
+from govern.config import AttestationConfig
+from govern.context import ReviewContext
+from govern.db import Database, utc_now_iso
+from govern.decisions import Decision, apply_decisions, decisions_for_meeting
+from govern.intake import OPEN, mark_items
 
 DEFERRED = "deferred"
 TABLED = "tabled"
@@ -57,9 +58,13 @@ class Attestation:
     source: str = "unknown"
 
     def overrides(self, decision: Decision) -> bool:
-        """True when the human landed somewhere other than the committee's recommendation."""
+        """True when the person decided the other way from the committee.
+
+        A deferral is not an override. It declines to decide, which is its own signal and is
+        counted where it belongs, in the deferral record that drives escalation.
+        """
         recommended = "approved" if decision.tally.approved else "rejected"
-        return self.outcome != recommended
+        return self.outcome != DEFERRED and self.outcome != recommended
 
 
 # ---- dissent --------------------------------------------------------------
@@ -86,7 +91,9 @@ def dissents(db: Database, decision: Decision) -> tuple[Dissent, ...]:
 
 
 def _risk_tier(db: Database, row: Mapping[str, Any]) -> str | None:
-    if row["kind"] == "use_case":
+    if row["kind"] == "item":
+        found = db.fetch_one("SELECT risk_tier FROM items WHERE item_id = ?", (row["ref_id"],))
+    elif row["kind"] == "use_case":
         found = db.fetch_one("SELECT risk_tier FROM use_cases WHERE use_case_id = ?", (row["ref_id"],))
     elif row["kind"] == "status_change":
         found = db.fetch_one(
@@ -143,7 +150,7 @@ def attestation_for(db: Database, decision_id: str) -> Attestation | None:
 # ---- the gate -------------------------------------------------------------
 
 
-def apply_attested(ctx: RunContext, decisions: Sequence[Decision], *, month: str,
+def apply_attested(ctx: ReviewContext, decisions: Sequence[Decision], *, month: str,
                    meeting_date: date) -> list[str]:
     """Apply only what a human attested to, using the human's outcome rather than the tally.
 
@@ -162,11 +169,12 @@ def apply_attested(ctx: RunContext, decisions: Sequence[Decision], *, month: str
             record_deferral(ctx.db, ctx.run_id, ref_id=decision.item.ref_id,
                             meeting_id=_decision_row(ctx.db, decision.decision_id)["meeting_id"],
                             sim_month=month, reason=TABLED)
+            mark_items(ctx.db, [decision.item.ref_id], OPEN)      # tabled, so it is a candidate again
             continue
         applying.append(replace(decision, attested_outcome=attested.outcome))
     return apply_decisions(ctx, applying, month=month, meeting_date=meeting_date)
 
 
-def apply_meeting(ctx: RunContext, meeting_id: str, *, month: str, meeting_date: date) -> list[str]:
+def apply_meeting(ctx: ReviewContext, meeting_id: str, *, month: str, meeting_date: date) -> list[str]:
     """Apply one meeting's decisions once a human has attested to all of them."""
     return apply_attested(ctx, decisions_for_meeting(ctx, meeting_id), month=month, meeting_date=meeting_date)

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sim.alerts import raise_alert
-from sim.config import Config
-from sim.db import Database
+from govern.alerts import raise_alert
+from govern.config import Config
+from govern.db import Database
 
 ALERT_LEVELS = (0.5, 0.8, 1.0)
 
@@ -40,3 +40,26 @@ def check_hard_cap(db: Database, config: Config, now: datetime | None = None) ->
 def bank_under_cap(db: Database, run: dict, sim_month: str, config: Config) -> bool:
     cap = run.get("spend_cap_usd_per_month") or config.budget.raw["spend_caps_usd"]["per_bank_per_sim_month"]
     return run_month_spend(db, run["run_id"], sim_month) < float(cap)
+
+
+class BudgetExceeded(RuntimeError):
+    """The customer's monthly cap on review spend has been reached."""
+
+
+def workspace_month_spend(db: Database, run_id: str, now: datetime | None = None) -> float:
+    """What one customer's reviews have cost this calendar month."""
+    month = (now or datetime.now(timezone.utc)).strftime("%Y-%m")
+    row = db.fetch_one("SELECT COALESCE(SUM(cost_usd), 0) AS total FROM llm_calls WHERE run_id = ? AND created_at LIKE ?",
+                       (run_id, f"{month}%"))
+    return float(row["total"] or 0)
+
+
+def require_review_budget(db: Database, run: dict, config: Config, now: datetime | None = None) -> None:
+    """Refuse to convene once the month's cap is spent. A cap nobody checks is not a cap."""
+    cap = run.get("spend_cap_usd_per_month")
+    if cap is None:
+        return
+    spent = workspace_month_spend(db, run["run_id"], now)
+    if spent >= float(cap):
+        raise BudgetExceeded(f"this month's review budget is spent (${spent:,.2f} of ${float(cap):,.2f}); "
+                             "raise it under Settings, or wait for next month")

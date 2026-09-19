@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Mapping, Sequence
 
-from sim import ids
-from sim.calendar import long_date
-from sim.context import RunContext
-from sim.packet import AgendaItem
-from sim.policy import PolicyError, apply_edit, stats
+from govern import ids
+from govern.calendar import long_date
+from govern.context import ReviewContext
+from govern.packet import AgendaItem
+from govern.policy import PolicyError, apply_edit, stats
 
 log = logging.getLogger(__name__)
 
@@ -50,14 +50,26 @@ def tally(votes: Mapping[str, str], chair_agent_id: str) -> Tally:
     return Tally(yes, no, abstain, approved=yes > 0 and votes.get(chair_agent_id) == "yes", tie_broken=yes > 0)
 
 
-def record_decisions(ctx: RunContext, *, meeting_id: str, month: str, items: Sequence[AgendaItem],
+def _decision_id(ctx: ReviewContext, meeting_id: str, item_id: str) -> str:
+    """One id per decision, not per matter.
+
+    A matter a person defers comes back and is reviewed again, so it can be decided more than
+    once. The first decision keeps the established id; a later one carries its review's suffix.
+    """
+    plain = ids.scoped(ctx.run_id, "decision", item_id)
+    if ctx.db.fetch_one("SELECT 1 AS taken FROM decisions WHERE decision_id = ?", (plain,)) is None:
+        return plain
+    return ids.scoped(ctx.run_id, "decision", f"{item_id}@{meeting_id.rsplit('/', 1)[-1]}")
+
+
+def record_decisions(ctx: ReviewContext, *, meeting_id: str, month: str, items: Sequence[AgendaItem],
                      chair_agent_id: str) -> list[Decision]:
     decisions = []
     for item in items:
         rows = ctx.db.fetch_all("SELECT agent_id, vote FROM votes WHERE meeting_id = ? AND item_id = ?",
                                 (meeting_id, item.item_id))
         result = tally({r["agent_id"]: r["vote"] for r in rows}, chair_agent_id)
-        decision = Decision(ids.scoped(ctx.run_id, "decision", item.item_id), item, result)
+        decision = Decision(_decision_id(ctx, meeting_id, item.item_id), item, result)
         ctx.db.insert("decisions", {
             "decision_id": decision.decision_id, "run_id": ctx.run_id, "bank_id": ctx.run["bank_id"],
             "meeting_id": meeting_id, "sim_month": month, "item_id": item.item_id, "kind": item.kind,
@@ -68,7 +80,7 @@ def record_decisions(ctx: RunContext, *, meeting_id: str, month: str, items: Seq
     return decisions
 
 
-def set_use_case_status(ctx: RunContext, use_case_id: str, month: str, new_status: str, *, source: str,
+def set_use_case_status(ctx: ReviewContext, use_case_id: str, month: str, new_status: str, *, source: str,
                         decision_id: str | None = None) -> None:
     row = ctx.db.fetch_one("SELECT status FROM use_cases WHERE use_case_id = ?", (use_case_id,))
     if row is None or row["status"] == new_status:
@@ -88,7 +100,7 @@ def set_use_case_status(ctx: RunContext, use_case_id: str, month: str, new_statu
     })
 
 
-def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: str, meeting_date: date) -> list[str]:
+def apply_decisions(ctx: ReviewContext, decisions: Sequence[Decision], *, month: str, meeting_date: date) -> list[str]:
     """Update records and commit approved policy language. Returns notes about edits that could not apply."""
     problems = []
     policy_text = ctx.policy_repo.read()
@@ -96,6 +108,9 @@ def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: st
     for d in decisions:
         if d.item.kind == "use_case":
             set_use_case_status(ctx, d.item.ref_id, month, d.outcome, source="committee", decision_id=d.decision_id)
+        elif d.item.kind == "item":
+            from govern.intake import mark_items
+            mark_items(ctx.db, [d.item.ref_id], d.outcome, decided_on=meeting_date)
         elif d.item.kind == "policy_edit":
             edit = ctx.db.fetch_one("SELECT section, text FROM policy_edits WHERE edit_id = ?", (d.item.ref_id,))
             status = d.outcome
@@ -131,7 +146,7 @@ def apply_decisions(ctx: RunContext, decisions: Sequence[Decision], *, month: st
     return problems
 
 
-def decisions_for_meeting(ctx: RunContext, meeting_id: str) -> list[Decision]:
+def decisions_for_meeting(ctx: ReviewContext, meeting_id: str) -> list[Decision]:
     """Rebuild a meeting's recorded decisions, so a human can attest to them in a later session."""
     import json as _json
     row = ctx.db.fetch_one("SELECT agenda FROM meetings WHERE meeting_id = ?", (meeting_id,))

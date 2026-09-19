@@ -10,14 +10,26 @@ from typing import Any, Callable, Mapping
 
 from pydantic import BaseModel, Field, ValidationError
 
-from sim import prompts
-from sim.advisory import STANCE_MAX, STANCE_MIN, record_perspective
-from sim.calendar import long_date
-from sim.context import Agent, RunContext, display_id, next_display_id
-from sim.policy import read_section
+from govern import prompts
+from govern.advisory import STANCE_MAX, STANCE_MIN, record_perspective
+from govern.calendar import long_date
+from govern.context import Agent, ReviewContext, display_id, next_display_id
+from govern.policy import read_section
 
 TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("committee/tools.yaml"))
-READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox"})
+# A real organisation has no curated news feed or simulated inbox, and is not necessarily a bank.
+# Same definitions, minus the feeds, with the one bank-specific phrase generalised.
+_FEEDS = frozenset({"read_news", "read_inbox"})
+REVIEW_TOOLS: tuple[Mapping[str, Any], ...] = tuple(
+    {**tool, "description": str(tool["description"]).replace("the bank's", "the organisation's")}
+    for tool in TOOLS if tool["name"] not in _FEEDS) + tuple(prompts.load_yaml("review/tools.yaml"))
+
+
+def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
+    return REVIEW_TOOLS if disclosed else TOOLS
+
+
+READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox", "read_document"})
 PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_status_change"})
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {
     "circulate": READ_TOOLS | PROPOSE_TOOLS,
@@ -35,7 +47,7 @@ NOT_AVAILABLE = "That action is not available at this point in the meeting."
 @dataclass
 class ToolSession:
     """Mutable record of what one member did during one call sequence."""
-    ctx: RunContext
+    ctx: ReviewContext
     agent: Agent
     phase: str
     month: str
@@ -130,7 +142,7 @@ def _read_news(s: ToolSession, args: Mapping[str, Any]) -> str:
 
 
 def _read_inbox(s: ToolSession, args: Mapping[str, Any]) -> str:
-    from sim.calendar import add_months
+    from govern.calendar import add_months
     rows = s.ctx.db.fetch_all(
         "SELECT * FROM inbox_items WHERE run_id = ? AND sim_month IN (?, ?) AND sent_date <= ? "
         "AND (recipient_seat IS NULL OR recipient_seat = ?) ORDER BY sent_date DESC",
@@ -141,6 +153,19 @@ def _read_inbox(s: ToolSession, args: Mapping[str, Any]) -> str:
         f"From: {r['sender_name']}, {r['sender_title']}\nDate: {long_date(date.fromisoformat(r['sent_date']))}\n"
         f"To: {'AI Governance Committee' if r['recipient_seat'] is None else s.agent.name}\nSubject: {r['subject']}\n\n{r['body']}"
         for r in rows)
+
+
+def _read_document(s: ToolSession, args: Mapping[str, Any]) -> str:
+    from govern.settings import documents
+    wanted = str(args.get("title", "")).strip().lower()
+    in_force = documents(s.ctx.db, s.ctx.run_id)
+    if not in_force:
+        return "The organisation has not provided any governing documents."
+    match = next((d for d in in_force if d["title"].lower() == wanted), None) or \
+        next((d for d in in_force if wanted and wanted in d["title"].lower()), None)
+    if match is None:
+        return "No document by that title. In force: " + "; ".join(d["title"] for d in in_force) + "."
+    return f"{match['title']}\n\n{match['body']}"
 
 
 def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
@@ -247,7 +272,7 @@ def _cast_vote(s: ToolSession, args: Mapping[str, Any]) -> str:
 
 
 def _record_minutes(s: ToolSession, args: Mapping[str, Any]) -> str:
-    if s.agent.seat != s.ctx.world.chair_seat:
+    if s.agent.seat != s.ctx.org.chair_seat:
         return NOT_AVAILABLE
     s.minutes = {k: args.get(k) for k in ("summary", "key_points", "action_items")}
     return "Minutes recorded."
@@ -260,6 +285,7 @@ HANDLERS: Mapping[str, Callable[[ToolSession, Mapping[str, Any]], str]] = {
     "propose_status_change": _propose_status_change, "pass_turn": _pass_turn, "cast_vote": _cast_vote,
     "record_minutes": _record_minutes,
     "submit_perspective": _submit_perspective,
+    "read_document": _read_document,
 }
 
 

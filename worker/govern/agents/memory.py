@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import math
 
-from sim import prompts
-from sim.db import Database
-from sim.llm import LLMClient, LLMRequest
+from govern import prompts
+from govern.db import Database
+from govern.llm import LLMClient, LLMRequest
 
 
 def estimate_tokens(text: str) -> int:

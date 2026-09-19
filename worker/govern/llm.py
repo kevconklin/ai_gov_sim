@@ -13,9 +13,9 @@ from typing import Any, Callable, Mapping
 
 import anthropic
 
-from sim.config import Config
-from sim.db import Database, utc_now_iso
-from sim.pricing import TokenUsage, compute_cost
+from govern.config import Config
+from govern.db import Database, utc_now_iso
+from govern.pricing import TokenUsage, compute_cost
 
 _CUSTOM_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 _RETRYABLE_STATUS = frozenset({408, 409, 429})

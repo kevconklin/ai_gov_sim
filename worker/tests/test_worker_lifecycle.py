@@ -87,3 +87,32 @@ def test_health_reports_not_ok_once_the_worker_is_draining(health):
         assert json.loads(caught.value.read())["status"] == "draining"
     finally:
         cli._TERMINATING.clear()
+
+
+# ---- draining the queue --------------------------------------------------
+
+
+def test_serve_once_drains_the_queue_and_returns_when_nothing_is_running(tmp_path, monkeypatch):
+    """A workspace never has a running clock, so --once must not wait for one."""
+    from govern.config import load_config
+    from govern.workspace import create_workspace
+    from sim import commands
+
+    monkeypatch.setenv("SIM_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("SIM_SKIP_MIGRATIONS", raising=False)
+    cli._TERMINATING.clear()
+    db = cli._open_db()
+    run_id = create_workspace(db, load_config(REPO_ROOT / "config"), config_dir=REPO_ROOT / "config", data_dir=tmp_path,
+                              name="Northwind", risk_appetite="Adopt AI where it improves service, carefully.")
+    command_id = commands.enqueue(db, kind="submit", run_id=run_id, reason="Submitting a tool for review.", payload={
+        "kind": "tool", "title": "Code assistant", "description": "IDE assistant for four developers.",
+        "submitted_by": "it@northwind.example"})
+    db.close()
+
+    cli.main(["serve", "--demo", "--once"])        # returns, rather than polling forever
+
+    db = cli._open_db()
+    assert db.fetch_one("SELECT status FROM commands WHERE command_id = ?", (command_id,))["status"] == "done"
+    assert db.fetch_one("SELECT COUNT(*) AS n FROM items WHERE run_id = ?", (run_id,))["n"] == 1
+    db.close()

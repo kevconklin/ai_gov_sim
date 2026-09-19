@@ -7,10 +7,10 @@ from datetime import date
 import pytest
 
 from conftest import REPO_ROOT
-from sim.advisory import Perspective, analyse, perspectives_for, record_perspective, synthesis_for, synthesize
-from sim.config import load_advisory
+from govern.advisory import Perspective, analyse, perspectives_for, record_perspective, synthesis_for, synthesize
+from govern.config import load_advisory
 from sim.context import RunContext
-from sim.tools import ToolSession, execute
+from govern.tools import ToolSession, execute
 from sim.world import load_world
 
 MONTH = "2027-01"

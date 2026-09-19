@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sim.calendar import month_index
+from govern.calendar import month_index
 from sim.context import RunContext
 from sim.engine.resolve import load_state
 

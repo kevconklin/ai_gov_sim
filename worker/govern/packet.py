@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Mapping, Sequence
 
-from sim import prompts
-from sim.calendar import add_months, long_date
-from sim.context import RunContext, display_id
-from sim.policy import sections, stats
+from govern import prompts
+from govern.calendar import add_months, long_date
+from govern.context import ReviewContext, display_id
+from govern.policy import sections, stats
 
 STATUS_WORDS = {"proposed": "Proposed", "approved": "Approved, not started", "building": "In delivery",
                 "live": "In production", "paused": "Paused", "retired": "Retired", "rejected": "Not approved"}
@@ -19,7 +19,7 @@ STATUS_WORDS = {"proposed": "Proposed", "approved": "Approved, not started", "bu
 @dataclass(frozen=True)
 class AgendaItem:
     item_id: str
-    kind: str          # discussion | use_case | policy_edit | status_change
+    kind: str          # discussion | use_case | policy_edit | status_change | item | advisory
     title: str
     ref_id: str | None = None
 
@@ -32,15 +32,43 @@ def agenda_text(items: Sequence[AgendaItem]) -> str:
                      for i, item in enumerate(items))
 
 
-def decision_details(ctx: RunContext, items: Sequence[AgendaItem]) -> str:
+def _fact(value: Any) -> str:
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(v) for v in value) or "none"
+    return str(value)
+
+
+def _facts(details: Mapping[str, Any]) -> str:
+    return "\n".join(f"- {k.replace('_', ' ')}: {_fact(v)}" for k, v in details.items() if v not in (None, "", [], ()))
+
+
+def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
     blocks = []
     for item in items:
+        if item.kind == "advisory":
+            # A question arrives with its context too. Without this the committee was asked to
+            # advise on a one-line title and never saw why it was being asked.
+            row = ctx.db.fetch_one("SELECT * FROM items WHERE item_id = ?", (item.ref_id,)) if item.ref_id else None
+            if row is not None:
+                blocks.append(f"{item.item_id} Question from {row['submitted_by']}: {row['title']}\n{row['description']}\n"
+                              + _facts(json.loads(row["details"] or "{}")))
+            continue
         if item.kind == "use_case":
             row = ctx.db.fetch_one("SELECT u.*, a.name AS proposer FROM use_cases u LEFT JOIN agents a "
                                    "ON a.agent_id = u.proposer_agent_id WHERE use_case_id = ?", (item.ref_id,))
             details = json.loads(row["details"])
             blocks.append(f"{item.item_id} New AI initiative: {row['title']} (proposed by {row['proposer']})\n"
                           f"{row['description']}\n" + "\n".join(f"- {k.replace('_', ' ')}: {v}" for k, v in details.items()))
+        elif item.kind == "item":
+            from govern.intake import KIND_LABELS
+            row = ctx.db.fetch_one("SELECT * FROM items WHERE item_id = ?", (item.ref_id,))
+            details = json.loads(row["details"] or "{}")
+            blocks.append(f"{item.item_id} {KIND_LABELS[row['kind']]}: {row['title']} (submitted by {row['submitted_by']})\n"
+                          f"{row['description']}\n"
+                          + (f"- submitted risk tier: {row['risk_tier']}\n" if row["risk_tier"] else "")
+                          + _facts(details))
         elif item.kind == "policy_edit":
             row = ctx.db.fetch_one("SELECT p.*, a.name AS proposer FROM policy_edits p LEFT JOIN agents a "
                                    "ON a.agent_id = p.agent_id WHERE edit_id = ?", (item.ref_id,))
@@ -55,7 +83,7 @@ def decision_details(ctx: RunContext, items: Sequence[AgendaItem]) -> str:
     return "\n\n".join(blocks)
 
 
-def _inventory(ctx: RunContext) -> str:
+def _inventory(ctx: ReviewContext) -> str:
     rows = ctx.db.fetch_all("SELECT * FROM use_cases WHERE run_id = ? AND status != 'proposed' ORDER BY use_case_id",
                             (ctx.run_id,))
     if not rows:
@@ -64,7 +92,7 @@ def _inventory(ctx: RunContext) -> str:
                      + (f", inventory risk tier {r['risk_tier']}" if r["risk_tier"] else "") for r in rows)
 
 
-def _policy_summary(ctx: RunContext) -> str:
+def _policy_summary(ctx: ReviewContext) -> str:
     text = ctx.policy_repo.read()
     heads = list(sections(text))
     if not heads:
@@ -73,7 +101,7 @@ def _policy_summary(ctx: RunContext) -> str:
             + "; ".join(heads) + ". Use read_policy for the full text.")
 
 
-def _findings(ctx: RunContext, month: str) -> str:
+def _findings(ctx: ReviewContext, month: str) -> str:
     rows = ctx.db.fetch_all("SELECT * FROM findings WHERE run_id = ? AND status = 'open' AND sim_month <= ? "
                             "ORDER BY sim_month", (ctx.run_id, month))
     if not rows:
@@ -85,7 +113,50 @@ def _findings(ctx: RunContext, month: str) -> str:
                      for r in rows)
 
 
-def build_packet(ctx: RunContext, *, month: str, meeting_date: date, agenda: Sequence[AgendaItem]) -> str:
+def _register(ctx: ReviewContext) -> str:
+    """What has already been through the committee, so a member can argue from precedent."""
+    from govern.intake import KIND_LABELS
+    rows = ctx.db.fetch_all("SELECT item_id, kind, title, status, risk_tier, decided_on FROM items WHERE run_id = ? "
+                            "AND status IN ('approved', 'rejected', 'advised') ORDER BY decided_on, item_id", (ctx.run_id,))
+    if not rows:
+        return "Nothing has been decided yet."
+    words = {"approved": "approved", "rejected": "not approved", "advised": "discussed, advice given"}
+    return "\n".join(f"- {display_id(r['item_id'])} {KIND_LABELS[r['kind']]}: {r['title']} - {words[r['status']]}"
+                     + (f", risk tier {r['risk_tier']}" if r["risk_tier"] else "")
+                     + (f", {r['decided_on']}" if r["decided_on"] else "") for r in rows)
+
+
+def _review_packet(ctx: ReviewContext, *, meeting_date: date, agenda: Sequence[AgendaItem]) -> str:
+    """The pre-read for a review a person called: the agenda, the last minutes, precedent, and policy.
+
+    It carries nothing a simulated world would supply (outcome reports, correspondence, news),
+    because a real organisation's equivalents arrive through intake and its own documents.
+    """
+    prev = ctx.db.fetch_one("SELECT minutes_text FROM meetings WHERE run_id = ? AND status = 'closed' "
+                            "ORDER BY meeting_date DESC, meeting_id DESC LIMIT 1", (ctx.run_id,))
+    from govern.settings import documents
+    decisions = [i for i in agenda if i.kind not in ("discussion", "advisory")]
+    questions = [i for i in agenda if i.kind == "advisory"]
+    agenda_block = agenda_text(agenda)
+    if decisions:
+        agenda_block += "\n\nItems for decision\n" + decision_details(ctx, decisions)
+    if questions and decision_details(ctx, questions):
+        agenda_block += "\n\nItems for advice, with no vote\n" + decision_details(ctx, questions)
+    in_force = documents(ctx.db, ctx.run_id)
+    library = "\n".join(f"- {d['title']} ({d['kind'].replace('_', ' ')})" for d in in_force) + \
+        "\nUse read_document to read one in full." if in_force else "None have been provided."
+    text = ctx.policy_repo.read()
+    heads = list(sections(text))
+    policy = (f"{len(heads)} sections, {len(stats(text).controls)} numbered requirements. Sections: "
+              + "; ".join(heads) + ". Use read_policy for the full text.") if heads else "No AI policy sections have been adopted yet."
+    return prompts.render(
+        "review/packet.md", date=long_date(meeting_date), agenda=agenda_block,
+        previous_minutes=prev["minutes_text"] if prev and prev["minutes_text"] else "None. This is the committee's first review.",
+        register=_register(ctx), inventory=_inventory(ctx), policy_summary=policy, documents=library,
+    )
+
+
+def build_packet(ctx: ReviewContext, *, month: str, meeting_date: date, agenda: Sequence[AgendaItem]) -> str:
     db, run_id = ctx.db, ctx.run_id
     prev = db.fetch_one("SELECT minutes_text FROM meetings WHERE run_id = ? AND sim_month = ?",
                         (run_id, add_months(month, -1)))
@@ -94,8 +165,11 @@ def build_packet(ctx: RunContext, *, month: str, meeting_date: date, agenda: Seq
                          "AND sent_date <= ? ORDER BY sent_date", (run_id, month, meeting_date.isoformat()))
     news = db.fetch_all("SELECT outlet, headline FROM news_items WHERE run_id = ? AND sim_month = ? AND published_date <= ? "
                         "ORDER BY published_date", (run_id, month, meeting_date.isoformat()))
+    org = ctx.org
+    if org.disclosed:
+        return _review_packet(ctx, meeting_date=meeting_date, agenda=agenda)
     first_meeting = prev is None and month == ctx.run["start_month"]
-    standing = (prompts.render("committee/first_meeting.md", bank_name=ctx.bank.name) if first_meeting else "")
+    standing = (prompts.render("committee/first_meeting.md", bank_name=org.name) if first_meeting else "")
     decisions = [i for i in agenda if i.kind != "discussion"]
     agenda_block = agenda_text(agenda)
     if decisions:

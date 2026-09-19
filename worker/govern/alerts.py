@@ -8,8 +8,8 @@ import os
 import urllib.error
 import urllib.request
 
-from sim import ids
-from sim.db import Database, utc_now_iso
+from govern import ids
+from govern.db import Database, utc_now_iso
 
 log = logging.getLogger(__name__)
 

@@ -1,48 +1,32 @@
-"""Shared handles for one run, plus small typed reads used across the monthly cycle."""
+"""The simulation's context: a review context whose organisation is a fictional bank."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Callable, Mapping
+from dataclasses import dataclass
+from typing import Any
 
-from sim.config import Config
-from sim.db import Database
+from govern.context import Agent, OrgProfile, ReviewContext, display_id, load_org_profile, next_display_id  # noqa: F401
 from sim.engine.rng import RNG
-from sim.llm import LLMClient
-from sim.policy import PolicyRepo
-from sim.world import Bank, World
+from sim.world import Bank, World, load_persona
+
+
+def bank_facts(name: str, facts: Any) -> str:
+    if not facts:
+        return f"{name} is a state-chartered commercial bank and Federal Reserve member headquartered in the Midwest."
+    keys = [("legal_name", "Legal name"), ("hq_address", "Headquarters"), ("total_assets_usd", "Total assets"),
+            ("employees", "Employees"), ("branches", "Branches"), ("customers", "Customers")]
+    lines = []
+    for key, label in keys:
+        if key in facts:
+            value = facts[key]
+            lines.append(f"- {label}: ${value:,.0f}" if key == "total_assets_usd" and isinstance(value, (int, float))
+                         else f"- {label}: {value:,}" if isinstance(value, int) else f"- {label}: {value}")
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True)
-class Agent:
-    agent_id: str
-    seat: str
-    name: str
-    title: str
-    persona_file: str
-    stance_baseline: float
-    active_from: str
-
-    @classmethod
-    def from_row(cls, row: Mapping[str, Any]) -> "Agent":
-        return cls(row["agent_id"], row["seat"], row["name"], row["title"], row["persona_file"],
-                   float(row["stance_baseline"]), row["active_from"])
-
-
-@dataclass(frozen=True)
-class RunContext:
-    db: Database
-    llm: LLMClient
-    world: World
-    config: Config
-    run: Mapping[str, Any]
-    data_dir: Path
-    budget_ok: Callable[[str], bool] = field(default=lambda month: True)
-
-    @property
-    def run_id(self) -> str:
-        return self.run["run_id"]
+class RunContext(ReviewContext):
+    world: World | None = None
 
     @property
     def bank(self) -> Bank:
@@ -53,29 +37,17 @@ class RunContext:
         return RNG(self.db, self.run_id, int(self.run["seed"]))
 
     @property
-    def policy_repo(self) -> PolicyRepo:
-        return PolicyRepo(self.data_dir / "policies" / self.run_id / self.run["bank_id"])
+    def org(self) -> OrgProfile:
+        """A stored profile wins; otherwise the fictional bank stands in, undisclosed (SPEC 7)."""
+        stored = load_org_profile(self.db, self.run_id)
+        if stored is not None:
+            return stored
+        bank = self.bank
+        return OrgProfile(name=bank.name, risk_appetite=bank.risk_appetite,
+                          facts=bank_facts(bank.name, self.world.bank_universe(self.run["bank_id"])),
+                          seats=tuple(self.world.seats), chair_seat=self.world.chair_seat, disclosed=False)
 
-    def budget(self, *path: str) -> Any:
-        node: Any = self.config.budget.raw
-        for key in path:
-            node = node[key]
-        return node
-
-    def active_agents(self) -> list[Agent]:
-        order = list(self.world.seats)
-        rows = self.db.fetch_all("SELECT * FROM agents WHERE run_id = ? AND active_to IS NULL", (self.run_id,))
-        return sorted((Agent.from_row(r) for r in rows), key=lambda a: order.index(a.seat))
-
-    def chair(self) -> Agent:
-        chair_seat = self.world.chair_seat
-        return next(a for a in self.active_agents() if a.seat == chair_seat)
-
-
-def display_id(scoped_id: str) -> str:
-    return scoped_id.rsplit("/", 1)[-1]
-
-
-def next_display_id(db: Database, run_id: str, table: str, id_column: str, prefix: str) -> str:
-    row = db.fetch_one(f"SELECT COUNT(*) AS n FROM {table} WHERE run_id = ?", (run_id,))
-    return f"{prefix}-{row['n'] + 1:03d}"
+    def persona_body(self, agent: Agent) -> str:
+        if agent.persona_text:
+            return agent.persona_text
+        return load_persona(self.world.config_dir, agent.persona_file).body
