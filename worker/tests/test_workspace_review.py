@@ -278,8 +278,8 @@ def test_a_review_is_refused_once_the_months_budget_is_spent(product):
         db.update("runs", {"spend_cap_usd_per_month": 50.0}, where={"run_id": run_id})
 
 
-def test_a_new_customer_starts_with_the_customer_default_not_the_simulations(product):
+def test_a_new_customer_starts_with_the_customer_default_not_the_simulations(product, tmp_path):
     db, _, run_id = product
-    fresh = create_workspace(db, load_config(CONFIG), config_dir=CONFIG, data_dir=REPO_ROOT / "worker" / ".pytest-ws",
+    fresh = create_workspace(db, load_config(CONFIG), config_dir=CONFIG, data_dir=tmp_path,
                              name="Default Check Co", risk_appetite="Adopt AI carefully and only where it clearly helps.")
     assert db.fetch_one("SELECT spend_cap_usd_per_month AS cap FROM runs WHERE run_id = ?", (fresh,))["cap"] == 50.0
