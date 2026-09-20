@@ -72,7 +72,7 @@ def run_turn(ctx: ReviewContext, session: ToolSession, *, instruction: str, pack
     truncations = 0
     for step in range(1, max_steps + 1):
         forced = required_tool is not None and step > free_steps
-        result = ctx.llm.call(LLMRequest(
+        result = ctx.llm.call(LLMRequest(model=session.agent.model, 
             role="committee", purpose=purpose, run_id=ctx.run_id, agent_id=agent.agent_id, sim_month=session.month,
             system_fixed=(fixed_block(ctx, agent),), system_dynamic=(notes, packet),
             messages=tuple(messages), tools=tools_for(ctx.org.disclosed) if tools_enabled else (), max_tokens=max_tokens,

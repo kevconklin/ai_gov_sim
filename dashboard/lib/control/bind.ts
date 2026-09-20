@@ -9,7 +9,7 @@
  *
  * Other command kinds pass through untouched. Pure, so it can be unit tested.
  */
-export const ATTRIBUTED_KINDS = ["attest", "set_brief", "update_profile", "add_document", "retire_document", "set_panel", "set_spend_cap"] as const;
+export const ATTRIBUTED_KINDS = ["attest", "set_brief", "update_profile", "add_document", "retire_document", "set_panel", "set_spend_cap", "add_seat", "remove_seat", "update_seat"] as const;
 
 export function bindActor(input: Record<string, unknown>, operator: string | null): Record<string, unknown> {
   if (!operator || !(ATTRIBUTED_KINDS as readonly unknown[]).includes(input.kind)) return input;

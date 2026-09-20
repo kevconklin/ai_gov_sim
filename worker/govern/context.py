@@ -29,12 +29,15 @@ class Agent:
     stance_baseline: float
     active_from: str
     persona_text: str | None = None      # set when the committee is data rather than files
+    model: str | None = None             # "<provider>:<model>" for this seat; None means the run's pinned model
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any]) -> "Agent":
-        text = row["persona_text"] if "persona_text" in row.keys() else None
+        keys = row.keys()
         return cls(row["agent_id"], row["seat"], row["name"], row["title"], row["persona_file"],
-                   float(row["stance_baseline"]), row["active_from"], text)
+                   float(row["stance_baseline"]), row["active_from"],
+                   row["persona_text"] if "persona_text" in keys else None,
+                   (row["model"] or None) if "model" in keys else None)
 
 
 @dataclass(frozen=True)

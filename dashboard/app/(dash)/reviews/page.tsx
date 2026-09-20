@@ -8,6 +8,7 @@ import {
   changeLog,
   committeeSeats,
   documentsInForce,
+  modelCatalog,
   panelOverrides,
   spendCap,
   decisionsToSign,
@@ -22,9 +23,10 @@ import {
 } from "@/lib/queries/governance";
 import { meetingDetail } from "@/lib/queries/meetings";
 import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
-import { AREA_LABELS, FRAMEWORK_LABELS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
+import { AREA_LABELS, FRAMEWORK_LABELS, PROVIDER_TONES, STANCE_WORDS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
 import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
 import { SubmitMatterForm } from "./intake-form";
+import { AddSeatForm, RemoveSeatForm, SeatForm } from "./seat-forms";
 import { Trail } from "./trail";
 import { AddDocumentForm, BudgetForm, NewCustomerForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
 import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, VoteBar } from "./parts";
@@ -80,7 +82,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0]!;
   const runId = scope.run_id;
 
-  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held] = await Promise.all([
+  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog] = await Promise.all([
     currentOperator(),
     orgProfile(runId),
     decisionsToSign(runId),
@@ -96,10 +98,12 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     changeLog(runId),
     spendCap(runId),
     reviewsHeld(runId),
+    modelCatalog(),
   ]);
 
   const order = parse<string[]>(org?.seats, []);
   const committee = [...seats].sort((a, b) => (order.indexOf(a.seat) + 1 || 99) - (order.indexOf(b.seat) + 1 || 99));
+  const chairSeat = org?.chair_seat;
   const seatIndex = new Map(committee.map((c, i) => [c.seat, i]));
   const titleOf = (seat: string) => committee.find((c) => c.seat === seat)?.title ?? seat.replace(/_/g, " ");
   const ranking = parse<{ candidates?: Ranking[] }>(JSON.stringify(ranked?.result ?? {}), {}).candidates ?? [];
@@ -137,6 +141,11 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     { id: "settings", label: "Settings", count: docs.length + panels.length, tone: "you" },
     { id: "changes", label: "Changes", count: changes.length, tone: "you" },
   ];
+  const modelOf = (ref: string | null) => catalog.find((m) => m.model_id === ref);
+  const modelChip = (ref: string | null) => {
+    const m = modelOf(ref);
+    return ref ? <Chip tone={PROVIDER_TONES[m?.provider ?? ""] ?? undefined} plain={!m}>{m?.label ?? ref}</Chip> : <Chip plain>Default model</Chip>;
+  };
   const profileValue = (field: string): string | null => (org ? ((org as unknown as Record<string, string | null>)[field] ?? null) : null);
   const shown = (field: string): string => field === "framework" ? (FRAMEWORK_LABELS[profileValue(field) ?? "none"] ?? "None chosen") : (profileValue(field) ?? "");
   const panelFor = (kind: string): string[] | null => { const row = panels.find((x) => x.kind === kind && x.risk_tier === "*"); return row ? parse<string[]>(row.seats, []) : null; };
@@ -321,17 +330,23 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         </Drawer>
       );
     }
+  } else if (what === "seat" && key === "new") {
+    drawer = <Drawer closeHref={closeHref} title="Add an adviser" chips={<Chip tone="ai">Joins the committee, speaking last</Chip>}><AddSeatForm runId={runId} catalog={catalog} /></Drawer>;
   } else if (what === "seat") {
     const seat = committee.find((x) => x.seat === key);
     if (seat) {
+      const editable = seat.persona_text !== null;
       drawer = (
-        <Drawer closeHref={closeHref} title={seat.title} chips={<><Chip tone="ai">AI adviser</Chip><Chip plain>{seat.seat.replace(/_/g, " ")}</Chip></>}>
-          {seat.persona_text === null ? (
+        <Drawer closeHref={closeHref} title={seat.title}
+          chips={<><Chip tone="ai">AI adviser</Chip>{modelChip(seat.model)}<Chip plain>{STANCE_WORDS[Math.round(Number(seat.stance_baseline))] ?? "Balanced"}</Chip>{seat.seat === chairSeat ? <Chip tone="you">Chair</Chip> : null}</>}>
+          {!editable ? (
             <p className="muted">Briefed from a file, because this is a simulated run. It cannot be edited here.</p>
           ) : (
             <>
               <p className="rv-prose">{seat.persona_text}</p>
-              <Fold title="Edit this brief"><BriefForm runId={runId} seat={seat} /></Fold>
+              <Fold title="Title, leaning and model"><SeatForm runId={runId} seat={seat} catalog={catalog} /></Fold>
+              <Fold title="Rewrite the brief"><BriefForm runId={runId} seat={seat} /></Fold>
+              {seat.seat !== chairSeat ? <Fold title="Remove this adviser"><RemoveSeatForm runId={runId} seat={seat} /></Fold> : null}
             </>
           )}
         </Drawer>
@@ -516,6 +531,13 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         ) : null}
 
         {tab === "committee" ? (
+          <>
+          {org ? (
+            <div className="flex items-center justify-between gap-3 px-4 pt-3">
+              <span className="muted text-xs">{new Set(committee.map((c) => c.model ?? "default")).size > 1 ? "A mixed committee: advisers run on different models." : "Every adviser runs on the same model."}</span>
+              <Link href={to({ open: "seat:new" })} scroll={false} className="rv-btn rv-btn-sm"><Icon name="plus" /> Add adviser</Link>
+            </div>
+          ) : null}
           <div className="rv-seatgrid">
             {committee.map((seat, i) => (
               <Link key={seat.seat} href={to({ open: `seat:${seat.seat}` })} scroll={false} className="rv-seatcard"
@@ -524,10 +546,12 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
                 <span className="min-w-0">
                   <span className="block font-semibold">{seat.title}</span>
                   <span className="muted block truncate text-xs">{firstSentence(seat.persona_text, 60) || "Briefed from a file"}</span>
+                  <span className="mt-1 block">{modelChip(seat.model)}</span>
                 </span>
               </Link>
             ))}
           </div>
+          </>
         ) : null}
         {tab === "settings" ? (
           !org ? <EmptyState icon="flag" tone="ai">A simulated run is configured from files, not here.</EmptyState> : (

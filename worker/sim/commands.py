@@ -17,7 +17,8 @@ log = logging.getLogger(__name__)
 
 KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap",
                    "candidates", "convene", "attest", "submit", "set_brief",
-                   "create_workspace", "update_profile", "add_document", "retire_document", "set_panel"})
+                   "create_workspace", "update_profile", "add_document", "retire_document", "set_panel",
+                   "add_seat", "remove_seat", "update_seat"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -117,7 +118,7 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
                       after=str(cap), reason=command["reason"])
         return {"spend_cap_usd_per_month": cap}
     if kind in ("candidates", "convene", "attest", "submit", "set_brief", "update_profile", "add_document",
-                "retire_document", "set_panel"):
+                "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
 
@@ -161,6 +162,21 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
         from govern.committee import set_brief
         set_brief(db, run_id, payload["seat"], payload["brief"], reason=why, **who)
         return {"seat": payload["seat"]}
+
+    if kind in ("add_seat", "remove_seat", "update_seat"):
+        from govern import committee
+        from govern.providers import Registry, load_providers
+        registry, models = Registry(load_providers(config_dir)), orchestrator.config.models
+        if kind == "add_seat":
+            return {"agent_id": committee.add_seat(
+                db, run_id, seat=payload["seat"], title=payload["title"], name=payload.get("name") or payload["title"],
+                brief=payload["brief"], stance_baseline=float(payload.get("stance_baseline", 3.0)),
+                model=payload.get("model") or None, models=models, registry=registry, reason=why, **who)}
+        if kind == "remove_seat":
+            committee.remove_seat(db, run_id, payload["seat"], reason=why, **who)
+            return {"removed": payload["seat"]}
+        return {"changed": committee.update_seat(db, run_id, payload["seat"], payload["changes"], models=models,
+                                                 registry=registry, reason=why, **who)}
 
     if kind in ("update_profile", "add_document", "retire_document", "set_panel"):
         from govern import settings

@@ -15,6 +15,7 @@ import anthropic
 
 from govern.config import Config
 from govern.db import Database, utc_now_iso
+from govern.providers import ProviderError, Registry
 from govern.pricing import TokenUsage, compute_cost
 
 _CUSTOM_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
@@ -45,6 +46,7 @@ class LLMRequest:
     tool_choice: Mapping[str, Any] | None = None
     stop_sequences: tuple[str, ...] = ()
     effort: str | None = None          # output_config.effort: how much the model thinks (model-dependent)
+    model: str | None = None           # "<provider>:<model>" chosen for this seat; overrides the role's model
 
     def __post_init__(self) -> None:
         if self.max_tokens < 1:
@@ -109,6 +111,8 @@ class _CallMeta:
 
 
 def _is_retryable(error: Exception) -> bool:
+    if isinstance(error, ProviderError):
+        return error.status_code in _RETRYABLE_STATUS or error.status_code >= 500
     if isinstance(error, anthropic.APIConnectionError):
         return True
     if isinstance(error, anthropic.APIStatusError):
@@ -139,6 +143,7 @@ class LLMClient:
         should_stop: Callable[[], bool] = lambda: False,
         on_failure_streak: Callable[[int, str], None] | None = None,
         price_scale: float = 1.0,
+        registry: Registry | None = None,
     ) -> None:
         self._price_scale = price_scale   # 0 for the scripted demo client, so demo rows never count toward spend caps
         self._db = db
@@ -147,14 +152,21 @@ class LLMClient:
         self._on_failure_streak = on_failure_streak
         self._consecutive_failures = 0
         self._pinned: dict[str, Mapping[str, str]] = {}
-        # SDK retries are disabled so every attempt is visible in llm_calls.
-        self._client = client if client is not None else anthropic.Anthropic(max_retries=0)
+        # One injected client answers for every model: that is how the scripted client and the
+        # tests work. Otherwise each model is routed to its own provider by the registry, and
+        # SDK retries stay disabled so every attempt is visible in llm_calls.
+        self._client = client
+        self._registry = registry
+        if client is None and registry is None:
+            self._client = anthropic.Anthropic(max_retries=0)
         self._sleep = sleep
 
     # ---- standard calls -------------------------------------------------
 
     def model_for(self, request: LLMRequest) -> str:
-        """The run's pinned model for this role (runs.model_versions); config only when the run has none."""
+        """A seat's own model if it has one; else the run's pinned model for the role; else config."""
+        if request.model:
+            return request.model
         if request.run_id:
             if request.run_id not in self._pinned:
                 row = self._db.fetch_one("SELECT model_versions FROM runs WHERE run_id = ?", (request.run_id,))
@@ -170,7 +182,7 @@ class LLMClient:
         for attempt in range(1, retries.max_attempts + 1):
             self._check_stop()
             try:
-                message = self._client.messages.create(**meta.params)
+                message = self._client_for(meta.model).messages.create(**self._wire(meta))
             except Exception as error:  # noqa: BLE001 - every failure is logged before deciding
                 self._log_failure(meta, attempt, _describe(error), batch=False)
                 self._note_failure(_describe(error))
@@ -182,6 +194,15 @@ class LLMClient:
             self._consecutive_failures = 0
             return self._log_success(meta, message, attempt, batch=False)
         raise LLMCallFailed(f"{meta.purpose} failed after {retries.max_attempts} attempts")
+
+    def _client_for(self, model: str) -> Any:
+        return self._client if self._client is not None else self._registry.client_for(model)
+
+    def _wire(self, meta: "_CallMeta") -> dict[str, Any]:
+        """What is sent. The log keeps our "<provider>:<model>"; the provider is sent its own id."""
+        if self._client is not None or self._registry is None:
+            return dict(meta.params)
+        return {**meta.params, "model": self._registry.wire_model(meta.model)}
 
     # ---- batch calls ----------------------------------------------------
 

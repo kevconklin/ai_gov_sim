@@ -186,3 +186,40 @@ export async function setBudgetAction(_prev: ControlResult | null, formData: For
     payload: { usd_per_sim_month: Number(f.usd) },
   }, operator)));
 }
+
+/** A seat's text fields plus its model and leaning, as the forms send them. */
+function seatChanges(f: Record<string, string>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (f.title !== undefined) out.title = f.title;
+  if (f.name !== undefined && f.name.trim()) out.name = f.name;
+  if (f.stance !== undefined && f.stance !== "") out.stance_baseline = Number(f.stance);
+  if (f.model !== undefined) out.model = f.model;
+  return out;
+}
+
+export async function addSeatAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "add_seat", f.why ?? "", {
+    seat: (f.title ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40),
+    title: f.title ?? "", brief: f.brief ?? "",
+    ...(f.name?.trim() ? { name: f.name } : {}),
+    ...(f.stance ? { stance_baseline: Number(f.stance) } : {}),
+    ...(f.model ? { model: f.model } : {}),
+  });
+}
+
+export async function updateSeatAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "update_seat", f.why ?? "", { seat: f.seat ?? "", changes: seatChanges(f) });
+}
+
+export async function removeSeatAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "remove_seat", f.why ?? "", { seat: f.seat ?? "" });
+}

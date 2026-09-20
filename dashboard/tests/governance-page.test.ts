@@ -192,3 +192,31 @@ describe("customers and configuration", () => {
       details: { vendor: "Scribe Inc", data_shared: ["audio", "health data"], customer_facing: false } } }).success).toBe(true);
   });
 });
+
+describe("shaping the committee", () => {
+  const base = { run_id: "run1", reason: "kevin@bank.example: the board asked for a privacy voice" };
+  const why = "The board asked for a privacy voice.";
+
+  it("accepts a new adviser with a brief, a leaning, and a model from another provider", () => {
+    const parsed = commandSchema.safeParse({ ...base, kind: "add_seat", payload: {
+      seat: "data_protection", title: "Data Protection Officer", stance_baseline: 2, model: "openai:gpt-4.1", why,
+      brief: "You answer for member data: what is collected, where it goes, and whether members would expect it." } });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("refuses a seat id that would not survive as an identifier", () => {
+    const parsed = commandSchema.safeParse({ ...base, kind: "add_seat", payload: { seat: "Data Protection!", title: "DPO", why, brief: "x".repeat(50) } });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("lets a seat return to the default model with an empty choice", () => {
+    expect(commandSchema.safeParse({ ...base, kind: "update_seat", payload: { seat: "risk", changes: { model: "" }, why } }).success).toBe(true);
+    expect(commandSchema.safeParse({ ...base, kind: "update_seat", payload: { seat: "risk", changes: {}, why } }).success).toBe(false);
+  });
+
+  it("stamps committee changes with the session's name like every other change", () => {
+    const bound = bindActor({ ...base, kind: "remove_seat", payload: { seat: "business", why, actor: "someone.else@evil.example" } }, "real@bank.example");
+    expect((bound.payload as Record<string, unknown>).actor).toBe("real@bank.example");
+    expect(commandSchema.safeParse(bound).success).toBe(true);
+  });
+});

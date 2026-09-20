@@ -226,3 +226,20 @@ def test_a_submission_keeps_the_extra_facts_it_was_given(workspace):
         "details": {"vendor": "Scribe Inc", "data_shared": ["audio", "health records"], "customer_facing": False}})
     stored = json.loads(db.fetch_one("SELECT details FROM items WHERE item_id = ?", (out["result"]["item_id"],))["details"])
     assert stored["data_shared"] == ["audio", "health records"] and stored["customer_facing"] is False
+
+
+def test_the_committee_is_reshaped_through_the_queue(workspace, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    db, _, run_id, _ = workspace
+    who = {"actor": "kevin@example.invalid", "source": "dashboard_session", "why": "The board asked for a member-conduct voice."}
+    added = run_command(workspace, "add_seat", {**who, "seat": "data_protection", "title": "Data Protection Officer",
+                        "brief": "You answer for member data: what is collected, where it goes, and whether members would expect it."})
+    assert added["status"] == "done", added
+    moved = run_command(workspace, "update_seat", {**who, "seat": "data_protection", "changes": {"model": "openai:gpt-4.1"}})
+    assert moved["result"]["changed"] == ["model"]
+    gone = run_command(workspace, "remove_seat", {**who, "seat": "business"})
+    assert gone["status"] == "done"
+    refused = run_command(workspace, "update_seat", {**who, "seat": "risk", "changes": {"model": "openai:not-on-offer"}})
+    assert refused["status"] == "failed" and "not a model on offer" in refused["result"]["error"]
+    targets = [r["target"] for r in db.fetch_all("SELECT target FROM config_changes WHERE run_id = ? AND area = 'committee' ORDER BY changed_at, change_id", (run_id,))]
+    assert targets == ["data_protection added", "data_protection: model", "business removed"]

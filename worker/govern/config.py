@@ -21,12 +21,20 @@ class ModelPrice:
 
 
 @dataclass(frozen=True)
+class CatalogModel:
+    id: str            # "<provider>:<model>", or a bare id for anthropic
+    label: str
+    provider: str
+
+
+@dataclass(frozen=True)
 class ModelsConfig:
     roles: Mapping[str, str]
     prices: Mapping[str, ModelPrice]
     cache_write_multiplier: float
     cache_read_multiplier: float
     batch_multiplier: float
+    catalog: tuple[CatalogModel, ...] = ()      # models a customer can give a committee seat
 
     def model_for(self, role: str) -> str:
         if role not in self.roles:
@@ -81,7 +89,14 @@ def _load_models(data: Mapping[str, Any]) -> ModelsConfig:
     unpriced = sorted({m for m in roles.values() if m not in prices})
     if unpriced:
         raise ConfigError(f"models.yaml pins models with no price: {', '.join(unpriced)}")
+    catalog = tuple(CatalogModel(id=str(m["id"]), label=str(m.get("label") or m["id"]), provider=str(m["provider"]))
+                    for m in data.get("catalog") or ())
+    offered_unpriced = sorted(m.id for m in catalog if m.id not in prices)
+    if offered_unpriced:
+        raise ConfigError("models.yaml offers models with no price, so their spend could not be capped: "
+                          + ", ".join(offered_unpriced))
     return ModelsConfig(
+        catalog=catalog,
         roles=MappingProxyType(roles),
         prices=MappingProxyType(prices),
         cache_write_multiplier=float(_require(multipliers, "cache_write", "models.yaml multipliers")),

@@ -192,13 +192,15 @@ export interface SeatRow {
   name: string;
   title: string;
   persona_text: string | null;
+  model: string | null;
+  stance_baseline: number;
 }
 
 /** The committee as it sits now. A null brief means the member is briefed from a persona file (the simulation). */
 export async function committeeSeats(runId: string): Promise<SeatRow[]> {
   const db = await readDb();
   return db.all<SeatRow>(
-    `SELECT seat, name, title, persona_text FROM agents WHERE run_id = ? AND active_to IS NULL ORDER BY seat`,
+    `SELECT seat, name, title, persona_text, model, stance_baseline FROM agents WHERE run_id = ? AND active_to IS NULL ORDER BY seat`,
     [runId],
   );
 }
@@ -208,6 +210,7 @@ export interface OrgRow {
   risk_appetite: string;
   facts: string;
   seats: string; // json list: speaking order
+  chair_seat: string;
   framework: string | null;
   business_goals: string | null;
   ai_landscape: string | null;
@@ -217,7 +220,7 @@ export interface OrgRow {
 /** Present for a workspace; absent for a simulated run, whose organisation is a fictional bank. */
 export async function orgProfile(runId: string): Promise<OrgRow | undefined> {
   const db = await readDb();
-  return db.get<OrgRow>("SELECT name, risk_appetite, facts, seats, framework, business_goals, ai_landscape, ai_tools FROM org_profiles WHERE run_id = ?", [runId]);
+  return db.get<OrgRow>("SELECT name, risk_appetite, facts, seats, chair_seat, framework, business_goals, ai_landscape, ai_tools FROM org_profiles WHERE run_id = ?", [runId]);
 }
 
 export interface DecisionRow {
@@ -439,4 +442,22 @@ export async function spendCap(runId: string): Promise<number | null> {
   const db = await readDb();
   const row = await db.get<{ cap: number | null }>("SELECT spend_cap_usd_per_month AS cap FROM runs WHERE run_id = ?", [runId]);
   return row?.cap ?? null;
+}
+
+export interface ModelRow {
+  model_id: string;
+  label: string;
+  provider: string;
+  available: boolean | number;
+  input_price: number;
+  output_price: number;
+}
+
+/**
+ * Models a seat can be given, as the worker last published them. `available` says whether the
+ * worker holds a key for that provider: the dashboard has no way to know that for itself.
+ */
+export async function modelCatalog(): Promise<ModelRow[]> {
+  const db = await readDb();
+  return db.all<ModelRow>("SELECT model_id, label, provider, available, input_price, output_price FROM model_catalog ORDER BY provider, label");
 }

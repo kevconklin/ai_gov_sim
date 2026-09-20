@@ -19,6 +19,9 @@ export const COMMAND_KINDS = [
   "add_document",
   "retire_document",
   "set_panel",
+  "add_seat",
+  "remove_seat",
+  "update_seat",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -56,6 +59,10 @@ const attribution = {
   source: z.enum(["dashboard_session", "cli_asserted", "unknown"]).optional(),
   why: z.string().trim().min(10, "Say why, in at least 10 characters.").max(1000),
 };
+
+const seatId = z.string().trim().regex(/^[a-z][a-z0-9_]{1,39}$/, "Lowercase letters, digits and underscores, such as data_protection.");
+/** "<provider>:<model>", or a bare id for anthropic. Whether it is on offer is the worker's call. */
+const modelRef = z.string().trim().min(1).max(200);
 
 const profileChanges = z
   .object({
@@ -248,6 +255,49 @@ export const commandSchema = z.discriminatedUnion("kind", [
           kind: z.enum(ITEM_KINDS),
           seats: z.array(z.string().trim().min(1).max(60)).min(1, "Seat at least one adviser.").max(20),
           risk_tier: z.enum(["low", "medium", "high", "*"]).optional(),
+          ...attribution,
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("add_seat"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          seat: seatId,
+          title: z.string().trim().min(2).max(120),
+          name: z.string().trim().max(60).optional(),
+          brief: z.string().trim().min(40, "A brief needs enough to argue from.").max(4000),
+          stance_baseline: z.number().min(1).max(5).optional(),
+          model: modelRef.optional(),
+          ...attribution,
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal("remove_seat"), run_id: runId, reason, payload: z.object({ seat: seatId, ...attribution }).strict() })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("update_seat"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          seat: seatId,
+          changes: z
+            .object({
+              title: z.string().trim().min(2).max(120).optional(),
+              name: z.string().trim().min(1).max(60).optional(),
+              stance_baseline: z.number().min(1).max(5).optional(),
+              model: z.union([modelRef, z.literal("")]).optional(), // "" returns the seat to the default model
+            })
+            .strict()
+            .refine((c) => Object.keys(c).length > 0, { message: "Nothing to change." }),
           ...attribution,
         })
         .strict(),

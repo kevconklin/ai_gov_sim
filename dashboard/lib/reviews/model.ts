@@ -157,6 +157,12 @@ export function describeWork(kind: string, payloadJson: string | null): string {
       return `Changing who reviews ${String(payload.kind ?? "").replace(/_/g, " ")} matters`;
     case "set_spend_cap":
       return "Changing the monthly budget";
+    case "add_seat":
+      return `Seating a new adviser: ${String(payload.title ?? "")}`;
+    case "remove_seat":
+      return `Standing down the ${String(payload.seat ?? "").replace(/_/g, " ")} seat`;
+    case "update_seat":
+      return `Updating the ${String(payload.seat ?? "").replace(/_/g, " ")} seat`;
     default:
       return kind.replace(/_/g, " ");
   }
@@ -220,6 +226,7 @@ export const AREA_LABELS: Record<string, string> = {
   panel: "Review panel",
   document: "Document",
   budget: "Budget",
+  committee: "Committee",
 };
 
 export const PROFILE_LABELS: Record<string, string> = {
@@ -238,6 +245,14 @@ export function changeTitle(area: string, target: string): string {
   if (area === "brief") return `Brief for the ${target.replace(/_/g, " ")} seat`;
   if (area === "panel") return `Who reviews ${target.replace(/_/g, " ")} matters`;
   if (area === "workspace") return "Customer created";
+  if (area === "committee") {
+    const [seat, field] = target.split(": ");
+    const name = (seat ?? "").replace(/ (added|removed)$/, "").replace(/_/g, " ");
+    if (target.endsWith(" added")) return `New adviser: ${name}`;
+    if (target.endsWith(" removed")) return `Adviser stood down: ${name}`;
+    const words: Record<string, string> = { model: "Model", title: "Title", name: "Short name", stance_baseline: "Leaning" };
+    return `${words[field ?? ""] ?? field} for the ${name} seat`;
+  }
   return target;
 }
 
@@ -258,3 +273,6 @@ export function detailsFromFields(entries: Iterable<[string, FormDataEntryValue]
   }
   return out;
 }
+
+export const PROVIDER_TONES: Record<string, string> = { anthropic: "objection", openai: "ok", huggingface: "wait", local: "you" };
+export const STANCE_WORDS = ["", "Very cautious", "Cautious", "Balanced", "Keen", "Very keen"];

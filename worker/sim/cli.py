@@ -107,13 +107,20 @@ def _orchestrator(db: Database, *, demo: bool) -> Orchestrator:
     from sim.storage import SupabaseStorage
 
     config, world, data_dir = load_config(REPO_ROOT / "config"), load_world(REPO_ROOT / "config"), _data_dir()
+    from govern.providers import Registry, load_providers, publish_catalog
+
+    # Which providers this worker can reach is decided by which keys it holds. The scripted client
+    # answers for every model, so a demo needs none of them.
+    registry = Registry(load_providers(REPO_ROOT / "config"))
     client = None
     if demo:
         from sim.demo_llm import DemoAnthropic
         client = DemoAnthropic()
-    elif not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("ANTHROPIC_API_KEY is not set. Use --demo for a free scripted run.")
-    llm = LLMClient(db=db, config=config, client=client, sleep=(lambda s: None) if demo else time.sleep,
+    elif not any(registry.available(m.id) for m in config.models.catalog if m.provider != "local"):
+        sys.exit("No model provider key is set (ANTHROPIC_API_KEY, OPENAI_API_KEY or HF_TOKEN). Use --demo for a free scripted run.")
+    publish_catalog(db, config.models, registry)
+    llm = LLMClient(db=db, config=config, client=client, registry=None if demo else registry,
+                    sleep=(lambda s: None) if demo else time.sleep,
                     should_stop=lambda: terminating() or commands.stop_requested(db, data_dir),
                     on_failure_streak=lambda n, d: raise_alert(db, "api_failures", "critical", f"{n} consecutive failed API calls: {d}"),
                     price_scale=0.0 if demo else 1.0)
