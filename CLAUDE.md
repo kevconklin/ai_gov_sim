@@ -62,4 +62,5 @@ cd ../dashboard && npm test && npm run build     # dashboard
 
 - M1-M9 built and tested with the scripted client; M1 live smoke check not yet run against the real API.
 - M10 deploy files written (`deploy/README.md`), not deployed. M11 tooling written, needs human coders and real runs. M12 needs frozen prereg and funded runs.
+- Dashboard: the product is four pages (`/reviews`, `/policy-record`, `/spend`, `/logs`). The research pages stay at their routes but appear in the sidebar only when a simulated run exists or `SHOW_SIMULATION=1`; the k8s dashboard sets `SHOW_SIMULATION=0`. Do not delete the research routes while the preregistered study still uses them.
 - Review core (`govern/`), workspaces, intake, panels, attestation, dashboard `/reviews`: built and exercised end to end on the scripted client only. Real accounts are not built: attestations bind to a signed session on one shared credential.

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { initials } from "@/lib/reviews/model";
 import { ThemeToggle } from "./theme-toggle";
@@ -36,24 +36,30 @@ type Item = { href: string; label: string; icon: string };
 // is trusted with real decisions, so its pages sit underneath, folded away by default.
 const PRODUCT: Item[] = [
   { href: "/reviews", label: "Reviews", icon: "reviews" },
-  { href: "/control", label: "Control", icon: "control" },
+  { href: "/policy-record", label: "Policy", icon: "policy" },
+  { href: "/spend", label: "Spend & health", icon: "health" },
+  { href: "/logs", label: "Logs", icon: "logs" },
 ];
+// The research instrument. Shown only when the person is looking at a simulated run, or has
+// asked for it: a customer never sees "Reality engine" in their sidebar.
 const SIMULATION: Item[] = [
   { href: "/overview", label: "Overview", icon: "overview" },
   { href: "/meetings", label: "Meetings", icon: "meetings" },
-  { href: "/policy", label: "Policy", icon: "policy" },
+  { href: "/policy", label: "Policy (research)", icon: "policy" },
   { href: "/use-cases", label: "Use cases", icon: "usecases" },
   { href: "/outcomes", label: "Outcomes", icon: "outcomes" },
   { href: "/people", label: "People", icon: "people" },
   { href: "/engine", label: "Reality engine", icon: "engine" },
-  { href: "/health", label: "Health", icon: "health" },
+  { href: "/health", label: "Health (research)", icon: "health" },
   { href: "/compare", label: "Compare", icon: "compare" },
-  { href: "/logs", label: "Log explorer", icon: "logs" },
+  { href: "/control", label: "Control", icon: "control" },
 ];
 
-function NavLink({ item, current, onPick }: { item: Item; current: boolean; onPick?: () => void }) {
+function NavLink({ item, current, run, onPick }: { item: Item; current: boolean; run?: string | null; onPick?: () => void }) {
+  // the product pages all look at one committee; carry it across so the picker's choice sticks
+  const href = run && PRODUCT.some((p) => p.href === item.href) ? `${item.href}?run=${encodeURIComponent(run)}` : item.href;
   return (
-    <Link href={item.href} className="nav-link" aria-current={current ? "page" : undefined} onClick={onPick}>
+    <Link href={href} className="nav-link" aria-current={current ? "page" : undefined} onClick={onPick}>
       <Icon name={item.icon} />
       <span>{item.label}</span>
     </Link>
@@ -69,22 +75,25 @@ function Brand() {
   );
 }
 
-function Menu({ pathname, operator, onPick }: { pathname: string; operator: string | null; onPick?: () => void }) {
-  const inSimulation = SIMULATION.some((i) => pathname.startsWith(i.href));
+/** "/policy-record" is not on "/policy": match the whole segment, not a prefix of it. */
+const isOn = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+function Menu({ pathname, operator, showSimulation, run, onPick }: { pathname: string; operator: string | null; showSimulation: boolean; run: string | null; onPick?: () => void }) {
+  const inSimulation = SIMULATION.some((i) => isOn(pathname, i.href));
   return (
     <>
       <ul className="nav-list">
-        {PRODUCT.map((item) => <li key={item.href}><NavLink item={item} current={pathname.startsWith(item.href)} onPick={onPick} /></li>)}
+        {PRODUCT.map((item) => <li key={item.href}><NavLink item={item} current={isOn(pathname, item.href)} run={run} onPick={onPick} /></li>)}
       </ul>
-      <details className="nav-group" open={inSimulation}>
+      {showSimulation || inSimulation ? <details className="nav-group" open={inSimulation}>
         <summary className="nav-group-head">
           <span>Simulation</span>
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden {...STROKE} className="nav-chev"><path d="M9 6l6 6-6 6" /></svg>
         </summary>
         <ul className="nav-list">
-          {SIMULATION.map((item) => <li key={item.href}><NavLink item={item} current={pathname.startsWith(item.href)} onPick={onPick} /></li>)}
+          {SIMULATION.map((item) => <li key={item.href}><NavLink item={item} current={isOn(pathname, item.href)} onPick={onPick} /></li>)}
         </ul>
-      </details>
+      </details> : null}
       <div className="nav-foot">
         <ThemeToggle />
         <div className="nav-user">
@@ -100,8 +109,9 @@ function Menu({ pathname, operator, onPick }: { pathname: string; operator: stri
 }
 
 /** A sidebar where there is room for one; on a phone, a top bar with the menu behind a button. */
-export function Nav({ operator }: { operator: string | null }) {
+export function Nav({ operator, showSimulation }: { operator: string | null; showSimulation: boolean }) {
   const pathname = usePathname();
+  const run = useSearchParams().get("run");
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [pathname]);
 
@@ -109,7 +119,7 @@ export function Nav({ operator }: { operator: string | null }) {
     <>
       <nav className="nav" aria-label="Main">
         <Brand />
-        <Menu pathname={pathname} operator={operator} />
+        <Menu pathname={pathname} operator={operator} showSimulation={showSimulation} run={run} />
       </nav>
       <div className="nav-bar">
         <Brand />
@@ -120,7 +130,7 @@ export function Nav({ operator }: { operator: string | null }) {
       </div>
       {open ? (
         <div id="nav-sheet" className="nav-sheet">
-          <Menu pathname={pathname} operator={operator} onPick={() => setOpen(false)} />
+          <Menu pathname={pathname} operator={operator} showSimulation={showSimulation} run={run} onPick={() => setOpen(false)} />
         </div>
       ) : null}
     </>

@@ -24,3 +24,19 @@ export function controlDelta(before: string[], after: string[]): { added: string
   const a = new Set(after);
   return { added: after.filter((c) => !b.has(c)), removed: before.filter((c) => !a.has(c)) };
 }
+
+export interface Control { id: string; text: string }
+
+/**
+ * One row per numbered control, in the order they appear: the id and the requirement that
+ * follows it, up to the next control or blank line. Headings and prose are left out.
+ */
+export function listControls(policy: string): Control[] {
+  const out: Control[] = [];
+  const re = /\b(AI-GOV-\d{3,})\b[:\s-]*([\s\S]*?)(?=\n\s*\n|\bAI-GOV-\d{3,}\b|$)/g;
+  for (const m of policy.matchAll(re)) {
+    const text = (m[2] ?? "").replace(/\s+/g, " ").trim();
+    if (m[1] && text) out.push({ id: m[1], text });
+  }
+  return out;
+}
