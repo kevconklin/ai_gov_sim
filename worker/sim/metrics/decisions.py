@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import statistics
 
-from sim.calendar import months_between
+from govern.calendar import months_between
 from sim.context import RunContext
 
 

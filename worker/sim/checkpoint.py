@@ -11,13 +11,13 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from sim import ids
-from sim.db import Database, utc_now_iso
-from sim.policy import PolicyRepo
+from govern import ids
+from govern.db import Database, utc_now_iso
+from govern.policy import PolicyRepo
 
 # Insert order respects foreign keys; deletes run in reverse.
 RUN_TABLES: tuple[str, ...] = (
-    "sim_months", "agents", "agent_memories", "meetings", "messages", "positions", "perspectives", "syntheses", "votes", "decisions", "use_cases",
+    "sim_months", "org_profiles", "panel_rules", "documents", "config_changes", "agents", "items", "agent_memories", "meetings", "messages", "positions", "perspectives", "syntheses", "votes", "decisions", "use_cases",
     "attestations", "use_case_history", "policy_edits", "status_changes", "agenda_deferrals", "policy_versions", "engine_decisions", "engine_draws",
     "outcome_reports", "events", "inbox_items", "news_items", "exams", "findings", "board_memos", "coded_measures",
     "metrics",
@@ -103,7 +103,7 @@ def load_checkpoint(path: Path) -> dict[str, Any]:
 
 def fork_run(db: Database, *, parent_run_id: str, from_month: str, data_dir: Path, reason: str,
              inject_event: Mapping[str, Any] | None = None, source: str = "cli") -> str:
-    from sim.calendar import add_months
+    from govern.calendar import add_months
 
     parent = db.fetch_one("SELECT * FROM runs WHERE run_id = ?", (parent_run_id,))
     if parent is None:

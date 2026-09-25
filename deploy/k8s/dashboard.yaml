@@ -22,6 +22,9 @@ spec:
           ports:
             - { name: http, containerPort: 3100 }
           env:
+            # A customer deployment never shows the research simulation's pages.
+            - name: SHOW_SIMULATION
+              value: "0"
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: govsim, key: DATABASE_URL_READ } }
             - name: DATABASE_URL_CONTROL

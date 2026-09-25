@@ -1,0 +1,28 @@
+# Where models live. A model is referred to as "<provider>:<model id>"; a bare id means anthropic.
+#
+# Anything that speaks the OpenAI chat completions API is one kind, "openai_compatible": OpenAI
+# itself, the Hugging Face inference router, and self-hosted servers such as vLLM, TGI or Ollama.
+# The key is read from the named environment variable on the worker and never stored. A provider's
+# base_url can be overridden with <NAME>_BASE_URL, for a customer's own gateway.
+
+providers:
+  anthropic:
+    kind: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+
+  openai:
+    kind: openai_compatible
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    max_tokens_param: max_completion_tokens     # newer OpenAI models refuse max_tokens
+
+  huggingface:
+    kind: openai_compatible
+    base_url: https://router.huggingface.co/v1
+    api_key_env: HF_TOKEN
+
+  local:                                          # vLLM, TGI, Ollama, or a customer's gateway
+    kind: openai_compatible
+    base_url: http://localhost:8000/v1
+    api_key_env: LOCAL_LLM_API_KEY
+    key_optional: true

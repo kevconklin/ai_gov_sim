@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from sim.calendar import add_months, month_index
+from govern.calendar import add_months, month_index
 from sim.coding import FRAMEWORK_IDS, keyword_frameworks
 from sim.context import RunContext
 from sim.metrics.text import tfidf_cosine

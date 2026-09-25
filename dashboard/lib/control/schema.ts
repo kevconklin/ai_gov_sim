@@ -13,6 +13,15 @@ export const COMMAND_KINDS = [
   "candidates",
   "convene",
   "attest",
+  "submit",
+  "set_brief",
+  "update_profile",
+  "add_document",
+  "retire_document",
+  "set_panel",
+  "add_seat",
+  "remove_seat",
+  "update_seat",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -36,10 +45,65 @@ export const injectEventSchema = z
 
 const empty = z.object({}).strict();
 
+export const FRAMEWORKS = ["nist_ai_rmf", "iso_42001", "eu_ai_act", "sr_11_7", "none"] as const;
+export const DOCUMENT_KINDS = ["acceptable_use", "charter", "policy", "standard", "regulation", "other"] as const;
+
+/** Extra facts about a matter. Free-form on purpose: what is worth knowing differs by kind. */
+export const detailsSchema = z
+  .record(z.string().min(1).max(60), z.union([z.string().max(2000), z.boolean(), z.array(z.string().max(100)).max(12)]))
+  .refine((d) => Object.keys(d).length <= 24, { message: "Too many details." });
+
+/** Who did it and why, stamped by the server from the session. Never trusted from the request. */
+const attribution = {
+  actor: z.string().trim().min(1).max(200).optional(),
+  source: z.enum(["dashboard_session", "cli_asserted", "unknown"]).optional(),
+  why: z.string().trim().min(10, "Say why, in at least 10 characters.").max(1000),
+};
+
+const seatId = z.string().trim().regex(/^[a-z][a-z0-9_]{1,39}$/, "Lowercase letters, digits and underscores, such as data_protection.");
+/** "<provider>:<model>", or a bare id for anthropic. Whether it is on offer is the worker's call. */
+const modelRef = z.string().trim().min(1).max(200);
+
+const profileChanges = z
+  .object({
+    name: z.string().trim().min(2).max(200).optional(),
+    risk_appetite: z.string().trim().min(20, "At least a sentence: the committee argues from it.").max(4000).optional(),
+    facts: z.string().trim().max(4000).optional(),
+    framework: z.enum(FRAMEWORKS).optional(),
+    business_goals: z.string().trim().max(4000).optional(),
+    ai_landscape: z.string().trim().max(4000).optional(),
+    ai_tools: z.string().trim().max(4000).optional(),
+  })
+  .strict()
+  .refine((c) => Object.keys(c).length > 0, { message: "Nothing to change." });
+
+/** A new customer. The one command with no run behind it yet. */
+export const workspaceSchema = z
+  .object({
+    reason,
+    payload: z
+      .object({
+        name: z.string().trim().min(2, "Name the organisation.").max(200),
+        risk_appetite: z.string().trim().min(20, "At least a sentence: the committee argues from it.").max(4000),
+        facts: z.string().trim().max(4000).optional(),
+        framework: z.enum(FRAMEWORKS).optional(),
+        business_goals: z.string().trim().max(4000).optional(),
+        ai_landscape: z.string().trim().max(4000).optional(),
+        ai_tools: z.string().trim().max(4000).optional(),
+        actor: z.string().trim().min(1).max(200),
+        source: z.literal("dashboard_session"),
+      })
+      .strict(),
+  })
+  .strict();
+export type WorkspaceInput = z.infer<typeof workspaceSchema>;
+
+export const ITEM_KINDS = ["use_case", "tool", "vendor", "policy_change", "exception", "incident", "question"] as const;
+
 export const agendaItemSchema = z
   .object({
     item_id: z.string().trim().min(1).max(60),
-    kind: z.enum(["use_case", "policy_edit", "status_change", "advisory"]),
+    kind: z.enum(["use_case", "policy_edit", "status_change", "advisory", "item"]),
     title: z.string().trim().min(1).max(400),
     ref_id: z.string().trim().min(1).max(400).optional(),
   })
@@ -77,7 +141,7 @@ export const commandSchema = z.discriminatedUnion("kind", [
       kind: z.literal("set_spend_cap"),
       run_id: runId,
       reason,
-      payload: z.object({ usd_per_sim_month: z.number().positive().finite().max(1_000_000) }).strict(),
+      payload: z.object({ usd_per_sim_month: z.number().positive().finite().max(1_000_000), actor: z.string().max(200).optional(), source: z.string().max(40).optional() }).strict(),
     })
     .strict(),
   z
@@ -125,6 +189,116 @@ export const commandSchema = z.discriminatedUnion("kind", [
           // How the actor's identity was established, for the ledger. The dashboard sets this
           // from the signed session; the CLI records that it was merely asserted.
           source: z.enum(["dashboard_session", "cli_asserted", "unknown"]).optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("submit"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          kind: z.enum(ITEM_KINDS),
+          title: z.string().trim().min(3).max(200),
+          description: z.string().trim().min(10, "Say enough for a committee to act on.").max(4000),
+          submitted_by: z.string().trim().min(1).max(200),
+          risk_tier: z.enum(["low", "medium", "high"]).optional(),
+          details: detailsSchema.optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("set_brief"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          seat: z.string().trim().min(1).max(60),
+          brief: z.string().trim().min(40, "A brief needs enough to argue from.").max(4000),
+          ...attribution,
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal("update_profile"), run_id: runId, reason, payload: z.object({ changes: profileChanges, ...attribution }).strict() })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("add_document"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          kind: z.enum(DOCUMENT_KINDS),
+          title: z.string().trim().min(3).max(200),
+          body: z.string().trim().min(20, "Paste enough for the committee to cite.").max(60_000),
+          ...attribution,
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal("retire_document"), run_id: runId, reason, payload: z.object({ document_id: z.string().trim().min(1).max(400), ...attribution }).strict() })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("set_panel"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          kind: z.enum(ITEM_KINDS),
+          seats: z.array(z.string().trim().min(1).max(60)).min(1, "Seat at least one adviser.").max(20),
+          risk_tier: z.enum(["low", "medium", "high", "*"]).optional(),
+          ...attribution,
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("add_seat"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          seat: seatId,
+          title: z.string().trim().min(2).max(120),
+          name: z.string().trim().max(60).optional(),
+          brief: z.string().trim().min(40, "A brief needs enough to argue from.").max(4000),
+          stance_baseline: z.number().min(1).max(5).optional(),
+          model: modelRef.optional(),
+          ...attribution,
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal("remove_seat"), run_id: runId, reason, payload: z.object({ seat: seatId, ...attribution }).strict() })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("update_seat"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          seat: seatId,
+          changes: z
+            .object({
+              title: z.string().trim().min(2).max(120).optional(),
+              name: z.string().trim().min(1).max(60).optional(),
+              stance_baseline: z.number().min(1).max(5).optional(),
+              model: z.union([modelRef, z.literal("")]).optional(), // "" returns the seat to the default model
+            })
+            .strict()
+            .refine((c) => Object.keys(c).length > 0, { message: "Nothing to change." }),
+          ...attribution,
         })
         .strict(),
     })

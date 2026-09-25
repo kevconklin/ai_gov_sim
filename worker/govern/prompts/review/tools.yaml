@@ -1,0 +1,10 @@
+# Tools only a disclosed committee is offered, on top of the shared list in committee/tools.yaml.
+- name: read_document
+  description: >-
+    Read one of the organisation's governing documents in full, such as its acceptable use policy or a committee
+    charter. The pre-read lists the documents in force by title. Cite the document when you rely on it.
+  input_schema:
+    type: object
+    properties:
+      title: {type: string, description: The document's title, or a distinctive part of it.}
+    required: [title]

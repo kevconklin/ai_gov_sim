@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import "@fontsource-variable/public-sans";
+import "@fontsource-variable/newsreader";
+import "@fontsource-variable/newsreader/wght-italic.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Governance Sim - Research Dashboard",
+  title: "AI governance reviews",
   robots: { index: false, follow: false },
 };
 
