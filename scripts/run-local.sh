@@ -49,7 +49,10 @@ stop() {
   [ -n "$pids" ] && kill $pids 2>/dev/null || true
   pkill -f "sim serve" 2>/dev/null || true
   rm -f "$RUN_DIR/worker.mode"
-  sleep 1
+  # the worker drains on SIGTERM: it finishes or rolls back what it is doing, then exits. Give it
+  # that time, so a start right after does not run beside a worker that is still leaving.
+  for _ in $(seq 1 30); do pgrep -f "sim serve" >/dev/null 2>&1 || break; sleep 1; done
+  if pgrep -f "sim serve" >/dev/null 2>&1; then echo "a worker is still draining; it will exit when its current step ends" >&2; fi
 }
 
 status() {
