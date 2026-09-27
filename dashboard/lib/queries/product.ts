@@ -161,3 +161,40 @@ export async function organizations(month: string): Promise<OrganizationRow[]> {
     starter: (r.starter as string | null) ?? null,
   }));
 }
+
+export interface RegisterRow {
+  item_id: string;
+  kind: string;                  // tool | vendor | use_case
+  title: string;
+  description: string;
+  details: string | null;
+  status: string;                // approved | rejected | submitted | in_review | recommended
+  risk_tier: string | null;
+  submitted_by: string;
+  decided_on: string | null;
+  actor: string | null;          // who signed
+  rationale: string | null;      // the signer's words: the conditions, in effect
+  recommended: string | null;
+  attestation_id: string | null;
+}
+
+/** Every AI tool, vendor, and use case the committee has seen: what is allowed, what is not, and what is still waiting. */
+export async function toolRegister(runId: string): Promise<RegisterRow[]> {
+  const db = await readDb();
+  const rows = await db.all<RegisterRow>(
+    `SELECT i.item_id, i.kind, i.title, i.description, i.details, i.status, i.risk_tier, i.submitted_by, i.decided_on,
+            a.actor, a.rationale, d.outcome AS recommended, a.attestation_id
+     FROM items i
+     LEFT JOIN decisions d ON d.ref_id = i.item_id AND d.run_id = i.run_id
+     LEFT JOIN attestations a ON a.decision_id = d.decision_id AND a.outcome <> 'deferred'
+     WHERE i.run_id = ? AND i.kind IN ('tool', 'vendor', 'use_case') AND i.status <> 'withdrawn'
+     ORDER BY CASE i.status WHEN 'approved' THEN 0 WHEN 'rejected' THEN 1 ELSE 2 END, i.title, a.created_at DESC`,
+    [runId]);
+  // a matter reviewed more than once (deferred, then brought back) has a decision row per review; one line per matter
+  const seen = new Map<string, RegisterRow>();
+  for (const r of rows) {
+    const have = seen.get(r.item_id);
+    if (!have || (!have.attestation_id && r.attestation_id)) seen.set(r.item_id, r);
+  }
+  return [...seen.values()];
+}

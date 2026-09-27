@@ -108,6 +108,19 @@ const SECTIONS: Section[] = [
     tryIt: { href: "/ask", label: "Ask something" },
   },
   {
+    id: "approved",
+    title: "Check what is allowed",
+    lead: "Approved tools is written from signed decisions only. Staff type a name and get the answer in one line.",
+    steps: [
+      "You may use these: approved by a named person, with the conditions in their words. Stay inside them.",
+      "Not allowed: refused, with the reason.",
+      "Being looked at: submitted and not yet decided. Nothing is approved until it moves up.",
+      "Not there at all? Submit it, or ask the policy what applies meanwhile.",
+    ],
+    image: "approved", alt: "The Approved tools page with a search box and three lists: allowed, not allowed, being looked at",
+    tryIt: { href: "/approved", label: "Open Approved tools" },
+  },
+  {
     id: "policy",
     title: "Keep the policy",
     lead: "Policy shows the controls in force, one per row, and every version there has been.",

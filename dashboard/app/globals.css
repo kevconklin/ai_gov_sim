@@ -1106,6 +1106,15 @@ pre.code {
   }
 }
 
+/* The approved-tools register: the conditions under the name, in the signer's words. */
+.rv-reg-cond {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  white-space: normal;
+}
+
 /* The organizations list: attention chips first, the quiet numbers after. */
 .rv-orgstats {
   flex-wrap: wrap;

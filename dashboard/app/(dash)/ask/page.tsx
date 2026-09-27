@@ -47,7 +47,7 @@ export default async function AskPage({ searchParams }: { searchParams: Promise<
       <AutoRefresh active={pending.length > 0} />
       <header className="rv-top">
         <div className="flex flex-wrap items-center gap-2.5"><h1 className="rv-org">Ask</h1><Chip plain>{scope.name}</Chip></div>
-        <Link href={`/policy-record?run=${run}`} className="rv-btn">Read the policy</Link>
+        <span className="flex gap-2"><Link href={`/approved?run=${run}`} className="rv-btn">Approved tools</Link><Link href={`/policy-record?run=${run}`} className="rv-btn">Read the policy</Link></span>
       </header>
 
       <section className="rv-card" data-tone="you"><AskForm runId={scope.run_id} /></section>
