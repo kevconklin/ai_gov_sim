@@ -85,4 +85,4 @@ export function buildTrail(input: TrailInput): Step[] {
 export function supportTone(n: number): "ok" | "no" | undefined {
   return n >= 4 ? "ok" : n <= 2 ? "no" : undefined;
 }
-export const SUPPORT_WORDS = ["", "Strongly against", "Against", "Neutral", "In favour", "Strongly in favour"];
+export const SUPPORT_WORDS = ["", "Strongly against", "Against", "Neutral", "In favor", "Strongly in favor"];

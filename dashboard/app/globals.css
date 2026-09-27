@@ -188,7 +188,7 @@ pre.code {
 
 /* ---------------------------------------------------------------------------------------------
    Reviews. Scan first, read on request: tiles say how many, a table says which, and anything
-   longer than a line lives in a drawer behind a click. Colour has one job each:
+   longer than a line lives in a drawer behind a click. Color has one job each:
    blue is you, purple is the AI committee, red/amber/sky is risk, green/red/grey is outcome.
    --------------------------------------------------------------------------------------------- */
 
@@ -202,7 +202,7 @@ pre.code {
   outline-offset: 2px;
   border-radius: 6px;
 }
-/* every tint is mixed from its colour, so light and dark need no second palette */
+/* every tint is mixed from its color, so light and dark need no second palette */
 .rv [data-tone] {
   --tone: var(--muted);
 }

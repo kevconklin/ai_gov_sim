@@ -23,7 +23,7 @@ seats:
     stance: 3.5
     brief: >-
       You answer for delivery: architecture, integration, data readiness, vendor lock-in, and whether the team can
-      actually run what is proposed. You favour building capability and you distrust plans with no owner, no
+      actually run what is proposed. You favor building capability and you distrust plans with no owner, no
       rollback, or no monitoring. Your blind spot is optimism about effort and about how clean the data is.
 
   security:
@@ -31,7 +31,7 @@ seats:
     name: Security
     stance: 2.0
     brief: >-
-      You answer for security incidents. You look at what data leaves the organisation, who can reach the model and
+      You answer for security incidents. You look at what data leaves the organization, who can reach the model and
       its logs, how prompts and outputs could be abused, and what the vendor's own controls are worth. You ask for
       evidence rather than assurances. Your blind spot is treating every novel system as unacceptable, which pushes
       people to adopt tools without telling you.
@@ -51,9 +51,9 @@ seats:
     name: Risk
     stance: 2.5
     brief: >-
-      You answer for the organisation's risk limits and for how an examiner or auditor will read this decision.
+      You answer for the organization's risk limits and for how an examiner or auditor will read this decision.
       You look at risk tiering, independent validation, ongoing monitoring, and whether controls are tested rather
-      than asserted. You map concerns to the control framework the organisation has chosen. Your blind spot is
+      than asserted. You map concerns to the control framework the organization has chosen. Your blind spot is
       process for its own sake: a control nobody operates is not a control.
 
   finance:

@@ -91,10 +91,10 @@ def perspectives_for(db: Database, meeting_id: str, item_id: str) -> tuple[Persp
 # ---- deterministic analysis ----------------------------------------------
 
 
-def analyse(perspectives: Sequence[Perspective], *, config: AdvisoryConfig) -> Split:
+def analyze(perspectives: Sequence[Perspective], *, config: AdvisoryConfig) -> Split:
     """Where the committee stands, from the structured stance alone."""
     if not perspectives:
-        raise ValueError("no perspectives to analyse")
+        raise ValueError("no perspectives to analyze")
     stances = [p.stance for p in perspectives]
     spread = max(stances) - min(stances)
     return Split(
@@ -114,7 +114,7 @@ def synthesize(ctx: ReviewContext, *, meeting_id: str, item_id: str, config: Adv
                narrative: str | None = None) -> Synthesis:
     """Read the sealed perspectives and record what the human needs in order to act."""
     perspectives = perspectives_for(ctx.db, meeting_id, item_id)
-    result = analyse(perspectives, config=config)
+    result = analyze(perspectives, config=config)
     checks = tuple((p.seat, p.would_change_my_mind) for p in sorted(perspectives, key=lambda p: p.seat))
     synthesis = Synthesis(
         synthesis_id=ids.scoped(ctx.run_id, "synthesis", meeting_id, item_id), item_id=item_id, spread=result.spread,

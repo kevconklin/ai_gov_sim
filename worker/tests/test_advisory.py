@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 
 from conftest import REPO_ROOT
-from govern.advisory import Perspective, analyse, perspectives_for, record_perspective, synthesis_for, synthesize
+from govern.advisory import Perspective, analyze, perspectives_for, record_perspective, synthesis_for, synthesize
 from govern.config import load_advisory
 from sim.context import RunContext
 from govern.tools import ToolSession, execute
@@ -88,26 +88,26 @@ def test_stance_outside_the_scale_is_refused(ctx):
 
 
 def test_agreement_has_no_spread(advisory_config):
-    result = analyse(perspectives(4, 4, 4), config=advisory_config)
+    result = analyze(perspectives(4, 4, 4), config=advisory_config)
     assert result.spread == 0
     assert result.split is False
 
 
 def test_opposed_seats_register_as_split(advisory_config):
-    result = analyse(perspectives(1, 3, 5), config=advisory_config)
+    result = analyze(perspectives(1, 3, 5), config=advisory_config)
     assert result.spread == 4
     assert result.split is True
 
 
 def test_split_threshold_is_configured(advisory_config):
-    just_under = analyse(perspectives(3, 3, 3 + advisory_config.split_at - 1), config=advisory_config)
-    at_threshold = analyse(perspectives(3, 3, 3 + advisory_config.split_at), config=advisory_config)
+    just_under = analyze(perspectives(3, 3, 3 + advisory_config.split_at - 1), config=advisory_config)
+    at_threshold = analyze(perspectives(3, 3, 3 + advisory_config.split_at), config=advisory_config)
     assert just_under.split is False
     assert at_threshold.split is True
 
 
 def test_seats_are_sorted_for_against_and_undecided(advisory_config):
-    result = analyse(perspectives(5, 1, 3), config=advisory_config)
+    result = analyze(perspectives(5, 1, 3), config=advisory_config)
     assert result.for_seats == ("coo_chair",)
     assert result.against_seats == ("ciso",)
     assert result.undecided_seats == ("cfo",)
@@ -115,7 +115,7 @@ def test_seats_are_sorted_for_against_and_undecided(advisory_config):
 
 def test_analysing_nothing_is_refused(advisory_config):
     with pytest.raises(ValueError, match="no perspectives"):
-        analyse((), config=advisory_config)
+        analyze((), config=advisory_config)
 
 
 # ---- synthesis ------------------------------------------------------------

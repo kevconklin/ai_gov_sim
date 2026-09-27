@@ -24,7 +24,7 @@ class TurnResult:
 
 
 def fixed_block(ctx: ReviewContext, agent: Agent) -> str:
-    """Persona, role, organisation background, and board direction: identical on every call, so it is cached.
+    """Persona, role, organization background, and board direction: identical on every call, so it is cached.
 
     Two templates, chosen by whether the members have been told what they are. A customer's
     committee is told: its output is advisory, machine-generated, and a named person decides.

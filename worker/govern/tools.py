@@ -17,11 +17,11 @@ from govern.context import Agent, ReviewContext, display_id, next_display_id
 from govern.policy import read_section
 
 TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("committee/tools.yaml"))
-# A real organisation has no curated news feed or simulated inbox, and is not necessarily a bank.
+# A real organization has no curated news feed or simulated inbox, and is not necessarily a bank.
 # Same definitions, minus the feeds, with the one bank-specific phrase generalised.
 _FEEDS = frozenset({"read_news", "read_inbox"})
 REVIEW_TOOLS: tuple[Mapping[str, Any], ...] = tuple(
-    {**tool, "description": str(tool["description"]).replace("the bank's", "the organisation's")}
+    {**tool, "description": str(tool["description"]).replace("the bank's", "the organization's")}
     for tool in TOOLS if tool["name"] not in _FEEDS) + tuple(prompts.load_yaml("review/tools.yaml"))
 
 
@@ -160,7 +160,7 @@ def _read_document(s: ToolSession, args: Mapping[str, Any]) -> str:
     wanted = str(args.get("title", "")).strip().lower()
     in_force = documents(s.ctx.db, s.ctx.run_id)
     if not in_force:
-        return "The organisation has not provided any governing documents."
+        return "The organization has not provided any governing documents."
     match = next((d for d in in_force if d["title"].lower() == wanted), None) or \
         next((d for d in in_force if wanted and wanted in d["title"].lower()), None)
     if match is None:

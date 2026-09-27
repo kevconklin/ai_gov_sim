@@ -193,7 +193,7 @@ export function seatCode(seatId: string): string {
   return (/^c[a-z]{1,2}o$/i.test(word) ? word : word.slice(0, 2)).toUpperCase();
 }
 
-/** A stable colour per seat, by its place in the speaking order, so a seat looks the same everywhere. */
+/** A stable color per seat, by its place in the speaking order, so a seat looks the same everywhere. */
 export const SEAT_HUES = ["#6938ef", "#1570ef", "#0e9384", "#dc6803", "#c11574", "#4e5ba6", "#079455", "#b42318"] as const;
 export function seatColor(index: number): string {
   return SEAT_HUES[((index % SEAT_HUES.length) + SEAT_HUES.length) % SEAT_HUES.length]!;
@@ -221,7 +221,7 @@ export const FRAMEWORK_LABELS: Record<string, string> = {
 
 export const AREA_LABELS: Record<string, string> = {
   workspace: "Customer",
-  profile: "Organisation",
+  profile: "Organization",
   brief: "Adviser brief",
   panel: "Review panel",
   document: "Document",
@@ -230,9 +230,9 @@ export const AREA_LABELS: Record<string, string> = {
 };
 
 export const PROFILE_LABELS: Record<string, string> = {
-  name: "Organisation name",
+  name: "Organization name",
   risk_appetite: "Board direction on AI",
-  facts: "About the organisation",
+  facts: "About the organization",
   framework: "Control framework",
   business_goals: "Business goals",
   ai_landscape: "AI landscape",

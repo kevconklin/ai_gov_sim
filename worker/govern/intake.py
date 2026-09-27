@@ -1,6 +1,6 @@
 """Intake: how an AI matter reaches the committee.
 
-Anything an organisation wants reviewed is submitted here first. It then shows up as a ranked
+Anything an organization wants reviewed is submitted here first. It then shows up as a ranked
 candidate, and a person decides whether and when it goes on an agenda. A question is the one
 kind that is never put to a vote: it is heard as an advisory item and answered with a synthesis.
 """

@@ -61,7 +61,7 @@ export function WorkspacePicker({ scopes, current }: { scopes: Scope[]; current:
   return (
     <select className="rv-select" aria-label="Committee" value={current}
       onChange={(e) => router.push(`/reviews?run=${encodeURIComponent(e.currentTarget.value)}`)}>
-      {orgs.length ? <optgroup label="Organisations">{orgs.map((s) => <option key={s.run_id} value={s.run_id}>{s.label}</option>)}</optgroup> : null}
+      {orgs.length ? <optgroup label="Organizations">{orgs.map((s) => <option key={s.run_id} value={s.run_id}>{s.label}</option>)}</optgroup> : null}
       {sims.length ? <optgroup label="Simulated runs">{sims.map((s) => <option key={s.run_id} value={s.run_id}>{s.label}</option>)}</optgroup> : null}
     </select>
   );

@@ -83,13 +83,13 @@ describe("compact labels", () => {
     expect(product.slice(0, 2)).toEqual(["CH", "TE"]);
   });
 
-  it("gives a seat the same colour wherever it appears", () => {
+  it("gives a seat the same color wherever it appears", () => {
     expect(seatColor(2)).toBe(seatColor(2));
     expect(seatColor(8)).toBe(seatColor(0));
   });
 
   it("keeps a row to one sentence and leaves the rest for the drill-down", () => {
-    expect(firstSentence("You answer for delivery. You favour building.")).toBe("You answer for delivery.");
+    expect(firstSentence("You answer for delivery. You favor building.")).toBe("You answer for delivery.");
     expect(firstSentence("x".repeat(200)).length).toBeLessThanOrEqual(110);
   });
 

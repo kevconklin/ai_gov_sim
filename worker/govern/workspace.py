@@ -1,7 +1,7 @@
-"""A workspace: one organisation's committee, with no simulation behind it.
+"""A workspace: one organization's committee, with no simulation behind it.
 
 It reuses the run as its scope, so every run-scoped table, id convention, checkpoint and audit
-record works unchanged. What makes it a workspace is that it has an organisation profile, its
+record works unchanged. What makes it a workspace is that it has an organization profile, its
 committee's briefs are stored rather than read from files, and its status is one the simulation's
 clock never advances.
 """
@@ -38,7 +38,7 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
                      starter: str | None = None) -> str:
     """Create the organization's committee. With `starter`, a kit also gives it a policy, documents, and a first matter."""
     if len(name.strip()) < 2:
-        raise ValueError("a workspace needs the organisation's name")
+        raise ValueError("a workspace needs the organization's name")
     if len(risk_appetite.strip()) < 20:
         raise ValueError("a workspace needs the board's direction on AI: the committee argues from it")
     kit = get_starter(config_dir, starter) if starter else None      # refuse a bad kit before anything is created

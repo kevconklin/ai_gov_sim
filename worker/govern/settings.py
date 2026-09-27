@@ -57,11 +57,11 @@ def _log_intervention(db: Database, run_id: str, kind: str, description: str, so
 
 def update_profile(db: Database, run_id: str, changes: Mapping[str, Any], *, actor: str, reason: str,
                    source: str = "cli_asserted") -> list[str]:
-    """Change what the committee is told about the organisation. Returns the fields that actually changed."""
+    """Change what the committee is told about the organization. Returns the fields that actually changed."""
     why = _reason(reason)
     current = db.fetch_one("SELECT * FROM org_profiles WHERE run_id = ?", (run_id,))
     if current is None:
-        raise SettingsError(f"{run_id} has no organisation profile to change")
+        raise SettingsError(f"{run_id} has no organization profile to change")
     unknown = sorted(set(changes) - set(PROFILE_FIELDS))
     if unknown:
         raise SettingsError(f"{', '.join(unknown)} cannot be changed here")
@@ -69,7 +69,7 @@ def update_profile(db: Database, run_id: str, changes: Mapping[str, Any], *, act
     if "framework" in cleaned and cleaned["framework"] not in (None, *FRAMEWORKS):
         raise SettingsError(f"framework must be one of {', '.join(FRAMEWORKS)}")
     if "name" in cleaned and len(cleaned["name"] or "") < 2:
-        raise SettingsError("the organisation needs a name")
+        raise SettingsError("the organization needs a name")
     if "risk_appetite" in cleaned and len(cleaned["risk_appetite"] or "") < 20:
         raise SettingsError("the board's direction on AI needs at least a sentence: the committee argues from it")
 

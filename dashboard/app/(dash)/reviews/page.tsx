@@ -205,7 +205,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     const spec = PROFILE_FIELDS.find(([f]) => f === key);
     if (spec) {
       drawer = (
-        <Drawer closeHref={closeHref} title={PROFILE_LABELS[key] ?? key} chips={<Chip tone="you">Organisation</Chip>}>
+        <Drawer closeHref={closeHref} title={PROFILE_LABELS[key] ?? key} chips={<Chip tone="you">Organization</Chip>}>
           {shown(key) ? <section className="rv-card"><div className="rv-card-h">Now</div><p className="rv-prose">{shown(key)}</p></section> : null}
           <ProfileFieldForm runId={runId} field={key} value={profileValue(key)} kind={spec[1]} />
         </Drawer>
@@ -322,7 +322,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     const s = syntheses.find((x) => x.synthesis_id === key);
     if (s) {
       const question = parse<{ item_id: string; title: string }[]>(s.agenda, []).find((i) => i.item_id === s.item_id)?.title ?? s.item_id;
-      const sides: [string, string, string[]][] = [["In favour", "ok", parse<string[]>(s.for_seats, [])], ["Against", "no", parse<string[]>(s.against_seats, [])], ["Undecided", "", parse<string[]>(s.undecided_seats, [])]];
+      const sides: [string, string, string[]][] = [["In favor", "ok", parse<string[]>(s.for_seats, [])], ["Against", "no", parse<string[]>(s.against_seats, [])], ["Undecided", "", parse<string[]>(s.undecided_seats, [])]];
       drawer = (
         <Drawer closeHref={closeHref} title={question} chips={<>{s.split ? <Chip tone="wait">Committee divided</Chip> : <Chip tone="ok">Committee agreed</Chip>}<Chip plain>{s.item_id}</Chip><Chip plain>{s.sim_month}</Chip></>}>
           {s.narrative ? <p className="rv-prose">{s.narrative}</p> : null}
@@ -595,7 +595,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         {tab === "settings" ? (
           !org ? <EmptyState icon="flag" tone="ai">A simulated run is configured from files, not here.</EmptyState> : (
             <div className="rv-settings">
-              <div className="rv-group-h">Organisation</div>
+              <div className="rv-group-h">Organization</div>
               <div className="rv-setgrid">
                 {PROFILE_FIELDS.map(([field]) => (
                   <Link key={field} href={to({ open: `setting:${field}` })} scroll={false} className="rv-set">

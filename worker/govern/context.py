@@ -1,8 +1,8 @@
 """Shared handles for one workspace, plus the small typed reads a review needs.
 
-A review needs to know whose committee it is: the organisation's name, what its board has said
+A review needs to know whose committee it is: the organization's name, what its board has said
 about risk, a few facts, which seats exist and who chairs. It does not need to know whether that
-organisation is real. `OrgProfile` is that seam. A customer workspace stores one; the simulation
+organization is real. `OrgProfile` is that seam. A customer workspace stores one; the simulation
 builds one from its fictional bank and hands it over through the same door.
 """
 
@@ -42,7 +42,7 @@ class Agent:
 
 @dataclass(frozen=True)
 class OrgProfile:
-    """What a committee member is told about the organisation they serve."""
+    """What a committee member is told about the organization they serve."""
 
     name: str
     risk_appetite: str
@@ -53,7 +53,7 @@ class OrgProfile:
 
 
 class NoOrgProfile(LookupError):
-    """The workspace has no organisation profile and nothing else can supply one."""
+    """The workspace has no organization profile and nothing else can supply one."""
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,7 @@ class ReviewContext:
     def org(self) -> OrgProfile:
         profile = load_org_profile(self.db, self.run_id)
         if profile is None:
-            raise NoOrgProfile(f"workspace {self.run_id} has no organisation profile")
+            raise NoOrgProfile(f"workspace {self.run_id} has no organization profile")
         return profile
 
     def persona_body(self, agent: Agent) -> str:
@@ -110,7 +110,7 @@ def load_org_profile(db: Database, run_id: str) -> OrgProfile | None:
 
 
 def _about(row: Mapping[str, Any]) -> str:
-    """Everything the organisation has said about itself, as the committee reads it."""
+    """Everything the organization has said about itself, as the committee reads it."""
     from govern.settings import FRAMEWORKS
     keys = row.keys()
     get = lambda k: (row[k] if k in keys else None) or ""      # noqa: E731 - columns added by a later migration
@@ -119,7 +119,7 @@ def _about(row: Mapping[str, Any]) -> str:
         parts.append(f"Control framework: {FRAMEWORKS.get(get('framework'), get('framework'))}. "
                      "Tie concerns and conditions to it where you can.")
     for key, label in (("business_goals", "Business goals"), ("ai_tools", "AI already in use"),
-                       ("ai_landscape", "What is happening around the organisation")):
+                       ("ai_landscape", "What is happening around the organization")):
         if get(key):
             parts.append(f"{label}: {get(key)}")
     return "\n\n".join(parts)

@@ -217,7 +217,7 @@ export interface OrgRow {
   ai_tools: string | null;
 }
 
-/** Present for a workspace; absent for a simulated run, whose organisation is a fictional bank. */
+/** Present for a workspace; absent for a simulated run, whose organization is a fictional bank. */
 export async function orgProfile(runId: string): Promise<OrgRow | undefined> {
   const db = await readDb();
   return db.get<OrgRow>("SELECT name, risk_appetite, facts, seats, chair_seat, framework, business_goals, ai_landscape, ai_tools FROM org_profiles WHERE run_id = ?", [runId]);
@@ -374,7 +374,7 @@ export interface ScopeRow {
   started_at: string;
 }
 
-/** Every committee a person could be looking at: organisations first, then simulated runs. */
+/** Every committee a person could be looking at: organizations first, then simulated runs. */
 export async function reviewScopes(): Promise<ScopeRow[]> {
   const db = await readDb();
   return db.all<ScopeRow>(

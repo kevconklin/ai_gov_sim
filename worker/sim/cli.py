@@ -207,7 +207,7 @@ def _text(value: str) -> str:
 
 
 def cmd_workspace(args: argparse.Namespace) -> None:
-    """Create a workspace: one organisation's committee, with no simulation behind it."""
+    """Create a workspace: one organization's committee, with no simulation behind it."""
     from govern.workspace import create_workspace
 
     db = _open_db()
@@ -425,8 +425,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--once", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_serve)
 
-    p = sub.add_parser("workspace", help="create a workspace for a real organisation")
-    p.add_argument("--name", required=True, help="the organisation's name")
+    p = sub.add_parser("workspace", help="create a workspace for a real organization")
+    p.add_argument("--name", required=True, help="the organization's name")
     p.add_argument("--risk-appetite", required=True, dest="risk_appetite",
                    help="the board's direction on AI, or @path to a file holding it")
     p.add_argument("--facts", help="a few lines about the organization, or @path")

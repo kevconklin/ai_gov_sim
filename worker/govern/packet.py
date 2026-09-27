@@ -130,7 +130,7 @@ def _review_packet(ctx: ReviewContext, *, meeting_date: date, agenda: Sequence[A
     """The pre-read for a review a person called: the agenda, the last minutes, precedent, and policy.
 
     It carries nothing a simulated world would supply (outcome reports, correspondence, news),
-    because a real organisation's equivalents arrive through intake and its own documents.
+    because a real organization's equivalents arrive through intake and its own documents.
     """
     prev = ctx.db.fetch_one("SELECT minutes_text FROM meetings WHERE run_id = ? AND status = 'closed' "
                             "ORDER BY meeting_date DESC, meeting_id DESC LIMIT 1", (ctx.run_id,))

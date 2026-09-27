@@ -83,7 +83,7 @@ export const workspaceSchema = z
     reason,
     payload: z
       .object({
-        name: z.string().trim().min(2, "Name the organisation.").max(200),
+        name: z.string().trim().min(2, "Name the organization.").max(200),
         risk_appetite: z.string().trim().min(20, "At least a sentence: the committee argues from it.").max(4000),
         facts: z.string().trim().max(4000).optional(),
         framework: z.enum(FRAMEWORKS).optional(),
