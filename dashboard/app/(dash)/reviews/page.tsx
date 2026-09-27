@@ -124,7 +124,10 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const pending = work.filter((w) => w.status !== "failed");
   const failed = work.filter((w) => w.status === "failed");
   const reviewing = pending.filter((w) => w.kind === "convene").length;
-  const stale = pending.some((w) => Date.now() - new Date(w.created_at).getTime() > STALE_MS);
+  // a command still 'pending' after this long has not been picked up: no worker is running. Once it is
+  // 'processing' the worker has it, and a live review takes minutes, so that is not a warning.
+  const stale = pending.some((w) => w.status === "pending" && Date.now() - new Date(w.created_at).getTime() > STALE_MS);
+  const reviewingLive = pending.some((w) => w.kind === "convene" && w.status === "processing");
   const settled = record.filter((r) => r.outcome !== "deferred");
   const overrides = settled.filter((r) => r.outcome !== r.recommended).length;
 
@@ -419,7 +422,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       {pending.map((w) => (
         <div key={w.command_id} className="rv-banner" data-tone="ai" aria-live="polite"><span className="rv-dot is-live" /><span>{describeWork(w.kind, w.payload)}…</span></div>
       ))}
-      {stale ? <div className="rv-banner" data-tone="wait"><Icon name="alert" /><span>Still waiting. Is the worker running? <code>python -m sim serve</code></span></div> : null}
+      {stale ? <div className="rv-banner" data-tone="wait"><Icon name="alert" /><span>Nothing has picked this up. Is the worker running? <code>scripts/run-local.sh status</code></span></div> : null}
+      {reviewingLive ? <div className="rv-banner" data-tone="ai"><Icon name="users" /><span>A live review takes a few minutes: each adviser writes a position, then they debate, then they vote. This page refreshes on its own.</span></div> : null}
       {failed.map((w) => (
         <div key={w.command_id} className="rv-banner" data-tone="no">
           <Icon name="alert" /><span className="flex-1">{describeWork(w.kind, w.payload)} did not go through.</span>
