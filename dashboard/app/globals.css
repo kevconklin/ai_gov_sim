@@ -1038,6 +1038,13 @@ pre.code {
   outline-offset: 2px;
 }
 
+/* The organizations list: attention chips first, the quiet numbers after. */
+.rv-orgstats {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 34rem;
+}
+
 /* A glossary word: dotted underline, meaning on hover or focus. */
 .rv-term {
   position: relative;

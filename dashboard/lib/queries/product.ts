@@ -111,3 +111,53 @@ export async function openAsks(runId: string): Promise<AskWorkRow[]> {
      WHERE run_id = ? AND kind IN ('ask', 'escalate_ask') AND (status IN ('pending', 'processing') OR (status = 'failed' AND created_at > ?))
      ORDER BY created_at DESC`, [runId, since]);
 }
+
+export interface OrganizationRow {
+  run_id: string;
+  name: string;
+  status: string;                 // workspace | archived
+  framework: string | null;
+  started_at: string;
+  seats: number;
+  waiting: number;                // matters submitted, not yet reviewed
+  needs_you: number;              // recommendations with no signature
+  signed: number;
+  reviews: number;
+  last_review: string | null;     // meeting_date of the latest convened review
+  gaps: number;                   // asks the policy could not answer, not sent on
+  controls: number;               // numbered controls in the current policy
+  spend_month: number;            // USD this calendar month
+  cap: number | null;
+  starter: string | null;         // the kit it began from, if any
+}
+
+/** Every organization with a committee, active first, newest first, with what needs attention at a glance. */
+export async function organizations(month: string): Promise<OrganizationRow[]> {
+  const db = await readDb();
+  const rows = await db.all<Record<string, unknown>>(
+    `SELECT r.run_id, o.name, r.status, o.framework, r.started_at, r.spend_cap_usd_per_month AS cap,
+            (SELECT COUNT(*) FROM agents ag WHERE ag.run_id = r.run_id AND ag.active_to IS NULL) AS seats,
+            (SELECT COUNT(*) FROM items i WHERE i.run_id = r.run_id AND i.status = 'submitted') AS waiting,
+            (SELECT COUNT(*) FROM decisions d JOIN meetings m ON m.meeting_id = d.meeting_id
+              LEFT JOIN attestations a ON a.decision_id = d.decision_id
+              WHERE d.run_id = r.run_id AND m.convened AND a.attestation_id IS NULL) AS needs_you,
+            (SELECT COUNT(*) FROM attestations a WHERE a.run_id = r.run_id AND a.outcome <> 'deferred') AS signed,
+            (SELECT COUNT(*) FROM meetings m WHERE m.run_id = r.run_id AND m.convened) AS reviews,
+            (SELECT MAX(m.meeting_date) FROM meetings m WHERE m.run_id = r.run_id AND m.convened) AS last_review,
+            (SELECT COUNT(*) FROM asks k WHERE k.run_id = r.run_id AND NOT k.covered AND k.item_id IS NULL) AS gaps,
+            (SELECT pv.control_count FROM policy_versions pv WHERE pv.run_id = r.run_id ORDER BY pv.sim_month DESC LIMIT 1) AS controls,
+            (SELECT COALESCE(SUM(l.cost_usd), 0) FROM llm_calls l WHERE l.run_id = r.run_id AND l.created_at LIKE ?) AS spend_month,
+            (SELECT c.target FROM config_changes c WHERE c.run_id = r.run_id AND c.area = 'starter' ORDER BY c.changed_at LIMIT 1) AS starter
+     FROM runs r JOIN org_profiles o ON o.run_id = r.run_id
+     WHERE r.condition = 'workspace'
+     ORDER BY CASE WHEN r.status = 'archived' THEN 1 ELSE 0 END, r.started_at DESC`,
+    [`${month}%`],
+  );
+  return rows.map((r) => ({
+    run_id: String(r.run_id), name: String(r.name), status: String(r.status), framework: (r.framework as string | null) ?? null,
+    started_at: String(r.started_at), seats: num(r.seats), waiting: num(r.waiting), needs_you: num(r.needs_you), signed: num(r.signed),
+    reviews: num(r.reviews), last_review: (r.last_review as string | null) ?? null, gaps: num(r.gaps), controls: num(r.controls),
+    spend_month: Number(r.spend_month ?? 0), cap: r.cap === null || r.cap === undefined ? null : Number(r.cap),
+    starter: (r.starter as string | null) ?? null,
+  }));
+}
