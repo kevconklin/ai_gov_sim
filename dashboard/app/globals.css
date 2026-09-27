@@ -193,7 +193,6 @@ pre.code {
    --------------------------------------------------------------------------------------------- */
 
 .rv {
-  max-width: 76rem;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -1181,7 +1180,6 @@ pre.code {
   color: var(--no);
 }
 .rv-prose {
-  max-width: 62ch;
   white-space: pre-wrap;
 }
 
