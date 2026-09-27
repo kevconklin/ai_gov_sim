@@ -72,3 +72,42 @@ export async function openPolicyMatters(runId: string): Promise<{ item_id: strin
   const db = await readDb();
   return db.all("SELECT item_id, title, status, submitted_on FROM items WHERE run_id = ? AND kind IN ('policy_change', 'exception') AND status IN ('submitted', 'in_review', 'recommended') ORDER BY submitted_on DESC", [runId]);
 }
+
+export interface AskRow {
+  ask_id: string;
+  asked_by: string;
+  asked_at: string;
+  question: string;
+  answer: string;
+  covered: boolean | number;
+  controls: string;      // json list of AI-GOV ids
+  item_id: string | null;
+  created_at: string;
+}
+
+/** Questions asked of the policy, newest first. */
+export async function recentAsks(runId: string, limit = 50): Promise<AskRow[]> {
+  const db = await readDb();
+  return db.all<AskRow>(
+    "SELECT ask_id, asked_by, asked_at, question, answer, covered, controls, item_id, created_at FROM asks WHERE run_id = ? ORDER BY created_at DESC LIMIT ?",
+    [runId, limit]);
+}
+
+/** Questions the policy could not answer that nobody has sent to the committee: what it should hear next. */
+export async function unansweredCount(runId: string): Promise<number> {
+  const db = await readDb();
+  const row = await db.get<{ n: unknown }>("SELECT COUNT(*) AS n FROM asks WHERE run_id = ? AND NOT covered AND item_id IS NULL", [runId]);
+  return num(row?.n);
+}
+
+export interface AskWorkRow { command_id: string; kind: string; payload: string | null; status: string; result: string | null; created_at: string }
+
+/** Asks the worker has not answered yet, and ones that failed in the last hour. */
+export async function openAsks(runId: string): Promise<AskWorkRow[]> {
+  const db = await readDb();
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  return db.all<AskWorkRow>(
+    `SELECT command_id, kind, payload, status, result, created_at FROM commands
+     WHERE run_id = ? AND kind IN ('ask', 'escalate_ask') AND (status IN ('pending', 'processing') OR (status = 'failed' AND created_at > ?))
+     ORDER BY created_at DESC`, [runId, since]);
+}

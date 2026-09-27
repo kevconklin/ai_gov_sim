@@ -68,6 +68,7 @@ def load_yaml(name: str) -> Any:
 def _register_disclosure() -> None:
     from govern.disclosure import assert_disclosed
     register_check("review/", assert_disclosed)
+    register_check("ask/", assert_disclosed)
 
 
 _register_disclosure()

@@ -22,6 +22,8 @@ export const COMMAND_KINDS = [
   "add_seat",
   "remove_seat",
   "update_seat",
+  "ask",
+  "escalate_ask",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -207,6 +209,34 @@ export const commandSchema = z.discriminatedUnion("kind", [
           submitted_by: z.string().trim().min(1).max(200),
           risk_tier: z.enum(["low", "medium", "high"]).optional(),
           details: detailsSchema.optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("ask"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          question: z.string().trim().min(10, "Ask a whole question, at least 10 characters.").max(2000),
+          actor: z.string().trim().min(1).max(200).optional(),
+          source: z.enum(["dashboard_session", "cli_asserted", "unknown"]).optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("escalate_ask"),
+      run_id: runId,
+      reason,
+      payload: z
+        .object({
+          ask_id: z.string().trim().min(1).max(200),
+          actor: z.string().trim().min(1).max(200).optional(),
+          source: z.enum(["dashboard_session", "cli_asserted", "unknown"]).optional(),
         })
         .strict(),
     })

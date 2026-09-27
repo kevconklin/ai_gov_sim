@@ -243,3 +243,20 @@ def test_the_committee_is_reshaped_through_the_queue(workspace, monkeypatch):
     assert refused["status"] == "failed" and "not a model on offer" in refused["result"]["error"]
     targets = [r["target"] for r in db.fetch_all("SELECT target FROM config_changes WHERE run_id = ? AND area = 'committee' ORDER BY changed_at, change_id", (run_id,))]
     assert targets == ["data_protection added", "data_protection: model", "business removed"]
+
+
+def test_a_question_to_the_policy_goes_through_the_queue_and_can_be_sent_on(workspace):
+    db, _, run_id, _ = workspace
+    # a blank workspace has no controls, so the scripted "covered" answer loses its citations and is not covered
+    out = run_command(workspace, "ask", {"question": "Can I paste a member's statement into a chat assistant?",
+                                         "actor": "teller@northwind.example", "source": "dashboard_session"})
+    assert out["status"] == "done", out["result"]
+    assert out["result"]["covered"] is False and out["result"]["controls"] == []
+    row = db.fetch_one("SELECT asked_by, item_id FROM asks WHERE ask_id = ?", (out["result"]["ask_id"],))
+    assert row["asked_by"] == "teller@northwind.example" and row["item_id"] is None
+
+    sent = run_command(workspace, "escalate_ask", {"ask_id": out["result"]["ask_id"], "actor": "cro@northwind.example",
+                                                   "source": "dashboard_session"})
+    assert sent["status"] == "done", sent["result"]
+    item = db.fetch_one("SELECT kind, submitted_by FROM items WHERE item_id = ?", (sent["result"]["item_id"],))
+    assert (item["kind"], item["submitted_by"]) == ("question", "cro@northwind.example")

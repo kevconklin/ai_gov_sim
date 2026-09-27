@@ -21,6 +21,7 @@ const ICONS: Record<string, ReactNode> = {
   health: <><path d="M3 12h4l2-5 3 10 3-7 2 2h4" /></>,
   compare: <><path d="M12 3v18" /><path d="M4 8l4-4 4 4M20 16l-4 4-4-4" /></>,
   logs: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+  ask: <><path d="M4 5h16v11H9l-5 4z" /><path d="M10 9.2a2 2 0 1 1 2.8 1.8c-.6.3-.8.6-.8 1.2" /><path d="M12 14.2v.3" /></>,
   menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
   close: <><path d="M6 6l12 12M18 6L6 18" /></>,
   out: <><path d="M10 4H5v16h5" /><path d="M14 8l5 4-5 4M19 12H9" /></>,
@@ -36,6 +37,7 @@ type Item = { href: string; label: string; icon: string };
 // is trusted with real decisions, so its pages sit underneath, folded away by default.
 const PRODUCT: Item[] = [
   { href: "/reviews", label: "Reviews", icon: "reviews" },
+  { href: "/ask", label: "Ask", icon: "ask" },
   { href: "/policy-record", label: "Policy", icon: "policy" },
   { href: "/spend", label: "Spend & health", icon: "health" },
   { href: "/logs", label: "Logs", icon: "logs" },

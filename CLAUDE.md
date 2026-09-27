@@ -16,6 +16,7 @@ Two packages under `worker/`:
 - Priority is computed (`govern/agenda.py`), never asked of a model, and never shown to members.
 - Every change to a customer's configuration goes through `govern/settings.py` (or `committee.set_brief`, `workspace.create_workspace`), which appends who, when, before, after and why to `config_changes`. That table is append-only: never add code that updates or deletes from it. The name comes from the signed session (`lib/control/bind.ts`), never from a request body.
 - Starter kits (`config/starters/`) are content, not law: every control is one paragraph with a framework clause beside it, the rendered policy says it is not legal advice, and a kit sets nothing the person already chose. `govern/starter.py` applies one only through `create_workspace(starter=...)`, and everything it sets lands in `config_changes` under the person's name.
+- Ask (`govern/ask.py`) answers a staff question from the policy and documents in force only. A cited control is kept only if the policy has it, and "covered" only with a surviving citation; the brief is `prompts/ask/fixed.md` and `disclosure-check` covers it. An uncovered ask becomes a `question` item only when a person sends it; nothing convenes on its own.
 - A setting must do something. The review budget is enforced in `ReviewService.convene`; do not add a setting the code never reads.
 - Every random draw goes through `worker/sim/engine/rng.py` (seeded, stateless, logged to `engine_draws`). No bare `random` calls.
 - Every LLM call goes through `worker/govern/llm.py`. No direct SDK calls elsewhere. Providers other than Anthropic are reached through `worker/govern/providers.py`, which translates to the OpenAI chat completions shape at the edge; the rest of the system keeps speaking the Anthropic Messages shape. Do not add a second dialect anywhere else.
@@ -33,6 +34,7 @@ Two packages under `worker/`:
 - `intake.py` how a matter arrives; `agenda.py` ranked candidates and deferrals; `panels.py` which seats a matter needs
 - `attestation.py` the person on record, dissent responses, `apply_attested`; `advisory.py` perspectives and computed synthesis
 - `providers.py` provider registry and the OpenAI-compatible adapter; `committee.py` also adds, removes and edits seats; `settings.py` profile, documents, panels, and the append-only change record; `workspace.py` an organisation's committee with no simulation behind it; `committee.py` seats and briefs as data; `context.py` `ReviewContext` and `OrgProfile`
+- `ask.py` a question answered from the policy with controls cited, or admitted as a gap and sent to the committee
 - `starter.py` starter kits: the control library, rendering a policy for a framework, and applying a kit to a new workspace
 - `disclosure.py`, `prompts/` (registry: roots and per-directory checks), `llm.py`, `db.py`, `locks.py`, `agents/`, `tools.py`, `packet.py`, `decisions.py`, `policy.py`
 
@@ -54,6 +56,7 @@ python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m sim create --name demo --seed 1 && .venv/bin/python -m sim advance --experiment <id> --months 3 --demo
 .venv/bin/python -m sim workspace --name "Org" --starter general_business --risk-appetite "The board's direction on AI..."   # a real organization; kits: general_business, regulated, software
 .venv/bin/python -m sim submit --run <ws> --kind vendor --title "..." --description "..." --by you@org
+.venv/bin/python -m sim ask --run <ws> --question "Can I paste a client file into ChatGPT?" --by you@org --demo
 .venv/bin/python -m sim convene --run <ws> --top 3 --demo && .venv/bin/python -m sim attest --run <ws> --show <meeting_id>
 .venv/bin/python -m sim serve --demo --once      # drain commands queued by the dashboard
 .venv/bin/python scripts/smoke_llm.py            # live cache + batch check, needs ANTHROPIC_API_KEY
@@ -64,5 +67,5 @@ cd ../dashboard && npm test && npm run build     # dashboard
 
 - M1-M9 built and tested with the scripted client; M1 live smoke check not yet run against the real API.
 - M10 deploy files written (`deploy/README.md`), not deployed. M11 tooling written, needs human coders and real runs. M12 needs frozen prereg and funded runs.
-- Dashboard: the product is four pages (`/reviews`, `/policy-record`, `/spend`, `/logs`). The research pages stay at their routes but appear in the sidebar only when a simulated run exists or `SHOW_SIMULATION=1`; the k8s dashboard sets `SHOW_SIMULATION=0`. Do not delete the research routes while the preregistered study still uses them.
+- Dashboard: the product is five pages (`/reviews`, `/ask`, `/policy-record`, `/spend`, `/logs`). The research pages stay at their routes but appear in the sidebar only when a simulated run exists or `SHOW_SIMULATION=1`; the k8s dashboard sets `SHOW_SIMULATION=0`. Do not delete the research routes while the preregistered study still uses them.
 - Review core (`govern/`), workspaces, intake, panels, attestation, dashboard `/reviews`: built and exercised end to end on the scripted client only. Real accounts are not built: attestations bind to a signed session on one shared credential.

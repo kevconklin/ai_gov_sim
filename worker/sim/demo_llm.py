@@ -119,6 +119,17 @@ def _forced(name: str, schema: Mapping[str, Any], key: str) -> dict[str, Any]:
         return {"sender_name": "Owen Takahara", "sender_title": "Senior Credit Risk Analyst", "subject": "Update for the committee",
                 "body": "Committee members,\n\nI wanted to share a short update from my team on how AI is showing up in our day-to-day "
                         "work and a few questions we would like the committee to consider.\n\nOwen Takahara"}
+    if name == "answer_from_policy":
+        # a topic the starter policies never mention is the scripted "not covered"; one cited control is
+        # invented on purpose, so the filter that drops it is exercised
+        if "biometric" in key.lower():
+            return {"covered": False, "controls_cited": [],
+                    "answer": "The policy and documents in force do not address this. Nothing in them permits or forbids it, "
+                              "so it is a question for the committee."}
+        return {"covered": True, "controls_cited": ["AI-GOV-010", "AI-GOV-099"],
+                "answer": "Not unless the tool has been approved for that class of data. AI-GOV-010 says confidential, personal, "
+                          "or client information may only be entered into an AI tool approved for it, whose terms forbid training "
+                          "on it. Check the approved list first; if the tool is not on it, submit it for review."}
     if name == "write_news":
         return {"outlet": "Regional Banking Week", "headline": "Midwest lenders weigh AI spending against exam scrutiny",
                 "body": "Regional banks across the Midwest are increasing technology budgets for AI while supervisors ask sharper "

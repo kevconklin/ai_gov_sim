@@ -218,6 +218,18 @@ def cmd_workspace(args: argparse.Namespace) -> None:
     print(json.dumps({"workspace": run_id}, indent=2))
 
 
+def cmd_ask(args: argparse.Namespace) -> None:
+    """Ask the policy a question. One model call; the answer cites controls or says the policy does not cover it."""
+    from govern.ask import AskError, answer
+
+    db = _open_db()
+    try:
+        asked = answer(_orchestrator(db, demo=args.demo).context(args.run), question=_text(args.question), asked_by=args.by)
+    except AskError as error:
+        sys.exit(str(error))
+    print(json.dumps({"ask_id": asked.ask_id, "covered": asked.covered, "controls": list(asked.controls), "answer": asked.answer}, indent=2))
+
+
 def cmd_submit(args: argparse.Namespace) -> None:
     """Put a matter in front of the committee. It becomes a ranked candidate; a person decides when it is heard."""
     from govern.intake import IntakeError, submit_item
@@ -433,6 +445,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--starter", help="start from a kit in config/starters (general_business, regulated, software)")
     p.add_argument("--framework", help="control framework id; defaults to the kit's")
     p.set_defaults(func=cmd_workspace)
+
+    p = sub.add_parser("ask", help="ask the policy a question; the answer cites controls or admits the gap")
+    p.add_argument("--run", required=True, help="the workspace")
+    p.add_argument("--question", required=True, help="the question, or @path")
+    p.add_argument("--by", required=True, help="who is asking")
+    p.add_argument("--demo", action="store_true")
+    p.set_defaults(func=cmd_ask)
 
     p = sub.add_parser("submit", help="submit an AI matter for review")
     p.add_argument("--run", required=True)

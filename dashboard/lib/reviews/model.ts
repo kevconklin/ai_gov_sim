@@ -139,6 +139,10 @@ export function describeWork(kind: string, payloadJson: string | null): string {
     }
     case "attest":
       return "Recording your decision";
+    case "ask":
+      return "Reading the policy for an answer";
+    case "escalate_ask":
+      return "Sending the question to the committee";
     case "submit":
       return `Adding “${String(payload.title ?? "a matter")}” to the queue`;
     case "candidates":

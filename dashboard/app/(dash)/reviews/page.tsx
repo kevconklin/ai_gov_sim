@@ -24,6 +24,7 @@ import {
   starterKits,
 } from "@/lib/queries/governance";
 import { meetingDetail } from "@/lib/queries/meetings";
+import { unansweredCount } from "@/lib/queries/product";
 import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
 import { AREA_LABELS, FRAMEWORK_LABELS, PROVIDER_TONES, STANCE_WORDS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
 import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
@@ -86,7 +87,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0]!;
   const runId = scope.run_id;
 
-  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog, kitRows, inventoried] = await Promise.all([
+  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog, kitRows, inventoried, unansweredAsks] = await Promise.all([
     currentOperator(),
     orgProfile(runId),
     decisionsToSign(runId),
@@ -105,6 +106,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     modelCatalog(),
     starterKits(),
     inventoryStarted(runId),
+    unansweredCount(runId),
   ]);
   const kits: KitView[] = kitRows.map((k) => ({
     id: k.starter_id, label: k.label, summary: k.summary, audience: k.audience, framework: k.framework,
@@ -424,6 +426,13 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <details className="rv-pop"><summary><span className="rv-btn rv-btn-sm">Why</span></summary><div className="rv-pop-card is-right"><p>{errorOf(w.result)}</p><p className="rv-hint">{when(w.created_at)}</p></div></details>
         </div>
       ))}
+
+      {unansweredAsks ? (
+        <div className="rv-banner" data-tone="wait">
+          <Icon name="chat" /><span className="flex-1">{plural(unansweredAsks, "question")} the policy could not answer. The committee has not heard {unansweredAsks === 1 ? "it" : "them"} yet.</span>
+          <Link href={`/ask?run=${encodeURIComponent(runId)}`} className="rv-btn rv-btn-sm">See {unansweredAsks === 1 ? "it" : "them"}</Link>
+        </div>
+      ) : null}
 
       {org && !(held.length && record.length && inventoried) ? (
         <section className="rv-card" data-tone="you" aria-label="Getting started">

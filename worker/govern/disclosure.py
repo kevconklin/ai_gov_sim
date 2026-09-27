@@ -13,6 +13,8 @@ from pathlib import Path
 # The standing brief every disclosed committee member is given.
 REQUIRED: dict[str, tuple[str, ...]] = {
     "review/fixed.md": ("AI adviser", "not a person", "advisory", "machine-generated", "makes the decision"),
+    # The policy reader that answers staff questions: an AI reading, not counsel, and never a decision.
+    "ask/fixed.md": ("not a person", "advisory", "machine-generated", "not legal advice", "only from", "A person decides"),
 }
 
 

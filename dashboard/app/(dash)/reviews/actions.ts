@@ -223,3 +223,27 @@ export async function removeSeatAction(_prev: ControlResult | null, formData: Fo
   const f = fieldsOf(formData);
   return configure(operator, f.run_id ?? "", "remove_seat", f.why ?? "", { seat: f.seat ?? "" });
 }
+
+/** Ask the policy. One model call on the worker; the answer lands on /ask when it is done. */
+export async function askPolicyAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const result = await submitCommand(bindActor({
+    kind: "ask", run_id: f.run_id ?? "", reason: `${operator}: asked the policy a question`, payload: { question: f.question ?? "" },
+  }, operator));
+  if (result.success) revalidatePath("/ask");
+  return result;
+}
+
+/** Send a question the policy could not answer to the committee. It joins Waiting; the person still convenes. */
+export async function escalateAskAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const result = await submitCommand(bindActor({
+    kind: "escalate_ask", run_id: f.run_id ?? "", reason: `${operator}: sent a question to the committee`, payload: { ask_id: f.ask_id ?? "" },
+  }, operator));
+  if (result.success) { revalidatePath("/ask"); revalidatePath("/reviews"); }
+  return result;
+}

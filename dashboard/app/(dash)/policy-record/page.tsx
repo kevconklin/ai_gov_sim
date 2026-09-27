@@ -83,7 +83,7 @@ export default async function PolicyRecordPage({ searchParams }: { searchParams:
         ) : (
           <div className="rv-rows">
             {listControls(current.policy_text).map((c, i) => (
-              <div key={`${c.id}-${i}`} className="rv-rowline" style={{ cursor: "default" }}>
+              <div key={`${c.id}-${i}`} id={c.id} className="rv-rowline" style={{ cursor: "default", scrollMarginTop: "1rem" }}>
                 <Chip tone="ok">{c.id}</Chip>
                 <span className="min-w-0"><span className="rv-prose" style={{ whiteSpace: "normal" }}>{splitClause(c.text).text}</span></span>
                 {splitClause(c.text).clause ? <span className="rv-rowend"><Chip plain>{splitClause(c.text).clause}</Chip></span> : null}

@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap",
                    "candidates", "convene", "attest", "submit", "set_brief",
                    "create_workspace", "update_profile", "add_document", "retire_document", "set_panel",
-                   "add_seat", "remove_seat", "update_seat"})
+                   "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -119,7 +119,7 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
                       after=str(cap), reason=command["reason"])
         return {"spend_cap_usd_per_month": cap}
     if kind in ("candidates", "convene", "attest", "submit", "set_brief", "update_profile", "add_document",
-                "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat"):
+                "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
 
@@ -158,6 +158,14 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
 
     who = {"actor": payload.get("actor", "unknown"), "source": payload.get("source", "unknown")}
     why = payload.get("why") or command["reason"]
+
+    if kind == "ask":                       # one model call, answered from the policy; the person's name is on the ask
+        from govern.ask import answer
+        asked = answer(orchestrator.context(run_id), question=payload["question"], asked_by=who["actor"])
+        return {"ask_id": asked.ask_id, "covered": asked.covered, "controls": list(asked.controls)}
+    if kind == "escalate_ask":
+        from govern.ask import send_to_committee
+        return {"item_id": send_to_committee(db, run_id, payload["ask_id"], actor=who["actor"])}
 
     if kind == "set_brief":
         from govern.committee import set_brief
