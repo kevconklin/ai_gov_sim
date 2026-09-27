@@ -90,6 +90,7 @@ export const workspaceSchema = z
         business_goals: z.string().trim().max(4000).optional(),
         ai_landscape: z.string().trim().max(4000).optional(),
         ai_tools: z.string().trim().max(4000).optional(),
+        starter: z.string().trim().regex(/^[a-z][a-z0-9_]{1,39}$/, "Choose a starter kit from the list.").optional(),
         actor: z.string().trim().min(1).max(200),
         source: z.literal("dashboard_session"),
       })

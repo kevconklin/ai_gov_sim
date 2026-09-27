@@ -119,6 +119,8 @@ def _orchestrator(db: Database, *, demo: bool) -> Orchestrator:
     elif not any(registry.available(m.id) for m in config.models.catalog if m.provider != "local"):
         sys.exit("No model provider key is set (ANTHROPIC_API_KEY, OPENAI_API_KEY or HF_TOKEN). Use --demo for a free scripted run.")
     publish_catalog(db, config.models, registry)
+    from govern.starter import publish_starters
+    publish_starters(db, REPO_ROOT / "config")
     llm = LLMClient(db=db, config=config, client=client, registry=None if demo else registry,
                     sleep=(lambda s: None) if demo else time.sleep,
                     should_stop=lambda: terminating() or commands.stop_requested(db, data_dir),
@@ -211,7 +213,8 @@ def cmd_workspace(args: argparse.Namespace) -> None:
     db = _open_db()
     run_id = create_workspace(db, load_config(REPO_ROOT / "config"), config_dir=REPO_ROOT / "config",
                               data_dir=_data_dir(), name=args.name, risk_appetite=_text(args.risk_appetite),
-                              facts=_text(args.facts) if args.facts else "")
+                              facts=_text(args.facts) if args.facts else "", starter=args.starter,
+                              profile={"framework": args.framework} if args.framework else None)
     print(json.dumps({"workspace": run_id}, indent=2))
 
 
@@ -426,7 +429,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", required=True, help="the organisation's name")
     p.add_argument("--risk-appetite", required=True, dest="risk_appetite",
                    help="the board's direction on AI, or @path to a file holding it")
-    p.add_argument("--facts", help="a few lines about the organisation, or @path")
+    p.add_argument("--facts", help="a few lines about the organization, or @path")
+    p.add_argument("--starter", help="start from a kit in config/starters (general_business, regulated, software)")
+    p.add_argument("--framework", help="control framework id; defaults to the kit's")
     p.set_defaults(func=cmd_workspace)
 
     p = sub.add_parser("submit", help="submit an AI matter for review")

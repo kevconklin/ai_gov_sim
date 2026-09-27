@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listControls } from "@/lib/policy-text";
+import { listControls, splitClause } from "@/lib/policy-text";
 
 describe("listing a policy's controls", () => {
   const policy = `# Northwind AI Policy
@@ -24,5 +24,15 @@ AI-GOV-014 Vendors must confirm in writing that our data is not used for trainin
 
   it("leaves headings and prose out", () => {
     expect(listControls("# Title\n\nJust words, no numbered requirements.")).toEqual([]);
+  });
+});
+
+describe("splitClause", () => {
+  it("separates a framework tag from the requirement", () => {
+    expect(splitClause("Every system has an owner. (NIST AI RMF GOVERN 2.1)")).toEqual({ text: "Every system has an owner.", clause: "NIST AI RMF GOVERN 2.1" });
+    expect(splitClause("Keep an inventory. (ISO/IEC 42001 4.3, A.2.2)").clause).toBe("ISO/IEC 42001 4.3, A.2.2");
+  });
+  it("leaves an ordinary parenthesis alone", () => {
+    expect(splitClause("Tools (including chat assistants) are approved first.")).toEqual({ text: "Tools (including chat assistants) are approved first.", clause: null });
   });
 });

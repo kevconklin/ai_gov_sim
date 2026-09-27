@@ -15,6 +15,7 @@ Two packages under `worker/`:
 - Nothing a review recommends may apply without an attestation. `govern.review.Review` never calls `apply_decisions`; only `govern.attestation.apply_attested` does, and only the simulation's `Meeting` applies without a person.
 - Priority is computed (`govern/agenda.py`), never asked of a model, and never shown to members.
 - Every change to a customer's configuration goes through `govern/settings.py` (or `committee.set_brief`, `workspace.create_workspace`), which appends who, when, before, after and why to `config_changes`. That table is append-only: never add code that updates or deletes from it. The name comes from the signed session (`lib/control/bind.ts`), never from a request body.
+- Starter kits (`config/starters/`) are content, not law: every control is one paragraph with a framework clause beside it, the rendered policy says it is not legal advice, and a kit sets nothing the person already chose. `govern/starter.py` applies one only through `create_workspace(starter=...)`, and everything it sets lands in `config_changes` under the person's name.
 - A setting must do something. The review budget is enforced in `ReviewService.convene`; do not add a setting the code never reads.
 - Every random draw goes through `worker/sim/engine/rng.py` (seeded, stateless, logged to `engine_draws`). No bare `random` calls.
 - Every LLM call goes through `worker/govern/llm.py`. No direct SDK calls elsewhere. Providers other than Anthropic are reached through `worker/govern/providers.py`, which translates to the OpenAI chat completions shape at the edge; the rest of the system keeps speaking the Anthropic Messages shape. Do not add a second dialect anywhere else.
@@ -32,6 +33,7 @@ Two packages under `worker/`:
 - `intake.py` how a matter arrives; `agenda.py` ranked candidates and deferrals; `panels.py` which seats a matter needs
 - `attestation.py` the person on record, dissent responses, `apply_attested`; `advisory.py` perspectives and computed synthesis
 - `providers.py` provider registry and the OpenAI-compatible adapter; `committee.py` also adds, removes and edits seats; `settings.py` profile, documents, panels, and the append-only change record; `workspace.py` an organisation's committee with no simulation behind it; `committee.py` seats and briefs as data; `context.py` `ReviewContext` and `OrgProfile`
+- `starter.py` starter kits: the control library, rendering a policy for a framework, and applying a kit to a new workspace
 - `disclosure.py`, `prompts/` (registry: roots and per-directory checks), `llm.py`, `db.py`, `locks.py`, `agents/`, `tools.py`, `packet.py`, `decisions.py`, `policy.py`
 
 ## Layout (worker/sim) - the simulation
@@ -50,7 +52,7 @@ python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/pytest -q -p no:cacheprovider          # unit, e2e (scripted client), Postgres; coverage gate 80%
 .venv/bin/python -m sim leak-check && .venv/bin/python -m sim disclosure-check
 .venv/bin/python -m sim create --name demo --seed 1 && .venv/bin/python -m sim advance --experiment <id> --months 3 --demo
-.venv/bin/python -m sim workspace --name "Org" --risk-appetite "The board's direction on AI..."      # a real organisation
+.venv/bin/python -m sim workspace --name "Org" --starter general_business --risk-appetite "The board's direction on AI..."   # a real organization; kits: general_business, regulated, software
 .venv/bin/python -m sim submit --run <ws> --kind vendor --title "..." --description "..." --by you@org
 .venv/bin/python -m sim convene --run <ws> --top 3 --demo && .venv/bin/python -m sim attest --run <ws> --show <meeting_id>
 .venv/bin/python -m sim serve --demo --once      # drain commands queued by the dashboard

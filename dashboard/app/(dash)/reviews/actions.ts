@@ -138,7 +138,7 @@ export async function createCustomerAction(_prev: ControlResult | null, formData
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
   const optional = Object.fromEntries(
-    (["facts", "framework", "business_goals", "ai_landscape", "ai_tools"] as const).filter((k) => f[k]?.trim()).map((k) => [k, f[k]]),
+    (["facts", "framework", "business_goals", "ai_landscape", "ai_tools", "starter"] as const).filter((k) => f[k]?.trim()).map((k) => [k, f[k]]),
   );
   return done(await submitWorkspace({
     reason: `${operator}: adding ${(f.name ?? "a customer").slice(0, 80)} as a customer`,

@@ -31,6 +31,12 @@ export interface Control { id: string; text: string }
  * One row per numbered control, in the order they appear: the id and the requirement that
  * follows it, up to the next control or blank line. Headings and prose are left out.
  */
+/** A control's trailing "(Framework clause)" tag, if the text carries one, split from the requirement itself. */
+export function splitClause(text: string): { text: string; clause: string | null } {
+  const m = /^(.*?)\s*\(((?:NIST AI RMF|ISO\/IEC 42001|EU AI Act|SR 11-7) [^()]+)\)\s*$/s.exec(text);
+  return m ? { text: m[1]!, clause: m[2]! } : { text, clause: null };
+}
+
 export function listControls(policy: string): Control[] {
   const out: Control[] = [];
   const re = /\b(AI-GOV-\d{3,})\b[:\s-]*([\s\S]*?)(?=\n\s*\n|\bAI-GOV-\d{3,}\b|$)/g;

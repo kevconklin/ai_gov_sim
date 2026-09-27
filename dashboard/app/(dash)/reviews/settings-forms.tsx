@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { DOCUMENT_KINDS, FRAMEWORKS } from "@/lib/control/schema";
 import type { ControlResult } from "@/lib/control/submit";
 import { FRAMEWORK_LABELS } from "@/lib/reviews/model";
-import { addDocumentAction, createCustomerAction, retireDocumentAction, setBudgetAction, setPanelAction, updateProfileAction } from "./actions";
+import { addDocumentAction, retireDocumentAction, setBudgetAction, setPanelAction, updateProfileAction } from "./actions";
 
 function Said({ state, ok }: { state: ControlResult | null; ok: string }) {
   if (!state) return null;
@@ -27,33 +27,6 @@ const FrameworkSelect = ({ name, value }: { name: string; value?: string | null 
     {FRAMEWORKS.map((f) => <option key={f} value={f}>{FRAMEWORK_LABELS[f]}</option>)}
   </select>
 );
-
-export function NewCustomerForm() {
-  const [state, action, pending] = useActionState(createCustomerAction, null);
-  return (
-    <form action={action} className="grid gap-3">
-      <label><span className="rv-label">Organisation</span><input className="rv-field" name="name" required minLength={2} maxLength={200} placeholder="Harbor Health" /></label>
-      <label>
-        <span className="rv-label">The board’s direction on AI</span>
-        <textarea className="rv-field" name="risk_appetite" rows={3} required minLength={20}
-          placeholder="Use AI to cut clinician admin time. Never let it make a clinical decision." />
-        <span className="rv-hint block">The committee argues from this, so write it the way the board would say it.</span>
-      </label>
-      <label><span className="rv-label">Control framework</span><FrameworkSelect name="framework" /></label>
-      <details className="rv-fold">
-        <summary className="rv-fold-head"><span>More about them <span className="muted font-normal">optional, editable later</span></span></summary>
-        <div className="rv-fold-body grid gap-3">
-          <label><span className="rv-label">About the organisation</span><textarea className="rv-field" name="facts" rows={2} placeholder="Size, sector, regulators." /></label>
-          <label><span className="rv-label">Business goals</span><textarea className="rv-field" name="business_goals" rows={2} /></label>
-          <label><span className="rv-label">AI already in use</span><textarea className="rv-field" name="ai_tools" rows={2} /></label>
-          <label><span className="rv-label">AI landscape</span><textarea className="rv-field" name="ai_landscape" rows={2} placeholder="What regulators, competitors and vendors are doing." /></label>
-        </div>
-      </details>
-      <div><button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Adding…" : "Add customer"}</button></div>
-      <Said state={state} ok="Setting them up with a committee of eight. They will appear in the picker in a moment." />
-    </form>
-  );
-}
 
 export function ProfileFieldForm({ runId, field, value, kind }: { runId: string; field: string; value: string | null; kind: "short" | "long" | "framework" }) {
   const [state, action, pending] = useActionState(updateProfileAction, null);

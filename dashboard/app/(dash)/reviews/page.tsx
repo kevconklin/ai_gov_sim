@@ -20,6 +20,8 @@ import {
   reviewScopes,
   waitingMatters,
   type ScopeRow,
+  inventoryStarted,
+  starterKits,
 } from "@/lib/queries/governance";
 import { meetingDetail } from "@/lib/queries/meetings";
 import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
@@ -28,7 +30,8 @@ import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, Waiting
 import { SubmitMatterForm } from "./intake-form";
 import { AddSeatForm, RemoveSeatForm, SeatForm } from "./seat-forms";
 import { Trail } from "./trail";
-import { AddDocumentForm, BudgetForm, NewCustomerForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
+import { AddDocumentForm, BudgetForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
+import { SetupWizard, type KitView } from "./setup-wizard";
 import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, VoteBar } from "./parts";
 
 function parse<T>(raw: string | null | undefined, fallback: T): T {
@@ -75,14 +78,15 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     return (
       <div className="rv">
         <h1 className="rv-org">No committee yet</h1>
-        <p className="muted mt-2">Create one, then reload: <code>python -m sim workspace --name &quot;Your organisation&quot; --risk-appetite &quot;…&quot;</code></p>
+        <p className="muted mt-2">Create one, then reload: <code>python -m sim workspace --name &quot;Your organization&quot; --starter general_business --risk-appetite &quot;…&quot;</code></p>
+        <p className="muted mt-1">Kits: <code>general_business</code>, <code>regulated</code>, <code>software</code>. Leave <code>--starter</code> off for a blank start.</p>
       </div>
     );
   }
   const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0]!;
   const runId = scope.run_id;
 
-  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog] = await Promise.all([
+  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog, kitRows, inventoried] = await Promise.all([
     currentOperator(),
     orgProfile(runId),
     decisionsToSign(runId),
@@ -99,7 +103,14 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     spendCap(runId),
     reviewsHeld(runId),
     modelCatalog(),
+    starterKits(),
+    inventoryStarted(runId),
   ]);
+  const kits: KitView[] = kitRows.map((k) => ({
+    id: k.starter_id, label: k.label, summary: k.summary, audience: k.audience, framework: k.framework,
+    stances: parse<Record<string, { label: string; text: string }>>(k.stances, {}),
+    facts_template: k.facts_template, business_goals: k.business_goals, control_count: Number(k.control_count), document_count: Number(k.document_count),
+  }));
 
   const order = parse<string[]>(org?.seats, []);
   const committee = [...seats].sort((a, b) => (order.indexOf(a.seat) + 1 || 99) - (order.indexOf(b.seat) + 1 || 99));
@@ -141,6 +152,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     { id: "settings", label: "Settings", count: docs.length + panels.length, tone: "you" },
     { id: "changes", label: "Changes", count: changes.length, tone: "you" },
   ];
+  const fromKit = changes.some((c) => c.area === "starter");
   const modelOf = (ref: string | null) => catalog.find((m) => m.model_id === ref);
   const modelChip = (ref: string | null) => {
     const m = modelOf(ref);
@@ -184,7 +196,11 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       </Drawer>
     );
   } else if (what === "customer") {
-    drawer = <Drawer closeHref={closeHref} title="Add a customer" chips={<Chip tone="ai">Gets a committee of eight AI advisers</Chip>}><NewCustomerForm /></Drawer>;
+    drawer = (
+      <Drawer closeHref={closeHref} title="Set up a new organization" chips={<Chip tone="ai">About five minutes</Chip>}>
+        <SetupWizard kits={kits} />
+      </Drawer>
+    );
   } else if (what === "setting" && org) {
     const spec = PROFILE_FIELDS.find(([f]) => f === key);
     if (spec) {
@@ -408,6 +424,29 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <details className="rv-pop"><summary><span className="rv-btn rv-btn-sm">Why</span></summary><div className="rv-pop-card is-right"><p>{errorOf(w.result)}</p><p className="rv-hint">{when(w.created_at)}</p></div></details>
         </div>
       ))}
+
+      {org && !(held.length && record.length && inventoried) ? (
+        <section className="rv-card" data-tone="you" aria-label="Getting started">
+          <div className="rv-card-h"><span>Getting started</span><span className="muted font-normal">{[held.length > 0, record.length > 0, inventoried].filter(Boolean).length} of 3</span></div>
+          <div className="rv-start">
+            {[
+              { done: held.length > 0, href: to({ tab: "waiting", open: null }),
+                title: fromKit ? "Review the starter policy" : "Convene your first review",
+                text: fromKit ? "It is waiting. Tick it and convene; the committee reads it against your board’s direction." : "Submit a matter, tick it, and convene." },
+              { done: record.length > 0, href: to({ tab: "needs", open: null }), title: "Sign your first decision",
+                text: "Read the recommendation and the objections, then decide in your own words." },
+              { done: inventoried, href: to({ open: "submit:tool" }), title: "Add the AI you already use",
+                text: "Each tool or vendor becomes a matter the committee can review." },
+            ].map((s) => (
+              <Link key={s.title} href={s.href} scroll={false} className="rv-start-row" data-done={s.done ? "true" : undefined}>
+                <span className="rv-start-mark" aria-hidden>{s.done ? "✓" : ""}</span>
+                <span className="min-w-0"><span className="rv-start-title">{s.title}</span><span className="rv-start-text">{s.text}</span></span>
+                {!s.done ? <Icon name="chevron" className="rv-chev ml-auto" /> : null}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="rv-board">
         <nav className="rv-tabs" aria-label="Matters">

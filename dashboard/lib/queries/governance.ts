@@ -457,6 +457,34 @@ export interface ModelRow {
  * Models a seat can be given, as the worker last published them. `available` says whether the
  * worker holds a key for that provider: the dashboard has no way to know that for itself.
  */
+export interface StarterKitRow {
+  starter_id: string;
+  label: string;
+  summary: string;
+  audience: string;
+  framework: string;
+  stances: string;          // json {cautious|balanced|ambitious: {label, text}}
+  facts_template: string;
+  business_goals: string;
+  control_count: number;
+  document_count: number;
+}
+
+/** The starter kits the worker has published. Empty until a worker has run once. */
+export async function starterKits(): Promise<StarterKitRow[]> {
+  const db = await readDb();
+  return db.all<StarterKitRow>(
+    "SELECT starter_id, label, summary, audience, framework, stances, facts_template, business_goals, control_count, document_count FROM starter_kits ORDER BY label");
+}
+
+/** Has anything about the AI they already use been submitted? Tools, vendors, and use cases count; questions and policy work do not. */
+export async function inventoryStarted(runId: string): Promise<boolean> {
+  const db = await readDb();
+  const row = await db.get<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM items WHERE run_id = ? AND kind IN ('tool', 'vendor', 'use_case') AND status <> 'withdrawn'", [runId]);
+  return Number(row?.n ?? 0) > 0;
+}
+
 export async function modelCatalog(): Promise<ModelRow[]> {
   const db = await readDb();
   return db.all<ModelRow>("SELECT model_id, label, provider, available, input_price, output_price FROM model_catalog ORDER BY provider, label");

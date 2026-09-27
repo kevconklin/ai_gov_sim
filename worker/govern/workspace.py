@@ -18,6 +18,7 @@ from govern.committee import load_default_committee
 from govern.config import Config
 from govern.db import Database, utc_now_iso
 from govern.policy import PolicyRepo
+from govern.starter import apply_starter, get_starter
 
 WORKSPACE = "workspace"          # runs.condition and runs.status; `serve` only advances 'running'
 
@@ -33,11 +34,14 @@ def _slug(name: str) -> str:
 def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir: Path, name: str,
                      risk_appetite: str, facts: str = "", today: date | None = None,
                      committee: Mapping[str, Mapping[str, Any]] | None = None, source: str = "cli",
-                     actor: str = "unknown", profile: Mapping[str, Any] | None = None) -> str:
+                     actor: str = "unknown", profile: Mapping[str, Any] | None = None,
+                     starter: str | None = None) -> str:
+    """Create the organization's committee. With `starter`, a kit also gives it a policy, documents, and a first matter."""
     if len(name.strip()) < 2:
         raise ValueError("a workspace needs the organisation's name")
     if len(risk_appetite.strip()) < 20:
         raise ValueError("a workspace needs the board's direction on AI: the committee argues from it")
+    kit = get_starter(config_dir, starter) if starter else None      # refuse a bad kit before anything is created
     today = today or date.today()
     month = today.isoformat()[:7]
     seats = committee or load_default_committee(config_dir)
@@ -73,4 +77,7 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
     db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None,
                                 "real_ts": utc_now_iso(), "kind": "workspace_created",
                                 "description": f"Workspace for {name.strip()} with {len(seats)} seats", "source": source})
+    if kit is not None:
+        apply_starter(db, run_id, kit, org=name.strip(), slug=slug, framework=(profile or {}).get("framework") or None,
+                      data_dir=Path(data_dir), today=today, actor=actor, source=source)
     return run_id

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PolicyDiff } from "@/components/policy-diff";
 import { first, href, type SearchParams } from "@/lib/params";
-import { controlDelta, listControls } from "@/lib/policy-text";
+import { controlDelta, listControls, splitClause } from "@/lib/policy-text";
 import { currentScope, openPolicyMatters, policyHistory } from "@/lib/queries/product";
 import { Chip, Drawer, Fold, Icon } from "../reviews/parts";
 import { EscClose } from "../reviews/forms";
@@ -85,7 +85,8 @@ export default async function PolicyRecordPage({ searchParams }: { searchParams:
             {listControls(current.policy_text).map((c, i) => (
               <div key={`${c.id}-${i}`} className="rv-rowline" style={{ cursor: "default" }}>
                 <Chip tone="ok">{c.id}</Chip>
-                <span className="min-w-0"><span className="rv-prose" style={{ whiteSpace: "normal" }}>{c.text}</span></span>
+                <span className="min-w-0"><span className="rv-prose" style={{ whiteSpace: "normal" }}>{splitClause(c.text).text}</span></span>
+                {splitClause(c.text).clause ? <span className="rv-rowend"><Chip plain>{splitClause(c.text).clause}</Chip></span> : null}
                 <span />
               </div>
             ))}
