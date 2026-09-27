@@ -224,7 +224,7 @@ export const FRAMEWORK_LABELS: Record<string, string> = {
 };
 
 export const AREA_LABELS: Record<string, string> = {
-  workspace: "Customer",
+  workspace: "Organization",
   profile: "Organization",
   brief: "Adviser brief",
   panel: "Review panel",

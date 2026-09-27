@@ -18,7 +18,8 @@ log = logging.getLogger(__name__)
 KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap",
                    "candidates", "convene", "attest", "submit", "set_brief",
                    "create_workspace", "update_profile", "add_document", "retire_document", "set_panel",
-                   "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask"})
+                   "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
+                   "archive_workspace", "restore_workspace"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -120,7 +121,8 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
                       after=str(cap), reason=command["reason"])
         return {"spend_cap_usd_per_month": cap}
     if kind in ("candidates", "convene", "attest", "submit", "set_brief", "update_profile", "add_document",
-                "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask"):
+                "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
+                "archive_workspace", "restore_workspace"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
 
@@ -142,6 +144,17 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
 
     kind, run_id = command["kind"], command["run_id"]
     config_dir = REPO_ROOT / "config"
+
+    from govern.workspace import archive_workspace, require_active, restore_workspace
+    if kind == "restore_workspace":
+        restore_workspace(db, run_id, actor=payload.get("actor", "unknown"), reason=payload.get("why") or command["reason"],
+                          source=payload.get("source", "unknown"))
+        return {"status": "workspace"}
+    require_active(db, run_id)              # an archived organization takes no new work until restored
+    if kind == "archive_workspace":
+        archive_workspace(db, run_id, actor=payload.get("actor", "unknown"), reason=payload.get("why") or command["reason"],
+                          source=payload.get("source", "unknown"))
+        return {"status": "archived"}
 
     if kind == "candidates":
         ranked = candidates(db, run_id, load_agenda_priority(config_dir),

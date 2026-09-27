@@ -22,6 +22,7 @@ from govern.policy import PolicyRepo
 from govern.starter import apply_starter, get_starter
 
 WORKSPACE = "workspace"          # runs.condition and runs.status; `serve` only advances 'running'
+ARCHIVED = "archived"            # runs.status for a workspace put away: kept whole, hidden from the picker, refuses new work
 
 
 def is_workspace(run: Mapping[str, Any]) -> bool:
@@ -95,3 +96,46 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
         submit_item(db, run_id, kind=str(matter["kind"]), title=str(matter["title"]), description=str(matter["description"]),
                     submitted_by=actor, risk_tier=matter.get("risk_tier") or None, details=matter.get("details"), today=today)
     return run_id
+
+
+class WorkspaceError(ValueError):
+    """The workspace cannot be changed as asked."""
+
+
+def _workspace_row(db: Database, run_id: str) -> Any:
+    row = db.fetch_one("SELECT run_id, condition, status FROM runs WHERE run_id = ?", (run_id,))
+    if row is None or not is_workspace(row):
+        raise WorkspaceError(f"{run_id} is not a workspace")
+    return row
+
+
+def archive_workspace(db: Database, run_id: str, *, actor: str, reason: str, source: str = "cli_asserted") -> None:
+    """Put a workspace away. Nothing is deleted: the record stays readable, and it can be restored."""
+    from govern.settings import _reason, record_change
+    why = _reason(reason)
+    row = _workspace_row(db, run_id)
+    if row["status"] == ARCHIVED:
+        raise WorkspaceError("that workspace is already archived")
+    db.update("runs", {"status": ARCHIVED}, where={"run_id": run_id})
+    record_change(db, run_id, actor=actor, source=source, area="workspace", target="status", before=row["status"], after=ARCHIVED, reason=why)
+    db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None, "real_ts": utc_now_iso(),
+                                "kind": "workspace_archived", "description": f"Archived by {actor}: {why}", "source": source})
+
+
+def restore_workspace(db: Database, run_id: str, *, actor: str, reason: str, source: str = "cli_asserted") -> None:
+    from govern.settings import _reason, record_change
+    why = _reason(reason)
+    row = _workspace_row(db, run_id)
+    if row["status"] != ARCHIVED:
+        raise WorkspaceError("that workspace is not archived")
+    db.update("runs", {"status": WORKSPACE}, where={"run_id": run_id})
+    record_change(db, run_id, actor=actor, source=source, area="workspace", target="status", before=ARCHIVED, after=WORKSPACE, reason=why)
+    db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None, "real_ts": utc_now_iso(),
+                                "kind": "workspace_restored", "description": f"Restored by {actor}: {why}", "source": source})
+
+
+def require_active(db: Database, run_id: str) -> None:
+    """An archived workspace takes no new work: no reviews, no asks, no submissions."""
+    row = db.fetch_one("SELECT condition, status FROM runs WHERE run_id = ?", (run_id,))
+    if row is not None and is_workspace(row) and row["status"] == ARCHIVED:
+        raise WorkspaceError("this organization is archived; restore it under Settings before doing anything else with it")

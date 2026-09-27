@@ -31,9 +31,10 @@ import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, Waiting
 import { SubmitMatterForm } from "./intake-form";
 import { AddSeatForm, RemoveSeatForm, SeatForm } from "./seat-forms";
 import { Trail } from "./trail";
-import { AddDocumentForm, BudgetForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
+import { AddDocumentForm, ArchiveForm, BudgetForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
 import { SetupWizard, type KitView } from "./setup-wizard";
-import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, VoteBar } from "./parts";
+import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, Term, VoteBar } from "./parts";
+import { decisionBrief } from "@/lib/reviews/brief";
 
 function parse<T>(raw: string | null | undefined, fallback: T): T {
   try {
@@ -137,7 +138,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const open = first(sp, "open") ?? "";
   const to = (overrides_: Record<string, string | null>) => href("/reviews", sp, overrides_);
   const closeHref = to({ open: null });
-  const scopeOptions: Scope[] = scopes.map((s) => ({ run_id: s.run_id, label: scopeLabel(s), workspace: s.condition === "workspace" }));
+  const scopeOptions: Scope[] = scopes.map((s) => ({ run_id: s.run_id, label: scopeLabel(s), workspace: s.condition === "workspace", archived: s.status === "archived" }));
+  const archived = scope.condition === "workspace" && scope.status === "archived";
 
   const openRisk = [...queue.map((q) => q.risk_tier), ...decisions.map((d) => d.risk_tier)];
   const riskCount = (tier: string | null) => openRisk.filter((t) => t === tier).length;
@@ -233,6 +235,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         <PanelForm runId={runId} kind={key} seats={committee.map((c) => ({ seat: c.seat, title: c.title }))} chosen={panelFor(key)} />
       </Drawer>
     );
+  } else if (what === "archive" && org) {
+    drawer = <Drawer closeHref={closeHref} title={archived ? "Restore this organization" : "Archive this organization"} chips={<Chip tone={archived ? "you" : "wait"}>{archived ? "Archived" : "Nothing is deleted"}</Chip>}><ArchiveForm runId={runId} name={org.name} archived={archived} /></Drawer>;
   } else if (what === "budget") {
     drawer = <Drawer closeHref={closeHref} title="Monthly budget" chips={<Chip tone="you">Budget</Chip>}><BudgetForm runId={runId} current={cap} /></Drawer>;
   } else if (what === "change") {
@@ -260,18 +264,24 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       const t = tally(bench);
       const agentOf = new Map(mine.map((b) => [b.seat, b.agent_id]));
       const dissents = bench.filter((s) => s.dissent).map((s) => ({ agent_id: agentOf.get(s.seat) ?? s.seat, seat: s.seat, title: s.title, index: seatIndex.get(s.seat) ?? 0, rationale: s.rationale }));
+      const brief = decisionBrief({ recommended: d.recommended, bench, chairSeat: chairSeat ?? null, riskTier: d.risk_tier, reviewTotal: Number(d.review_total), reviewSigned: Number(d.review_signed) });
+      const firmness = brief.firmness === "unanimous" ? <Chip tone="ok" dot>Unanimous</Chip> : brief.firmness === "clear" ? <Chip tone="ai" dot>Clear majority</Chip> : <Chip tone="objection" dot>Split</Chip>;
       drawer = (
         <Drawer closeHref={closeHref} title={d.title} chips={<><RiskChip tier={d.risk_tier} /><KindChip kind={d.item_kind ?? d.kind} /><Chip plain>{d.item_id}</Chip></>}>
-          {d.description ? <p className="rv-prose">{d.description}</p> : null}
-          <section className="rv-card" data-tone="ai">
-            <div className="rv-card-h">
-              <span className="inline-flex items-center gap-2"><Icon name="users" /> The committee recommends {d.recommended === "approved" ? "approving" : "rejecting"}</span>
-              <VoteBar yes={t.yes} no={t.no} abstain={t.abstain} />
-            </div>
-            <SeatVotes bench={bench} />
-            <p className="rv-hint">Advice from AI advisers. {t.sat < t.of ? `${t.sat} of ${t.of} seats sat on this one. ` : ""}You decide.</p>
-            <div className="mt-2">{trailButton(d.meeting_id, d.item_id)}</div>
+          <section className="rv-card rv-brief" data-tone="ai">
+            <div className="rv-brief-head">{brief.headline}</div>
+            <div className="flex flex-wrap items-center gap-2">{firmness}<VoteBar yes={t.yes} no={t.no} abstain={t.abstain} />{t.sat < t.of ? <Chip plain>{t.sat} of {t.of} seats sat</Chip> : null}</div>
+            {brief.why ? <div className="rv-brief-row"><span>Why</span><span>{brief.why.text}<span className="rv-brief-who">{brief.why.seat}</span></span></div> : null}
+            {brief.objection ? <div className="rv-brief-row" data-tone="objection"><span><Term word="objection">Strongest objection</Term></span><span>{brief.objection.text}<span className="rv-brief-who">{brief.objection.seat}</span></span></div>
+              : <div className="rv-brief-row"><span>Objections</span><span>None. Every seat that sat agreed.</span></div>}
+            <div className="rv-brief-row"><span>What <Term word="sign">signing</Term> does</span><span>{brief.signing}</span></div>
+            <p className="rv-hint">This is a <Term word="recommendation">recommendation</Term> from AI advisers, written from their own reasons. You decide.</p>
           </section>
+          {d.description ? <Fold title="What was submitted"><p className="rv-prose">{d.description}</p></Fold> : null}
+          <Fold title={`How each seat voted (${t.yes} yes, ${t.no} no${t.abstain ? `, ${t.abstain} abstained` : ""})`}>
+            <SeatVotes bench={bench} />
+            <div className="mt-2">{trailButton(d.meeting_id, d.item_id)}</div>
+          </Fold>
           <section className="rv-card" data-tone="you">
             <SignDecision runId={runId} decisionId={d.decision_id} recommended={d.recommended} mustWeighAll={d.risk_tier === "high"}
               dissents={dissents} operator={operator ?? "You"} reviewTotal={Number(d.review_total)} reviewSigned={Number(d.review_signed)} />
@@ -430,6 +440,13 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <details className="rv-pop"><summary><span className="rv-btn rv-btn-sm">Why</span></summary><div className="rv-pop-card is-right"><p>{errorOf(w.result)}</p><p className="rv-hint">{when(w.created_at)}</p></div></details>
         </div>
       ))}
+
+      {archived ? (
+        <div className="rv-banner" data-tone="wait">
+          <Icon name="flag" /><span className="flex-1">This organization is archived. Its record is here to read; it takes no new reviews, questions, or submissions.</span>
+          <Link href={to({ open: "archive" })} scroll={false} className="rv-btn rv-btn-sm">Restore</Link>
+        </div>
+      ) : null}
 
       {unansweredAsks ? (
         <div className="rv-banner" data-tone="wait">
@@ -618,6 +635,10 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
                 ))}
                 <Link href={to({ open: "budget" })} scroll={false} className="rv-set">
                   <span className="min-w-0"><span className="rv-set-label">Monthly budget</span><span className="rv-set-value">{cap === null ? "Not set" : `$${cap.toLocaleString("en-US")}`}</span></span>
+                  <Icon name="chevron" className="rv-chev" />
+                </Link>
+                <Link href={to({ open: "archive" })} scroll={false} className="rv-set">
+                  <span className="min-w-0"><span className="rv-set-label">Status</span><span className="rv-set-value">{archived ? "Archived. Restore it" : "Active. Archive it"}</span></span>
                   <Icon name="chevron" className="rv-chev" />
                 </Link>
               </div>

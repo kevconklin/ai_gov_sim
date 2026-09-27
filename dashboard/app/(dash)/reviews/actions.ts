@@ -257,3 +257,17 @@ export async function escalateAskAction(_prev: ControlResult | null, formData: F
   if (result.success) { revalidatePath("/ask"); revalidatePath("/reviews"); }
   return result;
 }
+
+export async function archiveWorkspaceAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "archive_workspace", f.why ?? "", {});
+}
+
+export async function restoreWorkspaceAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  return configure(operator, f.run_id ?? "", "restore_workspace", f.why ?? "", {});
+}

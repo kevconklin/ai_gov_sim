@@ -1038,6 +1038,80 @@ pre.code {
   outline-offset: 2px;
 }
 
+/* A glossary word: dotted underline, meaning on hover or focus. */
+.rv-term {
+  position: relative;
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, var(--text) 45%, transparent);
+  text-underline-offset: 3px;
+  cursor: help;
+  outline: none;
+}
+.rv-term::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: max-content;
+  max-width: 22rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: normal;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms;
+}
+.rv-term:hover::after,
+.rv-term:focus-visible::after {
+  opacity: 1;
+}
+
+/* The brief at the top of a decision: read this, then decide. */
+.rv-brief {
+  display: grid;
+  gap: 0.6rem;
+}
+.rv-brief-head {
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.rv-brief-row {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+.rv-brief-row > span:first-child {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding-top: 0.1rem;
+}
+.rv-brief-row[data-tone="objection"] > span:first-child {
+  color: var(--objection);
+}
+.rv-brief-who {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+@media (max-width: 480px) {
+  .rv-brief-row {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
+
 /* What intake decided, shown back before anything is sent. */
 .rv-filed {
   display: grid;

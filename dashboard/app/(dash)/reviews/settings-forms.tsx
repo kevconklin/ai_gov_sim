@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { DOCUMENT_KINDS, FRAMEWORKS } from "@/lib/control/schema";
 import type { ControlResult } from "@/lib/control/submit";
 import { FRAMEWORK_LABELS } from "@/lib/reviews/model";
-import { addDocumentAction, retireDocumentAction, setBudgetAction, setPanelAction, updateProfileAction } from "./actions";
+import { addDocumentAction, archiveWorkspaceAction, restoreWorkspaceAction, retireDocumentAction, setBudgetAction, setPanelAction, updateProfileAction } from "./actions";
 
 function Said({ state, ok }: { state: ControlResult | null; ok: string }) {
   if (!state) return null;
@@ -117,6 +117,21 @@ export function BudgetForm({ runId, current }: { runId: string; current: number 
       <Why />
       <div><button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Saving…" : "Save budget"}</button></div>
       <Said state={state} ok="Saved. The change is on the record." />
+    </form>
+  );
+}
+
+export function ArchiveForm({ runId, name, archived }: { runId: string; name: string; archived: boolean }) {
+  const [state, action, pending] = useActionState(archived ? restoreWorkspaceAction : archiveWorkspaceAction, null);
+  return (
+    <form action={action} className="grid gap-3">
+      <input type="hidden" name="run_id" value={runId} />
+      {archived
+        ? <p className="rv-prose">{name} is archived. Restoring it puts it back in the picker and lets reviews, questions, and submissions resume. Nothing was lost while it was away.</p>
+        : <p className="rv-prose">Archiving puts {name} away: it leaves the picker, takes no new reviews, questions, or submissions, and keeps every record. It can be restored at any time. Nothing is deleted.</p>}
+      <label><span className="rv-label">{archived ? "Why restore it?" : "Why archive it?"}</span><input className="rv-field" name="why" required minLength={10} placeholder={archived ? "The pilot is back on" : "Pilot ended; keeping the record"} /></label>
+      <div><button className={`rv-btn ${archived ? "rv-btn-you" : ""}`} type="submit" disabled={pending}>{pending ? (archived ? "Restoring…" : "Archiving…") : archived ? "Restore organization" : "Archive organization"}</button></div>
+      <Said state={state} ok={archived ? "Restored. It is back in the picker." : "Archived. It leaves the picker in a moment; find it under Archived to restore."} />
     </form>
   );
 }

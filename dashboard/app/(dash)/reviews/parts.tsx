@@ -1,3 +1,4 @@
+import { GLOSSARY } from "@/lib/reviews/glossary";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { initials, KIND_LABELS, seatCode, seatColor, type BenchSeat } from "@/lib/reviews/model";
@@ -113,4 +114,11 @@ export function Drawer({ closeHref, chips, title, children, wide }: { closeHref:
       </aside>
     </>
   );
+}
+
+/** A word from the glossary. Hover or focus shows what it means; the word itself reads as ordinary text. */
+export function Term({ word, children }: { word: keyof typeof GLOSSARY | string; children: ReactNode }) {
+  const meaning = GLOSSARY[word];
+  if (!meaning) return <>{children}</>;
+  return <span className="rv-term" tabIndex={0} data-tip={meaning}>{children}</span>;
 }

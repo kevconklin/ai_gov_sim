@@ -152,3 +152,21 @@ def test_a_member_can_read_a_document_in_full(ws, tmp_path):
     assert not is_error and "The Chief Risk Officer decides." in text
     assert "read_document" in {t["name"] for t in tools_for(True)}
     assert "read_document" not in {t["name"] for t in tools_for(False)}     # the simulation's tool list is unchanged
+
+
+def test_a_workspace_can_be_archived_and_restored_never_deleted(ws):
+    from govern.workspace import ARCHIVED, WorkspaceError, archive_workspace, require_active, restore_workspace
+    db, run_id = ws
+    archive_workspace(db, run_id, reason="Pilot ended; keeping the record.", **WHO)
+    assert db.fetch_one("SELECT status FROM runs WHERE run_id = ?", (run_id,))["status"] == ARCHIVED
+    assert db.fetch_one("SELECT 1 FROM org_profiles WHERE run_id = ?", (run_id,)) is not None
+    with pytest.raises(WorkspaceError, match="archived"):
+        require_active(db, run_id)
+    with pytest.raises(WorkspaceError, match="already"):
+        archive_workspace(db, run_id, reason="Twice is a mistake.", **WHO)
+    restore_workspace(db, run_id, reason="The pilot is back on.", **WHO)
+    assert db.fetch_one("SELECT status FROM runs WHERE run_id = ?", (run_id,))["status"] == "workspace"
+    require_active(db, run_id)
+    rows = db.fetch_all("SELECT before_value, after_value, actor FROM config_changes WHERE run_id = ? AND target = 'status' ORDER BY changed_at, change_id", (run_id,))
+    assert [(r["before_value"], r["after_value"]) for r in rows] == [("workspace", "archived"), ("archived", "workspace")]
+    assert {r["actor"] for r in rows} == {WHO["actor"]}

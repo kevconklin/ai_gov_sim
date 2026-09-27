@@ -8,7 +8,7 @@ export async function currentScope(runParam: string | undefined): Promise<{ run_
   const rows = await db.all<{ run_id: string; name: string | null; experiment_name: string; condition: string }>(
     `SELECT r.run_id, o.name, e.name AS experiment_name, r.condition
      FROM runs r JOIN experiments e ON e.experiment_id = r.experiment_id LEFT JOIN org_profiles o ON o.run_id = r.run_id
-     ORDER BY CASE WHEN r.condition = 'workspace' THEN 0 ELSE 1 END, r.started_at DESC`,
+     ORDER BY CASE WHEN r.condition = 'workspace' AND r.status <> 'archived' THEN 0 WHEN r.condition = 'workspace' THEN 2 ELSE 1 END, r.started_at DESC`,
   );
   const row = rows.find((r) => r.run_id === runParam) ?? rows[0];
   return row ? { run_id: row.run_id, name: row.name ?? row.experiment_name, workspace: row.condition === "workspace" } : null;

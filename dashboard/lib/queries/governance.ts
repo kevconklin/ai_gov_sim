@@ -279,13 +279,16 @@ export interface BallotRow {
 /** Every ballot on the decisions still to be signed, so the page can draw who sat and how they voted. */
 export async function ballotsToSign(runId: string): Promise<BallotRow[]> {
   const db = await readDb();
+  // a ballot with no reason worth reading falls back to the seat's sealed position, written before the debate
   return db.all<BallotRow>(
-    `SELECT d.decision_id, v.agent_id, ag.seat, v.vote, v.rationale
+    `SELECT d.decision_id, v.agent_id, ag.seat, v.vote,
+            CASE WHEN v.rationale IS NULL OR length(v.rationale) < 40 THEN COALESCE(p.position, v.rationale) ELSE v.rationale END AS rationale
      FROM decisions d
      JOIN meetings m ON m.meeting_id = d.meeting_id
      LEFT JOIN attestations a ON a.decision_id = d.decision_id
      JOIN votes v ON v.meeting_id = d.meeting_id AND v.item_id = d.item_id
      JOIN agents ag ON ag.agent_id = v.agent_id
+     LEFT JOIN positions p ON p.meeting_id = v.meeting_id AND p.item_id = v.item_id AND p.agent_id = v.agent_id
      WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened`,
     [runId],
   );
@@ -372,16 +375,17 @@ export interface ScopeRow {
   org_name: string | null;
   experiment_name: string;
   started_at: string;
+  status: string;            // 'archived' workspaces are listed apart and take no new work
 }
 
 /** Every committee a person could be looking at: organizations first, then simulated runs. */
 export async function reviewScopes(): Promise<ScopeRow[]> {
   const db = await readDb();
   return db.all<ScopeRow>(
-    `SELECT r.run_id, r.bank_id, r.condition, o.name AS org_name, e.name AS experiment_name, r.started_at
+    `SELECT r.run_id, r.bank_id, r.condition, o.name AS org_name, e.name AS experiment_name, r.started_at, r.status
      FROM runs r JOIN experiments e ON e.experiment_id = r.experiment_id
      LEFT JOIN org_profiles o ON o.run_id = r.run_id
-     ORDER BY CASE WHEN r.condition = 'workspace' THEN 0 ELSE 1 END, r.started_at DESC`,
+     ORDER BY CASE WHEN r.condition = 'workspace' AND r.status <> 'archived' THEN 0 WHEN r.condition = 'workspace' THEN 2 ELSE 1 END, r.started_at DESC`,
   );
 }
 

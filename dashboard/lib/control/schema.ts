@@ -24,6 +24,8 @@ export const COMMAND_KINDS = [
   "update_seat",
   "ask",
   "escalate_ask",
+  "archive_workspace",
+  "restore_workspace",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -251,6 +253,8 @@ export const commandSchema = z.discriminatedUnion("kind", [
         .strict(),
     })
     .strict(),
+  z.object({ kind: z.literal("archive_workspace"), run_id: runId, reason, payload: z.object({ ...attribution }).strict() }).strict(),
+  z.object({ kind: z.literal("restore_workspace"), run_id: runId, reason, payload: z.object({ ...attribution }).strict() }).strict(),
   z
     .object({
       kind: z.literal("set_brief"),

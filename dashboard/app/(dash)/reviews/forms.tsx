@@ -7,6 +7,7 @@ import type { ControlResult } from "@/lib/control/submit";
 import type { SeatRow } from "@/lib/queries/governance";
 import { ageOf, initials, plural, seatCode, seatColor, type QueueEntry } from "@/lib/reviews/model";
 import { attestAction, conveneAction, refreshCandidatesAction, setBriefAction } from "./actions";
+import { Term } from "./parts";
 
 /** What the page says back. Every action is queued for the worker, so "done" means "asked", and says so. */
 function Said({ state, ok }: { state: ControlResult | null; ok: string }) {
@@ -52,17 +53,20 @@ export interface Scope {
   run_id: string;
   label: string;
   workspace: boolean;
+  archived?: boolean;
 }
 
 export function WorkspacePicker({ scopes, current }: { scopes: Scope[]; current: string }) {
   const router = useRouter();
-  const orgs = scopes.filter((s) => s.workspace);
+  const orgs = scopes.filter((s) => s.workspace && !s.archived);
+  const archived = scopes.filter((s) => s.workspace && s.archived);
   const sims = scopes.filter((s) => !s.workspace);
   return (
     <select className="rv-select" aria-label="Committee" value={current}
       onChange={(e) => router.push(`/reviews?run=${encodeURIComponent(e.currentTarget.value)}`)}>
       {orgs.length ? <optgroup label="Organizations">{orgs.map((s) => <option key={s.run_id} value={s.run_id}>{s.label}</option>)}</optgroup> : null}
       {sims.length ? <optgroup label="Simulated runs">{sims.map((s) => <option key={s.run_id} value={s.run_id}>{s.label}</option>)}</optgroup> : null}
+      {archived.length ? <optgroup label="Archived">{archived.map((s) => <option key={s.run_id} value={s.run_id}>{s.label}</option>)}</optgroup> : null}
     </select>
   );
 }
@@ -179,7 +183,7 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
       {dissents.length > 0 ? (
         <div>
           <div className="rv-card-h" style={{ marginBottom: "0.4rem" }}>
-            <span>{plural(dissents.length, "objection")}</span>
+            <span><Term word="objection">{plural(dissents.length, "objection")}</Term></span>
             {mustWeighAll ? <span className="rv-chip" data-tone="high">Weigh all to sign</span> : null}
           </div>
           {dissents.map((d) => (
@@ -209,8 +213,8 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
             </label>
           ))}
         </div>
-        {outcome === "deferred" ? <p className="rv-hint" data-tone="wait">Goes back to Waiting. Two deferrals escalate it.</p>
-          : outcome && outcome !== recommended ? <p className="rv-hint" data-tone="objection">This overrules the committee, and is recorded as an override.</p> : null}
+        {outcome === "deferred" ? <p className="rv-hint" data-tone="wait"><Term word="defer">Deferring</Term> sends it back to Waiting. Two deferrals escalate it.</p>
+          : outcome && outcome !== recommended ? <p className="rv-hint" data-tone="objection">This <Term word="overrule">overrules</Term> the committee, and the record says so.</p> : null}
       </fieldset>
 
       <label>
