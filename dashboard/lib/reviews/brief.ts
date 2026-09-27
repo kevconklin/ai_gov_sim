@@ -15,8 +15,23 @@ export interface DecisionBrief {
   signing: string;           // what your signature does
 }
 
+/** Some early ballots stored the structured vote as JSON; the person should read the summary, not the braces. */
+export function plain(text: string | null): string {
+  const raw = (text ?? "").trim();
+  if (!raw.startsWith("{")) return raw;
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    const pick = ["summary", "rationale", "reason", "position"].map((k) => v[k]).find((x) => typeof x === "string" && x.trim());
+    if (typeof pick === "string") return pick.trim();
+    const concerns = Array.isArray(v.concerns) ? v.concerns.filter((c) => typeof c === "string") : [];
+    return concerns.length ? `Concerns: ${concerns.join(", ")}.` : raw;
+  } catch {
+    return raw;
+  }
+}
+
 const sentences = (text: string | null): string[] =>
-  (text ?? "").split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  plain(text).split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
 
 /** The first two sentences, or the first if it is already long. */
 function gist(text: string | null, max = 260): string {

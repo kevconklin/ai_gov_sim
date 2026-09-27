@@ -22,6 +22,7 @@ const ICONS: Record<string, ReactNode> = {
   compare: <><path d="M12 3v18" /><path d="M4 8l4-4 4 4M20 16l-4 4-4-4" /></>,
   logs: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
   orgs: <><rect x="3" y="4" width="8" height="16" rx="1.5" /><rect x="13" y="9" width="8" height="11" rx="1.5" /><path d="M6 8h2M6 12h2M6 16h2M16 13h2M16 17h2" /></>,
+  howto: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5" /><path d="M12 16.5v.3" /></>,
   ask: <><path d="M4 5h16v11H9l-5 4z" /><path d="M10 9.2a2 2 0 1 1 2.8 1.8c-.6.3-.8.6-.8 1.2" /><path d="M12 14.2v.3" /></>,
   menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
   close: <><path d="M6 6l12 12M18 6L6 18" /></>,
@@ -43,6 +44,7 @@ const PRODUCT: Item[] = [
   { href: "/policy-record", label: "Policy", icon: "policy" },
   { href: "/spend", label: "Spend & health", icon: "health" },
   { href: "/logs", label: "Logs", icon: "logs" },
+  { href: "/how-to", label: "How to", icon: "howto" },
 ];
 // The research instrument. Shown only when the person is looking at a simulated run, or has
 // asked for it: a customer never sees "Reality engine" in their sidebar.
@@ -61,7 +63,7 @@ const SIMULATION: Item[] = [
 
 function NavLink({ item, current, run, onPick }: { item: Item; current: boolean; run?: string | null; onPick?: () => void }) {
   // the product pages all look at one committee; carry it across so the picker's choice sticks
-  const href = run && item.href !== "/organizations" && PRODUCT.some((p) => p.href === item.href) ? `${item.href}?run=${encodeURIComponent(run)}` : item.href;
+  const href = run && !["/organizations", "/how-to"].includes(item.href) && PRODUCT.some((p) => p.href === item.href) ? `${item.href}?run=${encodeURIComponent(run)}` : item.href;
   return (
     <Link href={href} className="nav-link" aria-current={current ? "page" : undefined} onClick={onPick}>
       <Icon name={item.icon} />

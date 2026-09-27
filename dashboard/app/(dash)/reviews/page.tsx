@@ -35,7 +35,7 @@ import { Trail } from "./trail";
 import { AddDocumentForm, ArchiveForm, BudgetForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
 import { SetupWizard, type KitView } from "./setup-wizard";
 import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, Term, VoteBar } from "./parts";
-import { decisionBrief } from "@/lib/reviews/brief";
+import { decisionBrief, plain } from "@/lib/reviews/brief";
 
 function parse<T>(raw: string | null | undefined, fallback: T): T {
   try {
@@ -276,7 +276,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       const bench = benchFor(committee, mine, d.recommended);
       const t = tally(bench);
       const agentOf = new Map(mine.map((b) => [b.seat, b.agent_id]));
-      const dissents = bench.filter((s) => s.dissent).map((s) => ({ agent_id: agentOf.get(s.seat) ?? s.seat, seat: s.seat, title: s.title, index: seatIndex.get(s.seat) ?? 0, rationale: s.rationale }));
+      const dissents = bench.filter((s) => s.dissent).map((s) => ({ agent_id: agentOf.get(s.seat) ?? s.seat, seat: s.seat, title: s.title, index: seatIndex.get(s.seat) ?? 0, rationale: plain(s.rationale) }));
       const brief = decisionBrief({ recommended: d.recommended, bench, chairSeat: chairSeat ?? null, riskTier: d.risk_tier, reviewTotal: Number(d.review_total), reviewSigned: Number(d.review_signed) });
       const firmness = brief.firmness === "unanimous" ? <Chip tone="ok" dot>Unanimous</Chip> : brief.firmness === "clear" ? <Chip tone="ai" dot>Clear majority</Chip> : <Chip tone="objection" dot>Split</Chip>;
       drawer = (

@@ -1038,6 +1038,74 @@ pre.code {
   outline-offset: 2px;
 }
 
+/* How to: ten sections, words on the left, the real screen on the right. */
+.rv-howto-lead {
+  color: var(--muted);
+  margin: -0.25rem 0 0.75rem;
+}
+.rv-howto-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+.rv-howto-toc .rv-tick {
+  text-decoration: none;
+  color: inherit;
+  font-weight: 500;
+}
+.rv-howto-section {
+  display: grid;
+  grid-template-columns: minmax(18rem, 2fr) minmax(0, 3fr);
+  gap: 1.25rem;
+  align-items: start;
+  margin-bottom: 1rem;
+  scroll-margin-top: 1rem;
+}
+.rv-howto-h {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.1rem;
+  font-weight: 650;
+  margin: 0 0 0.4rem;
+}
+.rv-howto-h .rv-step-n {
+  border-color: var(--you);
+  background: var(--you);
+  color: #fff;
+}
+.rv-howto-p {
+  color: var(--muted);
+  margin: 0 0 0.6rem;
+}
+.rv-howto-steps {
+  list-style: decimal;
+  margin: 0 0 0.8rem;
+  padding-left: 1.3rem;
+  display: grid;
+  gap: 0.4rem;
+  line-height: 1.45;
+}
+.rv-howto-shot {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+}
+.rv-howto-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 900px) {
+  .rv-howto-section {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* The organizations list: attention chips first, the quiet numbers after. */
 .rv-orgstats {
   flex-wrap: wrap;
@@ -1193,6 +1261,7 @@ pre.code {
 }
 
 .rv-list {
+  list-style: disc;
   display: grid;
   gap: 0.45rem;
   margin: 0.25rem 0 0;

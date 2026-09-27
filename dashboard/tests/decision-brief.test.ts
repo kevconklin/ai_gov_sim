@@ -52,3 +52,11 @@ describe("decisionBrief", () => {
     expect(decisionBrief({ recommended: "approved", bench, chairSeat: "chair", riskTier: null, reviewTotal: 1, reviewSigned: 0 }).why?.text).toBe("One. Two.");
   });
 });
+
+describe("decisionBrief with structured ballots", () => {
+  it("reads the summary out of a JSON-shaped reason", () => {
+    const bench = [seat("chair", "Chair", "yes", false, JSON.stringify({ concerns: ["delivery capacity"], summary: "The revenue case is plausible but thin. I would like Finance to validate it." }))];
+    expect(decisionBrief({ recommended: "approved", bench, chairSeat: "chair", riskTier: null, reviewTotal: 1, reviewSigned: 0 }).why?.text)
+      .toBe("The revenue case is plausible but thin. I would like Finance to validate it.");
+  });
+});
