@@ -80,7 +80,8 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
                                    name=payload["name"], risk_appetite=payload["risk_appetite"],
                                    facts=payload.get("facts", ""), actor=payload.get("actor", "unknown"),
                                    source=payload.get("source", "unknown"), profile=payload,
-                                   starter=payload.get("starter") or None)
+                                   starter=payload.get("starter") or None, matters=payload.get("first_matters") or (),
+                                   answers=payload.get("answers") or None)
         return {"run_id": new_run}
     run = db.fetch_one("SELECT * FROM runs WHERE run_id = ?", (run_id,)) if run_id else None
     if run is None:

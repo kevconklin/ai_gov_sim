@@ -140,9 +140,19 @@ export async function createCustomerAction(_prev: ControlResult | null, formData
   const optional = Object.fromEntries(
     (["facts", "framework", "business_goals", "ai_landscape", "ai_tools", "starter"] as const).filter((k) => f[k]?.trim()).map((k) => [k, f[k]]),
   );
+  const json = (name: string): unknown => {
+    try { return f[name] ? JSON.parse(f[name]!) : undefined; } catch { return undefined; }
+  };
+  const firstMatters = json("first_matters");
+  const answers = json("answers");
   return done(await submitWorkspace({
     reason: `${operator}: adding ${(f.name ?? "a customer").slice(0, 80)} as a customer`,
-    payload: { name: f.name ?? "", risk_appetite: f.risk_appetite ?? "", ...optional, actor: operator, source: "dashboard_session" },
+    payload: {
+      name: f.name ?? "", risk_appetite: f.risk_appetite ?? "", ...optional,
+      ...(Array.isArray(firstMatters) && firstMatters.length ? { first_matters: firstMatters } : {}),
+      ...(answers && typeof answers === "object" ? { answers } : {}),
+      actor: operator, source: "dashboard_session",
+    },
   }));
 }
 

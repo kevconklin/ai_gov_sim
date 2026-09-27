@@ -93,6 +93,16 @@ export const workspaceSchema = z
         ai_landscape: z.string().trim().max(4000).optional(),
         ai_tools: z.string().trim().max(4000).optional(),
         starter: z.string().trim().regex(/^[a-z][a-z0-9_]{1,39}$/, "Choose a starter kit from the list.").optional(),
+        // the AI already in use, listed at setup: each becomes a matter in Waiting
+        first_matters: z.array(z.object({
+          kind: z.enum(["tool", "vendor", "use_case"]),
+          title: z.string().trim().min(2).max(200),
+          description: z.string().trim().min(10).max(4000),
+          risk_tier: z.enum(["low", "medium", "high"]).optional(),
+        }).strict()).max(30).optional(),
+        // the questionnaire's answers, kept on the change record so the setup can be explained later
+        answers: z.record(z.string().min(1).max(40), z.union([z.string().max(2000), z.boolean(), z.array(z.string().max(200)).max(50)]))
+          .refine((a) => Object.keys(a).length <= 24, { message: "Too many answers." }).optional(),
         actor: z.string().trim().min(1).max(200),
         source: z.literal("dashboard_session"),
       })

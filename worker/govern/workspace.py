@@ -8,10 +8,11 @@ clock never advances.
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from govern import ids
 from govern.committee import load_default_committee
@@ -35,8 +36,14 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
                      risk_appetite: str, facts: str = "", today: date | None = None,
                      committee: Mapping[str, Mapping[str, Any]] | None = None, source: str = "cli",
                      actor: str = "unknown", profile: Mapping[str, Any] | None = None,
-                     starter: str | None = None) -> str:
-    """Create the organization's committee. With `starter`, a kit also gives it a policy, documents, and a first matter."""
+                     starter: str | None = None, matters: Sequence[Mapping[str, Any]] = (),
+                     answers: Mapping[str, Any] | None = None) -> str:
+    """Create the organization's committee.
+
+    With `starter`, a kit also gives it a policy, documents, and a first matter. `matters` are submitted
+    straight into Waiting under the creator's name (the AI already in use, listed at setup). `answers`
+    are the setup questionnaire's answers, kept on the change record so the setup can be explained later.
+    """
     if len(name.strip()) < 2:
         raise ValueError("a workspace needs the organization's name")
     if len(risk_appetite.strip()) < 20:
@@ -77,7 +84,14 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
     db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None,
                                 "real_ts": utc_now_iso(), "kind": "workspace_created",
                                 "description": f"Workspace for {name.strip()} with {len(seats)} seats", "source": source})
+    if answers:
+        record_change(db, run_id, actor=actor, source=source, area="questionnaire", target="setup", before=None,
+                      after=json.dumps(dict(answers), sort_keys=True), reason="Answered at setup; the configuration follows from it")
     if kit is not None:
         apply_starter(db, run_id, kit, org=name.strip(), slug=slug, framework=(profile or {}).get("framework") or None,
                       data_dir=Path(data_dir), today=today, actor=actor, source=source)
+    from govern.intake import submit_item
+    for matter in matters:
+        submit_item(db, run_id, kind=str(matter["kind"]), title=str(matter["title"]), description=str(matter["description"]),
+                    submitted_by=actor, risk_tier=matter.get("risk_tier") or None, details=matter.get("details"), today=today)
     return run_id

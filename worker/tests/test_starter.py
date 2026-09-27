@@ -175,6 +175,22 @@ def test_an_unknown_kit_is_refused_before_anything_is_created(db, tmp_path):
     assert db.fetch_all("SELECT 1 FROM runs") == []
 
 
+def test_tools_listed_at_setup_join_waiting_and_the_answers_are_on_the_record(db, tmp_path):
+    config = load_config(CONFIG)
+    answers = {"sector": "health", "size": "50_250", "goals": ["save_time"], "tools": ["ChatGPT", "Otter.ai"]}
+    run_id = create_workspace(db, config, config_dir=CONFIG, data_dir=tmp_path, name="Harbor Health",
+                              risk_appetite=APPETITE, today=TODAY, starter="regulated", answers=answers, **WHO,
+                              matters=[{"kind": "tool", "title": "ChatGPT", "description": "Already in use; may it stay, and for what?"},
+                                       {"kind": "tool", "title": "Otter.ai", "description": "Already in use in meetings.", "risk_tier": "medium"}])
+    items = db.fetch_all("SELECT kind, title, risk_tier, submitted_by FROM items WHERE run_id = ? ORDER BY item_id", (run_id,))
+    assert [(i["kind"], i["title"], i["risk_tier"]) for i in items] == [
+        ("policy_change", "Does the starter AI policy fit Harbor Health?", "medium"), ("tool", "ChatGPT", None), ("tool", "Otter.ai", "medium")]
+    assert {i["submitted_by"] for i in items} == {WHO["actor"]}
+    row = db.fetch_one("SELECT actor, after_value, reason FROM config_changes WHERE run_id = ? AND area = 'questionnaire'", (run_id,))
+    import json
+    assert json.loads(row["after_value"]) == answers and row["actor"] == WHO["actor"] and "setup" in row["reason"]
+
+
 # ---- what the dashboard reads ------------------------------------------------------------------
 
 def test_publishing_lets_the_dashboard_offer_the_kits(db):

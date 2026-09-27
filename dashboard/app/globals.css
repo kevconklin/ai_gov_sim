@@ -998,6 +998,71 @@ pre.code {
   line-height: 1.4;
 }
 
+/* Tick boxes that read as chips: pick several. */
+.rv-ticks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.rv-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--panel);
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+}
+.rv-tick.is-wide {
+  width: 100%;
+}
+.rv-tick input {
+  accent-color: var(--you);
+}
+.rv-tick:hover {
+  border-color: var(--you);
+}
+.rv-tick.is-on {
+  border-color: var(--you);
+  background: color-mix(in srgb, var(--you) 9%, var(--panel));
+}
+.rv-tick.is-off {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.rv-tick:has(input:focus-visible) {
+  outline: 2px solid var(--you);
+  outline-offset: 2px;
+}
+
+/* What intake decided, shown back before anything is sent. */
+.rv-filed {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--ai) 6%, var(--panel));
+}
+.rv-filed-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.rv-filed ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
 /* Setup steps. Numbered because it is a sequence: you cannot create before you have chosen. */
 .rv-steps {
   display: flex;
