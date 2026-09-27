@@ -14,5 +14,6 @@ export const GLOSSARY: Record<string, string> = {
   risk_tier: "Low, medium, or high: how much harm a wrong or unfair result could do, and how reversible it is. It sets how deep the review goes.",
   trail: "The full record of a review: who called it, who sat, what each seat committed to before the debate, what was said, how they voted, and what was signed.",
   synthesis: "For a question rather than a decision: where the advisers agree, where they split, and what would change their minds.",
+  precedent: "A decision someone already signed. The committee reads it in later reviews and argues consistently with it, or says why this matter is different.",
   framework: "The public standard your policy's controls are mapped to, so an auditor or customer can see coverage.",
 };

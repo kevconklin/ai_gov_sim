@@ -29,7 +29,7 @@ def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
     return REVIEW_TOOLS if disclosed else TOOLS
 
 
-READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox", "read_document"})
+READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox", "read_document", "read_decision"})
 PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_status_change"})
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {
     "circulate": READ_TOOLS | PROPOSE_TOOLS,
@@ -97,6 +97,8 @@ def _search_decision_log(s: ToolSession, args: Mapping[str, Any]) -> str:
            LEFT JOIN status_changes c ON d.kind = 'status_change' AND c.change_id = d.ref_id
            LEFT JOIN use_cases uc2 ON c.use_case_id = uc2.use_case_id
            WHERE d.run_id = ? ORDER BY d.sim_month DESC""", (s.ctx.run_id,))
+    from govern.precedent import signed
+    intake = signed(s.ctx.db, s.ctx.run_id)
     scored = []
     for row in rows:
         haystack = f"{row['item_id']} {row['title']} {row['body']}".lower()
@@ -106,11 +108,17 @@ def _search_decision_log(s: ToolSession, args: Mapping[str, Any]) -> str:
     minutes = s.ctx.db.fetch_all("SELECT meeting_date, minutes_text FROM meetings WHERE run_id = ? AND minutes_text IS NOT NULL "
                                  "ORDER BY sim_month DESC", (s.ctx.run_id,))
     minute_hits = [m for m in minutes if words and any(w in m["minutes_text"].lower() for w in words)][:3]
-    if not scored and not minute_hits:
+    intake_hits = [(sum(w in f"{p.display_id} {p.title} {p.description} {p.rationale}".lower() for w in words) if words else 1, p)
+                   for p in intake]
+    intake_hits = [(n, p) for n, p in intake_hits if n]
+    if not scored and not minute_hits and not intake_hits:
         return "No matching decisions or minutes."
-    lines = [f"{r['sim_month']} {r['item_id']} ({r['kind'].replace('_', ' ')}): {r['title']} - {r['outcome']} "
-             f"({r['yes_votes']} yes, {r['no_votes']} no, {r['abstentions']} abstain)"
-             for _, r in sorted(scored, key=lambda x: -x[0])[:10]]
+    lines = [f"{p.signed_on} {p.display_id} ({p.kind.replace('_', ' ')}): {p.title} - {p.outcome}, signed by {p.actor}"
+             f"{', overruling the committee' if p.overruled else ''} ({p.yes} yes, {p.no} no). Use read_decision for the record."
+             for _, p in sorted(intake_hits, key=lambda x: -x[0])[:10]]
+    lines += [f"{r['sim_month']} {r['item_id']} ({r['kind'].replace('_', ' ')}): {r['title']} - {r['outcome']} "
+              f"({r['yes_votes']} yes, {r['no_votes']} no, {r['abstentions']} abstain)"
+              for _, r in sorted(scored, key=lambda x: -x[0])[:10]]
     for m in minute_hits:
         excerpt = m["minutes_text"][:700]
         lines.append(f"Minutes of {m['meeting_date']}: {excerpt}")
@@ -166,6 +174,11 @@ def _read_document(s: ToolSession, args: Mapping[str, Any]) -> str:
     if match is None:
         return "No document by that title. In force: " + "; ".join(d["title"] for d in in_force) + "."
     return f"{match['title']}\n\n{match['body']}"
+
+
+def _read_decision(s: ToolSession, args: Mapping[str, Any]) -> str:
+    from govern.precedent import record
+    return record(s.ctx.db, s.ctx.run_id, str(args.get("item_id", "")))
 
 
 def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
@@ -286,6 +299,7 @@ HANDLERS: Mapping[str, Callable[[ToolSession, Mapping[str, Any]], str]] = {
     "record_minutes": _record_minutes,
     "submit_perspective": _submit_perspective,
     "read_document": _read_document,
+    "read_decision": _read_decision,
 }
 
 

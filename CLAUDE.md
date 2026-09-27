@@ -36,6 +36,7 @@ Two packages under `worker/`:
 - `intake.py` how a matter arrives; `agenda.py` ranked candidates and deferrals; `panels.py` which seats a matter needs
 - `attestation.py` the person on record, dissent responses, `apply_attested`; `advisory.py` perspectives and computed synthesis
 - `providers.py` provider registry and the OpenAI-compatible adapter; `committee.py` also adds, removes and edits seats; `settings.py` profile, documents, panels, and the append-only change record; `workspace.py` an organisation's committee with no simulation behind it; `committee.py` seats and briefs as data; `context.py` `ReviewContext` and `OrgProfile`
+- `precedent.py` signed decisions as precedent: what a new matter cites (`details.related_decisions`) or shares a subject with, the pre-read section, and the `read_decision` tool
 - `ask.py` a question answered from the policy with controls cited, or admitted as a gap and sent to the committee
 - `starter.py` starter kits: the control library, rendering a policy for a framework, and applying a kit to a new workspace
 - `disclosure.py`, `prompts/` (registry: roots and per-directory checks), `llm.py`, `db.py`, `locks.py`, `agents/`, `tools.py`, `packet.py`, `decisions.py`, `policy.py`

@@ -33,7 +33,15 @@ function Choices<T extends string>({ name, value, onChange, options, columns, st
  * Submitting a matter in plain questions. The kind and the risk tier are worked out from the answers and
  * shown back with the reasons; anyone who knows the vocabulary can still set them by hand.
  */
-export function SubmitMatterForm({ runId, preset }: { runId: string; preset?: string }) {
+export interface PrecedentOption {
+  id: string;            // the short id, such as IT-001
+  title: string;
+  outcome: string;
+  actor: string;
+  when: string;
+}
+
+export function SubmitMatterForm({ runId, preset, precedents = [] }: { runId: string; preset?: string; precedents?: PrecedentOption[] }) {
   const [state, action, pending] = useActionState<ControlResult | null, FormData>(submitItemAction, null);
   const [need, setNeed] = useState<Need>(PRESET_NEED[preset ?? ""] ?? "use_tool");
   const [who, setWho] = useState<Who>("staff");
@@ -43,6 +51,7 @@ export function SubmitMatterForm({ runId, preset }: { runId: string; preset?: st
   const [connected, setConnected] = useState(false);
   const [policyKind, setPolicyKind] = useState<"change" | "exception">(preset === "exception" ? "exception" : "change");
   const [kindOverride, setKindOverride] = useState<Kind | null>(null);
+  const [cited, setCited] = useState<string[]>([]);
   const [tierOverride, setTierOverride] = useState<string | null>(null);
 
   const answers: TriageAnswers = useMemo(() => ({ need, who, data: data.length ? data : ["none"], decides, source, connected, policy_kind: policyKind }),
@@ -162,6 +171,21 @@ export function SubmitMatterForm({ runId, preset }: { runId: string; preset?: st
           </div>
         </details>
       </div>
+
+      {precedents.length ? (
+        <fieldset>
+          <legend className="rv-label">Related to an earlier decision? <span className="muted font-normal">the committee reads it as precedent</span></legend>
+          <div className="rv-ticks">
+            {precedents.map((p) => (
+              <label key={p.id} className={`rv-tick${cited.includes(p.id) ? " is-on" : ""}`} title={`${p.outcome} by ${p.actor}, ${p.when}`}>
+                <input type="checkbox" name="d_related_decisions[]" value={p.id} checked={cited.includes(p.id)}
+                  onChange={(e) => setCited(e.currentTarget.checked ? [...cited, p.id] : cited.filter((x) => x !== p.id))} />
+                <span><span className="rv-chip is-plain" style={{ marginRight: "0.35rem" }}>{p.id}</span>{p.title}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
 
       <details className="rv-fold">
         <summary className="rv-fold-head"><span>Anything else <span className="muted font-normal">optional</span></span></summary>

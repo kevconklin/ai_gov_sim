@@ -235,6 +235,7 @@ export interface DecisionRow {
   recommended: string;
   risk_tier: string | null;
   submitted_by: string | null;
+  details: string | null;
   review_total: number;
   review_signed: number;
   yes_votes: number;
@@ -252,7 +253,7 @@ export async function decisionsToSign(runId: string): Promise<DecisionRow[]> {
   return db.all<DecisionRow>(
     `SELECT d.decision_id, d.meeting_id, m.meeting_date, d.item_id, d.kind, i.kind AS item_kind,
             COALESCE(i.title, u.title, d.item_id) AS title, COALESCE(i.description, u.description) AS description,
-            d.outcome AS recommended, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, i.submitted_by,
+            d.outcome AS recommended, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, i.submitted_by, i.details,
             d.yes_votes, d.no_votes, d.abstentions,
             (SELECT COUNT(*) FROM decisions d2 WHERE d2.meeting_id = d.meeting_id) AS review_total,
             (SELECT COUNT(*) FROM decisions d3 JOIN attestations a3 ON a3.decision_id = d3.decision_id
@@ -492,4 +493,12 @@ export async function inventoryStarted(runId: string): Promise<boolean> {
 export async function modelCatalog(): Promise<ModelRow[]> {
   const db = await readDb();
   return db.all<ModelRow>("SELECT model_id, label, provider, available, input_price, output_price FROM model_catalog ORDER BY provider, label");
+}
+
+/** Matters that cited one signed decision (by its short id, such as IT-001) when they were submitted. */
+export async function citedBy(runId: string, shortId: string): Promise<{ item_id: string; title: string; status: string }[]> {
+  const db = await readDb();
+  return db.all<{ item_id: string; title: string; status: string }>(
+    "SELECT item_id, title, status FROM items WHERE run_id = ? AND details LIKE ? AND status <> 'withdrawn' ORDER BY submitted_on DESC",
+    [runId, `%"${shortId}"%`]);
 }

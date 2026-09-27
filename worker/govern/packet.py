@@ -116,14 +116,23 @@ def _findings(ctx: ReviewContext, month: str) -> str:
 def _register(ctx: ReviewContext) -> str:
     """What has already been through the committee, so a member can argue from precedent."""
     from govern.intake import KIND_LABELS
+    from govern.precedent import signed
+    by_item = {p.item_id: p for p in signed(ctx.db, ctx.run_id)}
     rows = ctx.db.fetch_all("SELECT item_id, kind, title, status, risk_tier, decided_on FROM items WHERE run_id = ? "
                             "AND status IN ('approved', 'rejected', 'advised') ORDER BY decided_on, item_id", (ctx.run_id,))
     if not rows:
         return "Nothing has been decided yet."
     words = {"approved": "approved", "rejected": "not approved", "advised": "discussed, advice given"}
-    return "\n".join(f"- {display_id(r['item_id'])} {KIND_LABELS[r['kind']]}: {r['title']} - {words[r['status']]}"
-                     + (f", risk tier {r['risk_tier']}" if r["risk_tier"] else "")
-                     + (f", {r['decided_on']}" if r["decided_on"] else "") for r in rows)
+
+    def outcome(r: Any) -> str:
+        p = by_item.get(r["item_id"])
+        if p is None:
+            return words[r["status"]] + (f", {r['decided_on']}" if r["decided_on"] else "")
+        how = "overruling the committee" if p.overruled else "as the committee recommended"
+        return f"{p.outcome} by {p.actor} on {p.signed_on}, {how}"
+
+    return "\n".join(f"- {display_id(r['item_id'])} {KIND_LABELS[r['kind']]}: {r['title']} - {outcome(r)}"
+                     + (f", risk tier {r['risk_tier']}" if r["risk_tier"] else "") for r in rows)
 
 
 def _review_packet(ctx: ReviewContext, *, meeting_date: date, agenda: Sequence[AgendaItem]) -> str:
@@ -149,9 +158,11 @@ def _review_packet(ctx: ReviewContext, *, meeting_date: date, agenda: Sequence[A
     heads = list(sections(text))
     policy = (f"{len(heads)} sections, {len(stats(text).controls)} numbered requirements. Sections: "
               + "; ".join(heads) + ". Use read_policy for the full text.") if heads else "No AI policy sections have been adopted yet."
+    from govern.precedent import pre_read
     return prompts.render(
         "review/packet.md", date=long_date(meeting_date), agenda=agenda_block,
         previous_minutes=prev["minutes_text"] if prev and prev["minutes_text"] else "None. This is the committee's first review.",
+        precedent=pre_read(ctx.db, ctx.run_id, [i.ref_id for i in agenda if i.ref_id and i.kind in ("item", "advisory")]),
         register=_register(ctx), inventory=_inventory(ctx), policy_summary=policy, documents=library,
     )
 

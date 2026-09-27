@@ -24,6 +24,7 @@ import {
   starterKits,
 } from "@/lib/queries/governance";
 import { meetingDetail } from "@/lib/queries/meetings";
+import { citedBy } from "@/lib/queries/governance";
 import { unansweredCount } from "@/lib/queries/product";
 import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
 import { AREA_LABELS, FRAMEWORK_LABELS, PROVIDER_TONES, STANCE_WORDS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
@@ -160,6 +161,18 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     { id: "changes", label: "Changes", count: changes.length, tone: "you" },
   ];
   const fromKit = changes.some((c) => c.area === "starter");
+  const shortId = (id: string) => id.split("/").pop() ?? id;
+  const signedById = new Map(record.filter((r) => r.outcome !== "deferred").map((r) => [shortId(r.item_id), r]));
+  const precedentOptions = [...signedById.entries()].map(([id, r]) => ({ id, title: r.title, outcome: r.outcome, actor: r.actor, when: when(r.created_at) }));
+  const citedIn = (detailsJson: string | null | undefined): string[] => {
+    const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).related_decisions;
+    return Array.isArray(v) ? v.map(String) : [];
+  };
+  const precedentChips = (ids: string[]) => ids.map((id) => {
+    const r = signedById.get(id);
+    return r ? <Link key={id} href={to({ open: `record:${r.attestation_id}` })} scroll={false} className="rv-chip" data-tone={r.outcome === "approved" ? "ok" : "no"} title={`${r.outcome} by ${r.actor}`}>{id} {r.title}</Link>
+      : <Chip key={id} plain>{id}</Chip>;
+  });
   const modelOf = (ref: string | null) => catalog.find((m) => m.model_id === ref);
   const modelChip = (ref: string | null) => {
     const m = modelOf(ref);
@@ -199,7 +212,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   } else if (what === "submit") {
     drawer = (
       <Drawer closeHref={closeHref} title={key === "question" ? "Ask the committee" : "Submit a matter"} chips={<Chip tone="you">It joins Waiting</Chip>}>
-        <SubmitMatterForm runId={runId} preset={key || undefined} />
+        <SubmitMatterForm runId={runId} preset={key || undefined} precedents={precedentOptions} />
       </Drawer>
     );
   } else if (what === "customer") {
@@ -274,6 +287,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             {brief.why ? <div className="rv-brief-row"><span>Why</span><span>{brief.why.text}<span className="rv-brief-who">{brief.why.seat}</span></span></div> : null}
             {brief.objection ? <div className="rv-brief-row" data-tone="objection"><span><Term word="objection">Strongest objection</Term></span><span>{brief.objection.text}<span className="rv-brief-who">{brief.objection.seat}</span></span></div>
               : <div className="rv-brief-row"><span>Objections</span><span>None. Every seat that sat agreed.</span></div>}
+            {citedIn(d.details).length ? <div className="rv-brief-row"><span>Cites</span><span className="flex flex-wrap gap-1.5">{precedentChips(citedIn(d.details))}</span></div> : null}
             <div className="rv-brief-row"><span>What <Term word="sign">signing</Term> does</span><span>{brief.signing}</span></div>
             <p className="rv-hint">This is a <Term word="recommendation">recommendation</Term> from AI advisers, written from their own reasons. You decide.</p>
           </section>
@@ -299,7 +313,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             <dl className="rv-facts">
               {m.submitted_by ? <><dt>From</dt><dd>{m.submitted_by}</dd></> : null}
               <dt>Waiting</dt><dd>{ageOf(m.since)}</dd>
-              {Object.entries(parse<Record<string, unknown>>(m.details, {})).map(([k, v]) => (
+              {citedIn(m.details).length ? <><dt>Earlier decisions</dt><dd className="flex flex-wrap gap-1.5">{precedentChips(citedIn(m.details))}</dd></> : null}
+              {Object.entries(parse<Record<string, unknown>>(m.details, {})).filter(([k]) => k !== "related_decisions").map(([k, v]) => (
                 <span key={k} className="contents"><dt>{k.replace(/_/g, " ").replace(/^./, (ch) => ch.toUpperCase())}</dt><dd>{Array.isArray(v) ? v.join(", ") : v === true ? "Yes" : v === false ? "No" : String(v)}</dd></span>
               ))}
               <dt>Priority</dt>
@@ -318,6 +333,12 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     if (r) {
       const [label, tone] = OUTCOME[r.outcome] ?? [r.outcome, undefined];
       const overruled = r.outcome !== "deferred" && r.outcome !== r.recommended;
+      const citations = r.outcome === "deferred" ? [] : await citedBy(runId, shortId(r.item_id));
+      const openFor = (item: { item_id: string; status: string }) => {
+        const d = decisions.find((x) => x.item_id === shortId(item.item_id));
+        const signed = record.find((x) => x.item_id === item.item_id);
+        return d ? to({ open: `decision:${d.decision_id}` }) : signed ? to({ open: `record:${signed.attestation_id}` }) : to({ tab: "waiting", open: `matter:${item.item_id}` });
+      };
       drawer = (
         <Drawer closeHref={closeHref} title={r.title}
           chips={<>{tone ? <Chip tone={tone} solid>{label}</Chip> : <Chip plain>{label}</Chip>}{overruled ? <Chip tone="objection">Overruled the committee</Chip> : null}<RiskChip tier={r.risk_tier} /><Chip plain>{r.item_id}</Chip></>}>
@@ -330,6 +351,19 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             <div className="rv-card-h"><span>The committee recommended {r.recommended === "approved" ? "approving" : "rejecting"}</span><VoteBar yes={Number(r.yes_votes)} no={Number(r.no_votes)} /></div>
             {trailButton(r.meeting_id, r.item_id)}
           </section>
+          {citations.length ? (
+            <section className="rv-card">
+              <div className="rv-card-h"><span>Cited as <Term word="precedent">precedent</Term> by</span><span className="muted font-normal">{plural(citations.length, "matter")}</span></div>
+              <div className="rv-rows">
+                {citations.map((c) => (
+                  <Link key={c.item_id} href={openFor(c)} scroll={false} className="rv-rowline">
+                    <span className="min-w-0"><span className="rv-rowtitle">{c.title}</span><span className="rv-rowmeta"><Chip plain>{shortId(c.item_id)}</Chip><Chip plain>{c.status.replace(/_/g, " ")}</Chip></span></span>
+                    <span className="rv-rowend"><Icon name="chevron" className="rv-chev" /></span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : <p className="rv-hint">Later matters can cite this decision when they are submitted; the committee reads it as precedent.</p>}
         </Drawer>
       );
     }
