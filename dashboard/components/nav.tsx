@@ -86,12 +86,14 @@ function Brand() {
 /** "/policy-record" is not on "/policy": match the whole segment, not a prefix of it. */
 const isOn = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
-function Menu({ pathname, operator, showSimulation, run, onPick }: { pathname: string; operator: string | null; showSimulation: boolean; run: string | null; onPick?: () => void }) {
-  const inSimulation = SIMULATION.some((i) => isOn(pathname, i.href));
+const OPERATOR_ONLY = new Set(["/logs"]);
+
+function Menu({ pathname, operator, isOperator, showSimulation, run, onPick }: { pathname: string; operator: string | null; isOperator: boolean; showSimulation: boolean; run: string | null; onPick?: () => void }) {
+  const inSimulation = isOperator && SIMULATION.some((i) => isOn(pathname, i.href));
   return (
     <>
       <ul className="nav-list">
-        {PRODUCT.map((item) => <li key={item.href}><NavLink item={item} current={isOn(pathname, item.href)} run={run} onPick={onPick} /></li>)}
+        {PRODUCT.filter((item) => isOperator || !OPERATOR_ONLY.has(item.href)).map((item) => <li key={item.href}><NavLink item={item} current={isOn(pathname, item.href)} run={run} onPick={onPick} /></li>)}
       </ul>
       {showSimulation || inSimulation ? <details className="nav-group" open={inSimulation}>
         <summary className="nav-group-head">
@@ -105,8 +107,10 @@ function Menu({ pathname, operator, showSimulation, run, onPick }: { pathname: s
       <div className="nav-foot">
         <ThemeToggle />
         <div className="nav-user">
-          <span className="rv-avatar is-you" aria-hidden>{operator ? initials(operator) : "?"}</span>
-          <span className="nav-user-name">{operator ?? "Signed in"}</span>
+          <Link href="/account" className="nav-user-link" title="Your account" onClick={onPick}>
+            <span className="rv-avatar is-you" aria-hidden>{operator ? initials(operator) : "?"}</span>
+            <span className="nav-user-name">{operator ?? "Signed in"}</span>
+          </Link>
           <form method="post" action="/logout">
             <button className="nav-out" type="submit" title="Sign out" aria-label="Sign out"><Icon name="out" /></button>
           </form>
@@ -117,7 +121,7 @@ function Menu({ pathname, operator, showSimulation, run, onPick }: { pathname: s
 }
 
 /** A sidebar where there is room for one; on a phone, a top bar with the menu behind a button. */
-export function Nav({ operator, showSimulation }: { operator: string | null; showSimulation: boolean }) {
+export function Nav({ operator, isOperator, showSimulation }: { operator: string | null; isOperator: boolean; showSimulation: boolean }) {
   const pathname = usePathname();
   const run = useSearchParams().get("run");
   const [open, setOpen] = useState(false);
@@ -127,7 +131,7 @@ export function Nav({ operator, showSimulation }: { operator: string | null; sho
     <>
       <nav className="nav" aria-label="Main">
         <Brand />
-        <Menu pathname={pathname} operator={operator} showSimulation={showSimulation} run={run} />
+        <Menu pathname={pathname} operator={operator} isOperator={isOperator} showSimulation={showSimulation} run={run} />
       </nav>
       <div className="nav-bar">
         <Brand />
@@ -138,7 +142,7 @@ export function Nav({ operator, showSimulation }: { operator: string | null; sho
       </div>
       {open ? (
         <div id="nav-sheet" className="nav-sheet">
-          <Menu pathname={pathname} operator={operator} showSimulation={showSimulation} run={run} onPick={() => setOpen(false)} />
+          <Menu pathname={pathname} operator={operator} isOperator={isOperator} showSimulation={showSimulation} run={run} onPick={() => setOpen(false)} />
         </div>
       ) : null}
     </>

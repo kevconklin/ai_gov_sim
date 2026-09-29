@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { visibleRuns } from "@/lib/auth/access";
 import { first, type SearchParams } from "@/lib/params";
 import { currentScope, recentProblems, spendByModel, spendByMonth } from "@/lib/queries/product";
 import { spendCap } from "@/lib/queries/governance";
@@ -10,7 +11,7 @@ const when = (iso: string) => { const d = new Date(iso); return Number.isNaN(d.g
 /** What the committee is costing and whether its models are answering. Reframed from the research Health page for one customer. */
 export default async function SpendPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const scope = await currentScope(first(sp, "run"));
+  const scope = await currentScope(first(sp, "run"), await visibleRuns());
   if (!scope) return <div className="rv"><h1 className="rv-org">No committee yet</h1></div>;
   const thisMonth = new Date().toISOString().slice(0, 7);
   const [months, byModel, problems, cap] = await Promise.all([

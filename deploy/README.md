@@ -9,7 +9,7 @@ cd worker && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/python -m sim create --name pilot --seed 2027
 .venv/bin/python -m sim advance --experiment <experiment_id> --months 3 --demo   # free, scripted
 cd ../dashboard && npm ci && npm run build
-DATABASE_URL=../data/sim.sqlite DASHBOARD_PASSWORD=... DASHBOARD_SESSION_SECRET=$(openssl rand -base64 48) npm start
+DATABASE_URL=../data/sim.sqlite DASHBOARD_SESSION_SECRET=$(openssl rand -base64 48) npm start
 ```
 With Docker Compose (written but not run here, since Docker was not running): see the header of `docker-compose.yml`.
 
@@ -32,7 +32,7 @@ Job, the worker, the dashboard, and network policy.
      and every version is also stored in `policy_versions.policy_text`)
    Mount a persistent volume at `/data`.
 3. **Dashboard on Vercel**: root directory `dashboard/`. Env: `DATABASE_URL` (dashboard_readonly role),
-   `DATABASE_URL_CONTROL` (dashboard_control role), `DASHBOARD_PASSWORD`, `DASHBOARD_SESSION_SECRET`.
+   `DATABASE_URL_CONTROL` (dashboard_control role), `DASHBOARD_SESSION_SECRET`. Accounts live in the database: the first person to open the dashboard makes the operator account, or make it with `python -m sim user add --role operator`.
    Use the Supabase connection pooler URL for serverless.
 4. **Pilot**: `python -m sim create --name pilot --seed <seed>` (one replicate, both banks), start both runs from the
    Control page, run 3 simulated months, read cost per sim month from Overview or `metrics.cost_usd`.

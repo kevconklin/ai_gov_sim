@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { currentOperator } from "@/lib/auth/session";
+import { atLeast, isOperator, orgRole, visibleRuns } from "@/lib/auth/access";
 import { BANK_LABELS } from "@/lib/constants";
 import { first, href, type SearchParams } from "@/lib/params";
 import {
@@ -34,6 +35,9 @@ import { AddSeatForm, RemoveSeatForm, SeatForm } from "./seat-forms";
 import { Trail } from "./trail";
 import { AddDocumentForm, ArchiveForm, BudgetForm, PanelForm, ProfileFieldForm, RetireDocumentForm } from "./settings-forms";
 import { SetupWizard, type KitView } from "./setup-wizard";
+import { InviteForm, RemoveMemberForm } from "./people-forms";
+import { membersOf } from "@/lib/auth/users";
+import { ROLE_WORDS } from "@/lib/auth/roles";
 import { Avatar, Chip, Drawer, Fold, Help, Icon, KindChip, RiskChip, SeatVotes, Term, VoteBar } from "./parts";
 import { decisionBrief, plain } from "@/lib/reviews/brief";
 
@@ -76,18 +80,40 @@ function EmptyState({ icon, tone, children }: { icon: string; tone: string; chil
 
 export default async function ReviewsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const scopes = await reviewScopes();
-  if (scopes.length === 0) {
+  const operatorAccount = await isOperator();
+  const scopes = await reviewScopes(await visibleRuns());
+  const wantsNew = first(sp, "open") === "customer" && operatorAccount;
+  if (scopes.length === 0 && !wantsNew) {
     return (
       <div className="rv">
-        <h1 className="rv-org">No committee yet</h1>
-        <p className="muted mt-2">Create one, then reload: <code>python -m sim workspace --name &quot;Your organization&quot; --starter general_business --risk-appetite &quot;…&quot;</code></p>
-        <p className="muted mt-1">Kits: <code>general_business</code>, <code>regulated</code>, <code>software</code>. Leave <code>--starter</code> off for a blank start.</p>
+        <h1 className="rv-org">{operatorAccount ? "No organization yet" : "Nothing to show yet"}</h1>
+        {operatorAccount
+          ? <p className="muted mt-2"><Link href="/reviews?open=customer" className="rv-btn rv-btn-you">Set one up</Link></p>
+          : <p className="muted mt-2">You are not a member of any organization. Ask the person who runs governance to add you.</p>}
       </div>
     );
   }
-  const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0]!;
+  const scope = scopes.find((s) => s.run_id === first(sp, "run")) ?? scopes[0];
+  if (!scope) {
+    // an operator with no organization yet, opening the setup drawer
+    return (
+      <div className="rv">
+        <h1 className="rv-org">No organization yet</h1>
+        <Drawer closeHref="/organizations" title="Set up a new organization" chips={<Chip tone="ai">About five minutes</Chip>}>
+          <SetupWizard kits={(await starterKits()).map((k) => ({
+            id: k.starter_id, label: k.label, summary: k.summary, audience: k.audience, framework: k.framework,
+            stances: parse<Record<string, { label: string; text: string }>>(k.stances, {}),
+            facts_template: k.facts_template, business_goals: k.business_goals, control_count: Number(k.control_count), document_count: Number(k.document_count),
+          }))} />
+        </Drawer>
+      </div>
+    );
+  }
   const runId = scope.run_id;
+  const role = await orgRole(runId);
+  const canDecide = atLeast(role, "decides");
+  const canRun = atLeast(role, "runs");
+  const people = scope.condition === "workspace" ? await membersOf(runId) : [];
 
   const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog, kitRows, inventoried, unansweredAsks] = await Promise.all([
     currentOperator(),
@@ -188,8 +214,14 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
 
   // ---- the drill-down ----------------------------------------------------------------------
   let drawer: ReactNode = null;
-  const [what, ...rest] = open.split(":");
+  const [whatAsked, ...rest] = open.split(":");
   const key = rest.join(":");
+  // configuration drawers are for whoever runs the organization; everyone else reads the tab and gets a note
+  const CONFIG_DRAWERS = ["archive", "budget", "document", "panel", "person", "seat", "setting"];
+  const what = !canRun && CONFIG_DRAWERS.includes(whatAsked ?? "") ? "readonly" : whatAsked;
+  if (what === "readonly") {
+    drawer = <Drawer closeHref={closeHref} title="Read only" chips={<Chip tone="wait">Runs it</Chip>}><p className="rv-prose">Only someone who runs this organization can change its settings, committee, documents, or budget. Everything is here to read.</p></Drawer>;
+  }
 
   const trailHref = (meetingId: string, itemId?: string) => to({ open: `trail:${meetingId}${itemId ? `~${itemId}` : ""}` });
   const trailButton = (meetingId: string, itemId?: string) => (
@@ -219,7 +251,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         <SubmitMatterForm runId={runId} preset={key || undefined} precedents={precedentOptions} />
       </Drawer>
     );
-  } else if (what === "customer") {
+  } else if (what === "customer" && operatorAccount) {
     drawer = (
       <Drawer closeHref={closeHref} title="Set up a new organization" chips={<Chip tone="ai">About five minutes</Chip>}>
         <SetupWizard kits={kits} />
@@ -254,6 +286,21 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     );
   } else if (what === "archive" && org) {
     drawer = <Drawer closeHref={closeHref} title={archived ? "Restore this organization" : "Archive this organization"} chips={<Chip tone={archived ? "you" : "wait"}>{archived ? "Archived" : "Nothing is deleted"}</Chip>}><ArchiveForm runId={runId} name={org.name} archived={archived} /></Drawer>;
+  } else if (what === "person" && org) {
+    if (key === "new") {
+      drawer = <Drawer closeHref={closeHref} title="Add a person" chips={<Chip tone="you">People</Chip>}><InviteForm runId={runId} /></Drawer>;
+    } else {
+      const person = people.find((x) => x.user_id === key);
+      if (person) {
+        drawer = (
+          <Drawer closeHref={closeHref} title={person.name} chips={<><Chip tone="you">{ROLE_WORDS[person.role]}</Chip><Chip plain>{person.email}</Chip></>}>
+            <section className="rv-card"><dl className="rv-facts"><dt>Added by</dt><dd>{person.added_by}</dd><dt>When</dt><dd>{when(person.added_at)}</dd></dl></section>
+            <p className="rv-hint">To change what they may do, add them again with the new role; the change lands on the record.</p>
+            <RemoveMemberForm runId={runId} userId={person.user_id} name={person.name} />
+          </Drawer>
+        );
+      }
+    }
   } else if (what === "budget") {
     drawer = <Drawer closeHref={closeHref} title="Monthly budget" chips={<Chip tone="you">Budget</Chip>}><BudgetForm runId={runId} current={cap} /></Drawer>;
   } else if (what === "change") {
@@ -301,10 +348,11 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             <SeatVotes bench={bench} />
             <div className="mt-2">{trailButton(d.meeting_id, d.item_id)}</div>
           </Fold>
-          <section className="rv-card" data-tone="you">
+          {!canDecide ? <p className="rv-hint" data-tone="wait">Only someone who decides for this organization can sign. You can read everything here.</p> : null}
+          {canDecide ? <section className="rv-card" data-tone="you">
             <SignDecision runId={runId} decisionId={d.decision_id} recommended={d.recommended} mustWeighAll={d.risk_tier === "high"}
               dissents={dissents} operator={operator ?? "You"} reviewTotal={Number(d.review_total)} reviewSigned={Number(d.review_signed)} />
-          </section>
+          </section> : null}
         </Drawer>
       );
     }
@@ -442,7 +490,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="rv-top-actions">
           {scopes.length > 1 ? <WorkspacePicker scopes={scopeOptions} current={runId} /> : null}
-          <Link href={to({ open: "customer" })} scroll={false} className="rv-btn">New customer</Link>
+          {operatorAccount ? <Link href={to({ open: "customer" })} scroll={false} className="rv-btn">New organization</Link> : null}
           <Link href={to({ open: "submit" })} scroll={false} className="rv-btn rv-btn-you"><Icon name="plus" /> Submit a matter</Link>
         </div>
       </header>
@@ -563,7 +611,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
 
         {tab === "waiting" ? (
           queue.length === 0 ? <EmptyState icon="inbox" tone="wait">Nothing is waiting. Submit a matter, or <Link href={to({ open: "submit:question" })} scroll={false}>ask the committee a question</Link>.</EmptyState>
-            : <WaitingRows runId={runId} entries={queue} askHref={to({ open: "submit:question" })} openHrefs={Object.fromEntries(queue.map((m) => [m.ref_id, to({ open: `matter:${m.ref_id}` })]))} />
+            : <WaitingRows runId={runId} entries={queue} canConvene={canDecide} askHref={to({ open: "submit:question" })} openHrefs={Object.fromEntries(queue.map((m) => [m.ref_id, to({ open: `matter:${m.ref_id}` })]))} />
         ) : null}
 
         {tab === "decided" ? (
@@ -682,6 +730,18 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
                   <Icon name="chevron" className="rv-chev" />
                 </Link>
               </div>
+
+              <div className="rv-group-h"><span>People</span>{canRun ? <Link href={to({ open: "person:new" })} scroll={false} className="rv-btn rv-btn-sm"><Icon name="plus" /> Add person</Link> : null}</div>
+              {people.length === 0 ? <p className="muted px-1 pb-2">Nobody has been added yet. Operators can always open this organization.</p> : (
+                <div className="rv-setgrid">
+                  {people.map((p) => (
+                    <Link key={p.user_id} href={to({ open: `person:${p.user_id}` })} scroll={false} className="rv-set">
+                      <span className="min-w-0"><span className="rv-set-label">{ROLE_WORDS[p.role]}</span><span className="rv-set-value">{p.name} <span className="muted">{p.email}</span></span></span>
+                      <Icon name="chevron" className="rv-chev" />
+                    </Link>
+                  ))}
+                </div>
+              )}
 
               <div className="rv-group-h"><span>Governing documents</span><Link href={to({ open: "document:new" })} scroll={false} className="rv-btn rv-btn-sm"><Icon name="plus" /> Add document</Link></div>
               {docs.length === 0 ? <p className="muted px-1 pb-2">None yet. Add your acceptable use policy or committee charter so the committee can cite it.</p> : (

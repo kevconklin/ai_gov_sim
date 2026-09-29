@@ -380,13 +380,25 @@ export interface ScopeRow {
 }
 
 /** Every committee a person could be looking at: organizations first, then simulated runs. */
-export async function reviewScopes(): Promise<ScopeRow[]> {
+/** Runs the signed-in person may open. "all" is an operator; a member sees only their organizations. */
+export type Visible = "all" | string[];
+
+function visibleClause(allowed: Visible, column: string): { sql: string; params: string[] } {
+  if (allowed === "all") return { sql: "", params: [] };
+  if (!allowed.length) return { sql: ` AND 1 = 0`, params: [] };
+  return { sql: ` AND ${column} IN (${allowed.map(() => "?").join(", ")})`, params: allowed };
+}
+
+export async function reviewScopes(allowed: Visible): Promise<ScopeRow[]> {
   const db = await readDb();
+  const v = visibleClause(allowed, "r.run_id");
   return db.all<ScopeRow>(
     `SELECT r.run_id, r.bank_id, r.condition, o.name AS org_name, e.name AS experiment_name, r.started_at, r.status
      FROM runs r JOIN experiments e ON e.experiment_id = r.experiment_id
      LEFT JOIN org_profiles o ON o.run_id = r.run_id
+     WHERE 1 = 1${v.sql}
      ORDER BY CASE WHEN r.condition = 'workspace' AND r.status <> 'archived' THEN 0 WHEN r.condition = 'workspace' THEN 2 ELSE 1 END, r.started_at DESC`,
+    v.params,
   );
 }
 

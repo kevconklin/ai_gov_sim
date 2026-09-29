@@ -26,6 +26,8 @@ export const COMMAND_KINDS = [
   "escalate_ask",
   "archive_workspace",
   "restore_workspace",
+  "set_member",
+  "remove_member",
 ] as const;
 export type CommandKind = (typeof COMMAND_KINDS)[number];
 
@@ -253,6 +255,8 @@ export const commandSchema = z.discriminatedUnion("kind", [
         .strict(),
     })
     .strict(),
+  z.object({ kind: z.literal("set_member"), run_id: runId, reason, payload: z.object({ user_id: z.string().min(1).max(80), role: z.enum(["runs", "decides", "asks"]), ...attribution }).strict() }).strict(),
+  z.object({ kind: z.literal("remove_member"), run_id: runId, reason, payload: z.object({ user_id: z.string().min(1).max(80), ...attribution }).strict() }).strict(),
   z.object({ kind: z.literal("archive_workspace"), run_id: runId, reason, payload: z.object({ ...attribution }).strict() }).strict(),
   z.object({ kind: z.literal("restore_workspace"), run_id: runId, reason, payload: z.object({ ...attribution }).strict() }).strict(),
   z

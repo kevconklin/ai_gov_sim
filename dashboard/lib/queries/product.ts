@@ -3,12 +3,18 @@ import { readDb } from "@/lib/db";
 import { num } from "@/lib/db/values";
 
 /** Which committee the product pages are looking at: the one in ?run=, else the newest customer, else any run. */
-export async function currentScope(runParam: string | undefined): Promise<{ run_id: string; name: string; workspace: boolean } | null> {
+export type Visible = "all" | string[];
+
+/** The organization a product page shows: ?run= if the person may open it, else their first. Never one they may not. */
+export async function currentScope(runParam: string | undefined, allowed: Visible): Promise<{ run_id: string; name: string; workspace: boolean } | null> {
   const db = await readDb();
+  if (allowed !== "all" && !allowed.length) return null;
+  const fence = allowed === "all" ? "" : ` WHERE r.run_id IN (${allowed.map(() => "?").join(", ")})`;
   const rows = await db.all<{ run_id: string; name: string | null; experiment_name: string; condition: string }>(
     `SELECT r.run_id, o.name, e.name AS experiment_name, r.condition
-     FROM runs r JOIN experiments e ON e.experiment_id = r.experiment_id LEFT JOIN org_profiles o ON o.run_id = r.run_id
+     FROM runs r JOIN experiments e ON e.experiment_id = r.experiment_id LEFT JOIN org_profiles o ON o.run_id = r.run_id${fence}
      ORDER BY CASE WHEN r.condition = 'workspace' AND r.status <> 'archived' THEN 0 WHEN r.condition = 'workspace' THEN 2 ELSE 1 END, r.started_at DESC`,
+    allowed === "all" ? [] : allowed,
   );
   const row = rows.find((r) => r.run_id === runParam) ?? rows[0];
   return row ? { run_id: row.run_id, name: row.name ?? row.experiment_name, workspace: row.condition === "workspace" } : null;
@@ -132,8 +138,10 @@ export interface OrganizationRow {
 }
 
 /** Every organization with a committee, active first, newest first, with what needs attention at a glance. */
-export async function organizations(month: string): Promise<OrganizationRow[]> {
+export async function organizations(month: string, allowed: Visible): Promise<OrganizationRow[]> {
   const db = await readDb();
+  if (allowed !== "all" && !allowed.length) return [];
+  const fence = allowed === "all" ? "" : ` AND r.run_id IN (${allowed.map(() => "?").join(", ")})`;
   const rows = await db.all<Record<string, unknown>>(
     `SELECT r.run_id, o.name, r.status, o.framework, r.started_at, r.spend_cap_usd_per_month AS cap,
             (SELECT COUNT(*) FROM agents ag WHERE ag.run_id = r.run_id AND ag.active_to IS NULL) AS seats,
@@ -149,9 +157,9 @@ export async function organizations(month: string): Promise<OrganizationRow[]> {
             (SELECT COALESCE(SUM(l.cost_usd), 0) FROM llm_calls l WHERE l.run_id = r.run_id AND l.created_at LIKE ?) AS spend_month,
             (SELECT c.target FROM config_changes c WHERE c.run_id = r.run_id AND c.area = 'starter' ORDER BY c.changed_at LIMIT 1) AS starter
      FROM runs r JOIN org_profiles o ON o.run_id = r.run_id
-     WHERE r.condition = 'workspace'
+     WHERE r.condition = 'workspace'${fence}
      ORDER BY CASE WHEN r.status = 'archived' THEN 1 ELSE 0 END, r.started_at DESC`,
-    [`${month}%`],
+    [`${month}%`, ...(allowed === "all" ? [] : allowed)],
   );
   return rows.map((r) => ({
     run_id: String(r.run_id), name: String(r.name), status: String(r.status), framework: (r.framework as string | null) ?? null,

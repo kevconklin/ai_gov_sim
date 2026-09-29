@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PolicyDiff } from "@/components/policy-diff";
+import { visibleRuns } from "@/lib/auth/access";
 import { first, href, type SearchParams } from "@/lib/params";
 import { controlDelta, listControls, splitClause } from "@/lib/policy-text";
 import { currentScope, openPolicyMatters, policyHistory } from "@/lib/queries/product";
@@ -21,7 +22,7 @@ function parse<T>(raw: string | null | undefined, fallback: T): T {
  */
 export default async function PolicyRecordPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const scope = await currentScope(first(sp, "run"));
+  const scope = await currentScope(first(sp, "run"), await visibleRuns());
   if (!scope) return <div className="rv"><h1 className="rv-org">No committee yet</h1></div>;
   const [history, open] = await Promise.all([policyHistory(scope.run_id), openPolicyMatters(scope.run_id)]);
   const current = history[0];

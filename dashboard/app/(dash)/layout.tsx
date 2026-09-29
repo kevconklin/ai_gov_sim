@@ -1,4 +1,4 @@
-import { currentOperator } from "@/lib/auth/session";
+import { currentUser } from "@/lib/auth/session";
 import { Suspense } from "react";
 import { Nav } from "@/components/nav";
 import { readDb } from "@/lib/db";
@@ -22,10 +22,13 @@ async function simulationAvailable(): Promise<boolean> {
 }
 
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
-  const [operator, showSimulation] = await Promise.all([currentOperator(), simulationAvailable()]);
+  const user = await currentUser();
+  const operator = user?.role === "operator";
+  // the research bench and the raw logs are the operator's; a member of an organization never sees them
+  const showSimulation = operator && (await simulationAvailable());
   return (
     <div className="dash">
-      <Suspense fallback={null}><Nav operator={operator} showSimulation={showSimulation} /></Suspense>
+      <Suspense fallback={null}><Nav operator={user?.name ?? null} isOperator={operator} showSimulation={showSimulation} /></Suspense>
       <main className="dash-main">{children}</main>
     </div>
   );

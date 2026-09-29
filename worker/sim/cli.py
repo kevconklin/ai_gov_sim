@@ -218,6 +218,25 @@ def cmd_workspace(args: argparse.Namespace) -> None:
     print(json.dumps({"workspace": run_id}, indent=2))
 
 
+def cmd_user(args: argparse.Namespace) -> None:
+    """Make or list accounts. The first operator account is made here, on a machine with no dashboard session yet."""
+    import getpass
+
+    from govern.accounts import AccountError, create_user
+
+    db = _open_db()
+    if args.action == "list":
+        for u in db.fetch_all("SELECT email, name, role, created_at, disabled_at FROM users ORDER BY created_at"):
+            print(f"{u['email']:40} {u['name']:28} {u['role']:9} {u['created_at'][:10]}{'  disabled' if u['disabled_at'] else ''}")
+        return
+    password = args.password or getpass.getpass("Password (at least 12 characters): ")
+    try:
+        user_id = create_user(db, email=args.email, name=args.name, password=password, role=args.role, created_by="cli")
+    except AccountError as error:
+        sys.exit(str(error))
+    print(json.dumps({"user_id": user_id, "email": args.email.strip().lower(), "role": args.role}, indent=2))
+
+
 def cmd_ask(args: argparse.Namespace) -> None:
     """Ask the policy a question. One model call; the answer cites controls or says the policy does not cover it."""
     from govern.ask import AskError, answer
@@ -445,6 +464,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--starter", help="start from a kit in config/starters (general_business, regulated, software)")
     p.add_argument("--framework", help="control framework id; defaults to the kit's")
     p.set_defaults(func=cmd_workspace)
+
+    p = sub.add_parser("user", help="make or list accounts; `user add --role operator` makes the first one")
+    p.add_argument("action", choices=["add", "list"])
+    p.add_argument("--email")
+    p.add_argument("--name")
+    p.add_argument("--role", choices=["operator", "member"], default="member")
+    p.add_argument("--password", help="omit to be prompted")
+    p.set_defaults(func=cmd_user)
 
     p = sub.add_parser("ask", help="ask the policy a question; the answer cites controls or admits the gap")
     p.add_argument("--run", required=True, help="the workspace")

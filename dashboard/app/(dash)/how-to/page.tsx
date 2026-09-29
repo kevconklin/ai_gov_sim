@@ -146,6 +146,20 @@ const SECTIONS: Section[] = [
     tryIt: { href: "/reviews?tab=committee", label: "Open Committee" },
   },
   {
+    id: "people",
+    title: "Add people and decide who may do what",
+    lead: "Every action is under a real account. Three roles per organization: runs it, decides, asks and submits.",
+    steps: [
+      "Settings, People, Add person: their name, email, what they may do, and why.",
+      "A new email gets an account with a temporary password, shown to you once. Hand it over; they choose their own at first sign-in.",
+      "Someone who asks can submit matters, ask the policy, and read everything. Someone who decides can also convene and sign. Someone who runs it can also change settings, the committee, documents, budget, and people.",
+      "A person sees only the organizations they belong to. Operators, who run the whole service, see all of them and are listed on Organizations.",
+      "Your name and email go on everything you sign; change either under your account, bottom left.",
+    ],
+    image: "people", alt: "The People group in Settings with members and their roles",
+    tryIt: { href: "/reviews?tab=settings", label: "Open Settings" },
+  },
+  {
     id: "spend",
     title: "Watch spend and health",
     lead: "Every review and every question is a model call, counted against a monthly cap you set.",

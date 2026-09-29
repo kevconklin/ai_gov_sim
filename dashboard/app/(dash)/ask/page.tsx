@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { visibleRuns } from "@/lib/auth/access";
 import { first, type SearchParams } from "@/lib/params";
 import { currentScope, openAsks, recentAsks, unansweredCount } from "@/lib/queries/product";
 import { describeWork } from "@/lib/reviews/model";
@@ -34,7 +35,7 @@ function questionOf(payload: string | null): string {
 
 export default async function AskPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const scope = await currentScope(first(sp, "run"));
+  const scope = await currentScope(first(sp, "run"), await visibleRuns());
   if (!scope) return <div className="rv"><h1 className="rv-org">No committee yet</h1></div>;
   const [asks, work, unanswered] = await Promise.all([recentAsks(scope.run_id), openAsks(scope.run_id), unansweredCount(scope.run_id)]);
   const pending = work.filter((w) => w.status !== "failed");

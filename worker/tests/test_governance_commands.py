@@ -260,3 +260,16 @@ def test_a_question_to_the_policy_goes_through_the_queue_and_can_be_sent_on(work
     assert sent["status"] == "done", sent["result"]
     item = db.fetch_one("SELECT kind, submitted_by FROM items WHERE item_id = ?", (sent["result"]["item_id"],))
     assert (item["kind"], item["submitted_by"]) == ("question", "cro@northwind.example")
+
+
+def test_a_membership_goes_through_the_queue_under_the_sessions_name(workspace):
+    from govern.accounts import create_user
+    db, _, run_id, _ = workspace
+    uid = create_user(db, email="lee@northwind.example", name="Lee Park", password="a long enough password")
+    out = run_command(workspace, "set_member", {"user_id": uid, "role": "decides", "why": "Heads member services.",
+                                                "actor": "cro@northwind.example", "source": "dashboard_session"})
+    assert out["status"] == "done", out["result"]
+    row = db.fetch_one("SELECT actor, after_value FROM config_changes WHERE run_id = ? AND area = 'people'", (run_id,))
+    assert (row["actor"], row["after_value"]) == ("cro@northwind.example", "decides")
+    gone = run_command(workspace, "remove_member", {"user_id": uid, "why": "Left in October.", "actor": "cro@northwind.example", "source": "dashboard_session"})
+    assert gone["status"] == "done", gone["result"]

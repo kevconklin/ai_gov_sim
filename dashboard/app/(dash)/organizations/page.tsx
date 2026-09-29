@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { isOperator, visibleRuns } from "@/lib/auth/access";
 import { organizations } from "@/lib/queries/product";
+import { operators as listOperators } from "@/lib/auth/users";
+import { InviteOperatorForm } from "../reviews/people-forms";
 import { FRAMEWORK_LABELS, plural } from "@/lib/reviews/model";
 import { Chip, Icon } from "../reviews/parts";
 
@@ -14,7 +17,8 @@ function since(iso: string): string {
 /** Every organization with a committee, and what each needs from a person right now. */
 export default async function OrganizationsPage() {
   const month = new Date().toISOString().slice(0, 7);
-  const rows = await organizations(month);
+  const [rows, operator] = await Promise.all([organizations(month, await visibleRuns()), isOperator()]);
+  const ops = operator ? await listOperators() : [];
   const active = rows.filter((r) => r.status !== "archived");
   const archived = rows.filter((r) => r.status === "archived");
   const needing = active.filter((r) => r.needs_you > 0).length;
@@ -55,7 +59,7 @@ export default async function OrganizationsPage() {
     <div className="rv">
       <header className="rv-top">
         <div className="flex flex-wrap items-center gap-2.5"><h1 className="rv-org">Organizations</h1><Chip plain>{active.length} active</Chip></div>
-        <Link href="/reviews?open=customer" className="rv-btn rv-btn-you"><Icon name="plus" /> New organization</Link>
+        {operator ? <Link href="/reviews?open=customer" className="rv-btn rv-btn-you"><Icon name="plus" /> New organization</Link> : null}
       </header>
 
       <div className="rv-tiles">
@@ -68,9 +72,22 @@ export default async function OrganizationsPage() {
       <section className="rv-board">
         <nav className="rv-tabs" aria-label="Organizations"><span className="rv-tab" aria-current="page">Active<span className="rv-tab-count">{active.length}</span></span></nav>
         {active.length === 0 ? (
-          <div className="rv-empty"><span className="rv-empty-icon" data-tone="you"><Icon name="users" /></span><span>No organization yet. <Link href="/reviews?open=customer">Set one up</Link> in about five minutes.</span></div>
+          <div className="rv-empty"><span className="rv-empty-icon" data-tone="you"><Icon name="users" /></span><span>{operator ? <>No organization yet. <Link href="/reviews?open=customer">Set one up</Link> in about five minutes.</> : "You are not a member of any organization yet. Ask the person who runs governance to add you."}</span></div>
         ) : <div className="rv-rows">{active.map(row)}</div>}
       </section>
+
+      {operator ? (
+        <section className="rv-board">
+          <nav className="rv-tabs" aria-label="Operators"><span className="rv-tab" aria-current="page">Operators<span className="rv-tab-count">{ops.length}</span></span><span className="ml-auto muted text-xs pb-1.5 pr-1">Run the service: every organization, setup, logs.</span></nav>
+          <div className="rv-rows">
+            {ops.map((o) => <div key={o.user_id} className="rv-rowline" style={{ cursor: "default" }}><span className="rv-riskmark" data-tone="ai" /><span className="min-w-0"><span className="rv-rowtitle">{o.name}</span><span className="rv-rowmeta"><Chip plain>{o.email}</Chip><Chip plain>Since {o.created_at.slice(0, 10)}</Chip></span></span></div>)}
+          </div>
+          <details className="rv-fold" style={{ margin: "0.75rem" }}>
+            <summary className="rv-fold-head"><span>Add an operator</span></summary>
+            <div className="rv-fold-body"><InviteOperatorForm /></div>
+          </details>
+        </section>
+      ) : null}
 
       {archived.length ? (
         <section className="rv-board">

@@ -1,13 +1,27 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { atLeast, isOperator, orgRole } from "@/lib/auth/access";
 import { currentOperator, hasValidSession } from "@/lib/auth/session";
+import type { OrgRole } from "@/lib/auth/users";
 import { bindActor } from "@/lib/control/bind";
 import { submitCommand, submitWorkspace, type ControlResult } from "@/lib/control/submit";
 import { detailsFromFields } from "@/lib/reviews/model";
 
 const MAX_FIELD = 4000;
 const UNAUTHORIZED: ControlResult = { success: false, data: null, error: "Your session has expired. Sign in again." };
+const FORBIDDEN: Record<OrgRole, string> = {
+  asks: "You are not a member of this organization.",
+  decides: "Only someone who decides for this organization can do this.",
+  runs: "Only someone who runs this organization can do this.",
+};
+
+/** The fence every write goes through: a signed-in account with at least `need` in this organization. */
+async function allowed(runId: string, need: OrgRole): Promise<ControlResult | null> {
+  if (!(await currentOperator())) return UNAUTHORIZED;
+  if (!runId) return { success: false, data: null, error: "No organization was named." };
+  return atLeast(await orgRole(runId), need) ? null : { success: false, data: null, error: FORBIDDEN[need] };
+}
 
 function fieldsOf(formData: FormData): Record<string, string> {
   const out: Record<string, string> = {};
@@ -27,6 +41,8 @@ export async function refreshCandidatesAction(_prev: ControlResult | null, formD
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "decides");
+  if (denied) return denied;
   return done(await submitCommand({
     kind: "candidates",
     run_id: f.run_id ?? "",
@@ -40,6 +56,8 @@ export async function conveneAction(_prev: ControlResult | null, formData: FormD
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "decides");
+  if (denied) return denied;
   const advisory = (f.advisory ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
   // Checkbox values are JSON the page wrote, but they arrive from the client and a logged-in
   // caller can send anything. A parse failure is a bad request, not a crashed action; the
@@ -72,6 +90,8 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "decides");
+  if (denied) return denied;
   const respondedTo = formData
     .getAll("responded_to")
     .filter((v): v is string => typeof v === "string" && v.length > 0);
@@ -98,6 +118,8 @@ export async function submitItemAction(_prev: ControlResult | null, formData: Fo
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "asks");
+  if (denied) return denied;
   const details = detailsFromFields(formData.entries());
   return done(await submitCommand({
     kind: "submit",
@@ -119,6 +141,8 @@ export async function setBriefAction(_prev: ControlResult | null, formData: Form
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return done(await submitCommand({
     kind: "set_brief",
     run_id: f.run_id ?? "",
@@ -136,6 +160,7 @@ async function configure(operator: string, runId: string, kind: string, why: str
 export async function createCustomerAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
+  if (!(await isOperator())) return { success: false, data: null, error: "Only an operator can set up a new organization." };
   const f = fieldsOf(formData);
   const optional = Object.fromEntries(
     (["facts", "framework", "business_goals", "ai_landscape", "ai_tools", "starter"] as const).filter((k) => f[k]?.trim()).map((k) => [k, f[k]]),
@@ -160,6 +185,8 @@ export async function updateProfileAction(_prev: ControlResult | null, formData:
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "update_profile", f.why ?? "", { changes: { [f.field ?? ""]: f.value ?? "" } });
 }
 
@@ -168,6 +195,8 @@ export async function addDocumentAction(_prev: ControlResult | null, formData: F
   if (!operator) return UNAUTHORIZED;
   const body = formData.get("body");
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "add_document", f.why ?? "",
     { kind: f.kind ?? "", title: f.title ?? "", body: typeof body === "string" ? body : "" });
 }
@@ -176,6 +205,8 @@ export async function retireDocumentAction(_prev: ControlResult | null, formData
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "retire_document", f.why ?? "", { document_id: f.document_id ?? "" });
 }
 
@@ -183,6 +214,8 @@ export async function setPanelAction(_prev: ControlResult | null, formData: Form
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   const seats = formData.getAll("seat").filter((v): v is string => typeof v === "string");
   return configure(operator, f.run_id ?? "", "set_panel", f.why ?? "", { kind: f.kind ?? "", seats });
 }
@@ -191,6 +224,8 @@ export async function setBudgetAction(_prev: ControlResult | null, formData: For
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return done(await submitCommand(bindActor({
     kind: "set_spend_cap", run_id: f.run_id ?? "", reason: `${operator}: ${f.why ?? ""}`,
     payload: { usd_per_sim_month: Number(f.usd) },
@@ -211,6 +246,8 @@ export async function addSeatAction(_prev: ControlResult | null, formData: FormD
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "add_seat", f.why ?? "", {
     seat: (f.title ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40),
     title: f.title ?? "", brief: f.brief ?? "",
@@ -224,6 +261,8 @@ export async function updateSeatAction(_prev: ControlResult | null, formData: Fo
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "update_seat", f.why ?? "", { seat: f.seat ?? "", changes: seatChanges(f) });
 }
 
@@ -231,6 +270,8 @@ export async function removeSeatAction(_prev: ControlResult | null, formData: Fo
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "remove_seat", f.why ?? "", { seat: f.seat ?? "" });
 }
 
@@ -239,6 +280,8 @@ export async function askPolicyAction(_prev: ControlResult | null, formData: For
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "asks");
+  if (denied) return denied;
   const result = await submitCommand(bindActor({
     kind: "ask", run_id: f.run_id ?? "", reason: `${operator}: asked the policy a question`, payload: { question: f.question ?? "" },
   }, operator));
@@ -251,6 +294,8 @@ export async function escalateAskAction(_prev: ControlResult | null, formData: F
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "asks");
+  if (denied) return denied;
   const result = await submitCommand(bindActor({
     kind: "escalate_ask", run_id: f.run_id ?? "", reason: `${operator}: sent a question to the committee`, payload: { ask_id: f.ask_id ?? "" },
   }, operator));
@@ -262,6 +307,8 @@ export async function archiveWorkspaceAction(_prev: ControlResult | null, formDa
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "archive_workspace", f.why ?? "", {});
 }
 
@@ -269,5 +316,7 @@ export async function restoreWorkspaceAction(_prev: ControlResult | null, formDa
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;
   const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
   return configure(operator, f.run_id ?? "", "restore_workspace", f.why ?? "", {});
 }

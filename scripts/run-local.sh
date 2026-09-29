@@ -6,6 +6,7 @@
 #   scripts/run-local.sh stop
 #   scripts/run-local.sh status
 #
+# The session secret is fresh on every start, so everyone signs in again after a restart.
 # Keys are read from worker/.env, which git ignores. In demo mode they only decide which models
 # the picker shows as available; nothing is called.
 #
@@ -18,7 +19,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORT=3100
 RUN_DIR="$ROOT/data/run"
 LOG_DIR="$ROOT/data/logs"
-PASSWORD="${DASHBOARD_PASSWORD:-localdev}"
 POLL="${SIM_POLL_SECONDS:-3}"
 
 alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
@@ -84,7 +84,7 @@ start() {
 
   (
     cd "$ROOT/dashboard"
-    DATABASE_URL=file:../data/sim.sqlite DASHBOARD_PASSWORD="$PASSWORD" DASHBOARD_SESSION_SECRET="$(openssl rand -base64 48)" \
+    DATABASE_URL=file:../data/sim.sqlite DASHBOARD_SESSION_SECRET="$(openssl rand -base64 48)" \
       detach "$LOG_DIR/dashboard.log" "$RUN_DIR/dashboard.pid" npm run dev
   )
 
@@ -102,7 +102,8 @@ start() {
   echo
   status
   echo
-  echo "sign in at http://localhost:$PORT with your name and the password '$PASSWORD'"
+  echo "open http://localhost:$PORT and sign in. No accounts yet? The page makes the first one (an operator)."
+  echo "or from the command line: (cd worker && .venv/bin/python -m sim user add --role operator --email you@example.com --name \"Your Name\")"
   echo "logs: $LOG_DIR/dashboard.log  $LOG_DIR/worker.log"
 }
 

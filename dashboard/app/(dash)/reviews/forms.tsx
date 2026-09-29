@@ -85,7 +85,7 @@ export function RefreshRanking({ runId }: { runId: string }) {
 const TIER_WORDS: Record<string, string> = { high: "High risk", medium: "Medium risk", low: "Low risk" };
 
 /** The waiting matters: tick to choose, click to read. The action bar names what it will do. */
-export function WaitingRows({ runId, entries, openHrefs, askHref }: { runId: string; entries: QueueEntry[]; openHrefs: Record<string, string>; askHref: string }) {
+export function WaitingRows({ runId, entries, openHrefs, askHref, canConvene = true }: { runId: string; entries: QueueEntry[]; openHrefs: Record<string, string>; askHref: string; canConvene?: boolean }) {
   const [state, action, pending] = useActionState(conveneAction, null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const total = picked.size;
@@ -131,8 +131,8 @@ export function WaitingRows({ runId, entries, openHrefs, askHref }: { runId: str
       <div className="rv-actionbar">
         <Link href={askHref} scroll={false} className="rv-btn rv-btn-sm">Ask the committee a question</Link>
         <span className="flex flex-wrap items-center gap-3">
-          <span className="rv-hint" style={{ marginTop: 0 }}>{total ? `${plural(total, "matter")} selected` : "Tick matters to review"}</span>
-          <button className="rv-btn rv-btn-you" type="submit" disabled={pending || total === 0}>
+          <span className="rv-hint" style={{ marginTop: 0 }}>{!canConvene ? "Someone who decides convenes the review" : total ? `${plural(total, "matter")} selected` : "Tick matters to review"}</span>
+          <button className="rv-btn rv-btn-you" type="submit" disabled={pending || total === 0 || !canConvene}>
             {pending ? "Convening…" : total ? `Convene a review of ${plural(total, "matter")}` : "Convene a review"}
           </button>
         </span>

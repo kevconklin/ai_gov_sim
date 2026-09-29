@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { visibleRuns } from "@/lib/auth/access";
 import { first, type SearchParams } from "@/lib/params";
 import { currentScope, toolRegister } from "@/lib/queries/product";
 import { groupRegister } from "@/lib/register/group";
@@ -8,7 +9,7 @@ import { Register } from "./register";
 /** What staff may use, may not, and what is still being looked at, kept from signed decisions. Nothing is typed in here. */
 export default async function ApprovedPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
-  const scope = await currentScope(first(sp, "run"));
+  const scope = await currentScope(first(sp, "run"), await visibleRuns());
   if (!scope) return <div className="rv"><h1 className="rv-org">No committee yet</h1></div>;
   const rows = await toolRegister(scope.run_id);
   const g = groupRegister(rows);

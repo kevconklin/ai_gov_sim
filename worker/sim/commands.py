@@ -19,7 +19,7 @@ KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event"
                    "candidates", "convene", "attest", "submit", "set_brief",
                    "create_workspace", "update_profile", "add_document", "retire_document", "set_panel",
                    "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
-                   "archive_workspace", "restore_workspace"})
+                   "archive_workspace", "restore_workspace", "set_member", "remove_member"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -122,7 +122,7 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
         return {"spend_cap_usd_per_month": cap}
     if kind in ("candidates", "convene", "attest", "submit", "set_brief", "update_profile", "add_document",
                 "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
-                "archive_workspace", "restore_workspace"):
+                "archive_workspace", "restore_workspace", "set_member", "remove_member"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
 
@@ -172,6 +172,13 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
 
     who = {"actor": payload.get("actor", "unknown"), "source": payload.get("source", "unknown")}
     why = payload.get("why") or command["reason"]
+
+    if kind in ("set_member", "remove_member"):
+        from govern.accounts import remove_member, set_member
+        if kind == "set_member":
+            return {"membership_id": set_member(db, run_id, user_id=payload["user_id"], role=payload["role"], reason=why, **who)}
+        remove_member(db, run_id, user_id=payload["user_id"], reason=why, **who)
+        return {"removed": payload["user_id"]}
 
     if kind == "ask":                       # one model call, answered from the policy; the person's name is on the ask
         from govern.ask import answer
