@@ -50,6 +50,7 @@ def submit_item(db: Database, run_id: str, *, kind: str, title: str, description
     db.insert("items", {
         "item_id": item_id, "run_id": run_id, "kind": kind, "title": title.strip(),
         "description": description.strip(), "details": kept, "risk_tier": risk_tier,
+        "owner": (str(kept.get("accountable_owner") or "").strip() or None),
         "status": OPEN, "submitted_by": submitted_by.strip(), "submitted_on": (today or date.today()).isoformat(),
     })
     return item_id

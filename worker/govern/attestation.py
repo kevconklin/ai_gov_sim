@@ -172,7 +172,7 @@ def apply_attested(ctx: ReviewContext, decisions: Sequence[Decision], *, month: 
             _keep_note(ctx, decision.item.ref_id, by=attested.actor, on=meeting_date, note=attested.rationale)
             mark_items(ctx.db, [decision.item.ref_id], OPEN)      # tabled, so it is a candidate again
             continue
-        applying.append(replace(decision, attested_outcome=attested.outcome))
+        applying.append(replace(decision, attested_outcome=attested.outcome, attested_by=attested.actor))
     return apply_decisions(ctx, applying, month=month, meeting_date=meeting_date)
 
 

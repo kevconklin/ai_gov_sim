@@ -332,3 +332,31 @@ export async function restoreWorkspaceAction(_prev: ControlResult | null, formDa
   if (denied) return denied;
   return configure(operator, f.run_id ?? "", "restore_workspace", f.why ?? "", {});
 }
+
+/** Move an approved use case along its life. The worker checks the move is allowed; every move is on the record. */
+export async function setStageAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "decides");
+  if (denied) return denied;
+  const result = await submitCommand(bindActor({
+    kind: "set_stage", run_id: f.run_id ?? "", reason: `${operator}: ${f.why ?? ""}`, payload: { item_id: f.item_id ?? "", to: f.to ?? "", why: f.why ?? "" },
+  }, operator));
+  if (result.success) revalidatePath("/portfolio");
+  return result;
+}
+
+export async function setOwnerAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "decides");
+  if (denied) return denied;
+  const result = await submitCommand(bindActor({
+    kind: "set_owner", run_id: f.run_id ?? "", reason: `${operator}: named ${(f.owner ?? "").slice(0, 60)} as owner`,
+    payload: { item_id: f.item_id ?? "", owner: f.owner ?? "", why: `Owner set to ${f.owner ?? ""}` },
+  }, operator));
+  if (result.success) revalidatePath("/portfolio");
+  return result;
+}

@@ -206,3 +206,50 @@ export async function toolRegister(runId: string): Promise<RegisterRow[]> {
   }
   return [...seen.values()];
 }
+
+export interface UseCaseRow {
+  item_id: string;
+  title: string;
+  description: string;
+  details: string | null;
+  status: string;                // intake: submitted | in_review | recommended | approved | rejected | withdrawn
+  stage: string | null;          // life: approved | building | piloting | live | paused | retired
+  owner: string | null;
+  risk_tier: string | null;
+  submitted_by: string;
+  submitted_on: string;
+  decided_on: string | null;
+  review_due: string | null;
+  stage_changed_on: string | null;
+  last_actor: string | null;     // who signed the latest decision on it
+  last_outcome: string | null;
+  last_attestation: string | null;
+}
+
+/** Every AI use case an organization has brought, across its whole life. Re-review matters are folded into their original. */
+export async function useCases(runId: string): Promise<UseCaseRow[]> {
+  const db = await readDb();
+  return db.all<UseCaseRow>(
+    `SELECT i.item_id, i.title, i.description, i.details, i.status, i.stage, i.owner, i.risk_tier, i.submitted_by, i.submitted_on,
+            i.decided_on, i.review_due, i.stage_changed_on,
+            (SELECT a.actor FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id WHERE d.ref_id = i.item_id ORDER BY a.created_at DESC LIMIT 1) AS last_actor,
+            (SELECT a.outcome FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id WHERE d.ref_id = i.item_id ORDER BY a.created_at DESC LIMIT 1) AS last_outcome,
+            (SELECT a.attestation_id FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id WHERE d.ref_id = i.item_id ORDER BY a.created_at DESC LIMIT 1) AS last_attestation
+     FROM items i
+     WHERE i.run_id = ? AND i.kind = 'use_case' AND i.status <> 'withdrawn' AND i.details NOT LIKE '%"rereview_of"%'
+     ORDER BY i.submitted_on DESC, i.item_id DESC`, [runId]);
+}
+
+export interface StageChangeRow { from_stage: string | null; to_stage: string; changed_by: string; changed_on: string; note: string }
+
+export async function stageHistory(itemId: string): Promise<StageChangeRow[]> {
+  const db = await readDb();
+  return db.all<StageChangeRow>("SELECT from_stage, to_stage, changed_by, changed_on, note FROM stage_changes WHERE item_id = ? ORDER BY created_at, change_id", [itemId]);
+}
+
+/** The re-review matters opened for one use case, so its page can point at them. */
+export async function rereviewsOf(runId: string, itemId: string): Promise<{ item_id: string; title: string; status: string; submitted_on: string }[]> {
+  const db = await readDb();
+  return db.all("SELECT item_id, title, status, submitted_on FROM items WHERE run_id = ? AND details LIKE ? ORDER BY submitted_on DESC",
+    [runId, `%"rereview_of": "${itemId}"%`]);
+}

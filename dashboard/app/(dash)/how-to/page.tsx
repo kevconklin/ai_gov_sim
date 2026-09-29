@@ -84,6 +84,19 @@ const SECTIONS: Section[] = [
     tryIt: { href: "/reviews?tab=needs", label: "Open Needs you" },
   },
   {
+    id: "usecases",
+    title: "Follow a use case through its life",
+    lead: "Approval is a beginning. Use cases shows every one from proposal to retirement, who owns it, and when it is due back.",
+    steps: [
+      "Propose a use case: what you want to do, who it affects, what it sees, and who is accountable for it.",
+      "When a person signs an approval, its life starts: Approved, with an owner and a review date set by its risk (6, 12, or 24 months).",
+      "Move it as work happens: Building, Piloting, Live, Paused, Retired. Each move needs a note and goes on the record.",
+      "When its review date passes, the next ranking of Waiting opens a re-review that cites the original decision. Approve to renew it; reject to pause it.",
+    ],
+    image: "usecases", alt: "The Use cases page with tiles for live, building, overdue, and lists by stage",
+    tryIt: { href: "/portfolio", label: "Open Use cases" },
+  },
+  {
     id: "trail",
     title: "See how the committee got there",
     lead: "Every review keeps its full trail, recorded as it happened.",

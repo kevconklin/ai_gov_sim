@@ -142,6 +142,22 @@ export function SubmitMatterForm({ runId, preset, precedents = [] }: { runId: st
         <label className="rv-tick is-wide"><input type="checkbox" checked={connected} onChange={(e) => { setConnected(e.currentTarget.checked); setKindOverride(null); }} /><span>It connects to our systems, or our data flows into it on its own</span></label>
       ) : null}
 
+      {aboutAThing ? (
+        <div className="rv-grid2">
+          <label>
+            <span className="rv-label">Who is accountable for it?{need === "project" ? "" : <span className="muted font-normal"> optional</span>}</span>
+            <input className="rv-field" name="d_accountable_owner" required={need === "project"} maxLength={200} placeholder="Priya Nair, Nursing Director" />
+            <span className="rv-hint block">Named on the record. If it is approved, they own it through its life.</span>
+          </label>
+          {need === "project" ? (
+            <label>
+              <span className="rv-label">What would success look like?</span>
+              <input className="rv-field" name="d_business_goal" maxLength={300} placeholder="Discharge summaries out the same day" />
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="rv-filed" aria-live="polite">
         <div className="rv-filed-h">
           <span>Filed as</span>
@@ -190,7 +206,6 @@ export function SubmitMatterForm({ runId, preset, precedents = [] }: { runId: st
       <details className="rv-fold">
         <summary className="rv-fold-head"><span>Anything else <span className="muted font-normal">optional</span></span></summary>
         <div className="rv-fold-body grid gap-3">
-          <label><span className="rv-label">Who is accountable for it?</span><input className="rv-field" name="d_accountable_owner" placeholder="Dana Lee, Head of Member Services" /></label>
           <label><span className="rv-label">Decision needed by</span><input className="rv-field" type="date" name="d_needed_by" /></label>
           <label><span className="rv-label">Links or evidence</span><input className="rv-field" name="d_links" placeholder="Vendor page, contract, ticket" /></label>
         </div>

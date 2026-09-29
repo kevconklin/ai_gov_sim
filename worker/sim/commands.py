@@ -19,7 +19,7 @@ KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event"
                    "candidates", "convene", "attest", "submit", "set_brief",
                    "create_workspace", "update_profile", "add_document", "retire_document", "set_panel",
                    "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
-                   "archive_workspace", "restore_workspace", "set_member", "remove_member"})
+                   "archive_workspace", "restore_workspace", "set_member", "remove_member", "set_stage", "set_owner"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
 
@@ -122,7 +122,7 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
         return {"spend_cap_usd_per_month": cap}
     if kind in ("candidates", "convene", "attest", "submit", "set_brief", "update_profile", "add_document",
                 "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
-                "archive_workspace", "restore_workspace", "set_member", "remove_member"):
+                "archive_workspace", "restore_workspace", "set_member", "remove_member", "set_stage", "set_owner"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
 
@@ -157,11 +157,14 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
         return {"status": "archived"}
 
     if kind == "candidates":
-        ranked = candidates(db, run_id, load_agenda_priority(config_dir),
-                            today=payload.get("today") or date.today().isoformat())
+        from govern.lifecycle import open_due_rereviews
+        today = payload.get("today") or date.today().isoformat()
+        # a use case whose review date has passed joins the list as a matter, once, citing its approval
+        opened = open_due_rereviews(db, run_id, date.fromisoformat(today)) if run["condition"] == "workspace" else []
+        ranked = candidates(db, run_id, load_agenda_priority(config_dir), today=today)
         return {"candidates": [{"kind": c.kind, "ref_id": c.ref_id, "title": c.title, "priority": c.priority,
                                 "reasons": list(c.reasons), "deferrals": c.deferral_count,
-                                "escalated": c.escalated} for c in ranked]}
+                                "escalated": c.escalated} for c in ranked], "rereviews_opened": opened}
 
     if kind == "submit":
         from govern.intake import submit_item
@@ -172,6 +175,15 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
 
     who = {"actor": payload.get("actor", "unknown"), "source": payload.get("source", "unknown")}
     why = payload.get("why") or command["reason"]
+
+    if kind in ("set_stage", "set_owner"):
+        from govern.lifecycle import load_lifecycle, set_owner, set_stage
+        on = date.today()
+        if kind == "set_stage":
+            set_stage(db, run_id, payload["item_id"], to=payload["to"], by=who["actor"], note=why, on=on, config=load_lifecycle(config_dir))
+            return {"stage": payload["to"]}
+        set_owner(db, run_id, payload["item_id"], owner=payload["owner"], by=who["actor"], on=on)
+        return {"owner": payload["owner"]}
 
     if kind in ("set_member", "remove_member"):
         from govern.accounts import remove_member, set_member

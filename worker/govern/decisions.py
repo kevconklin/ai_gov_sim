@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import logging
 from dataclasses import dataclass
 from datetime import date
@@ -25,12 +27,18 @@ class Tally:
     tie_broken: bool
 
 
+def _config_dir() -> Path:
+    """config/ beside the package, the way every loader finds it."""
+    return Path(__file__).resolve().parents[2] / "config"
+
+
 @dataclass(frozen=True)
 class Decision:
     decision_id: str
     item: AgendaItem
     tally: Tally
     attested_outcome: str | None = None   # set by sim.attestation once a human is on record
+    attested_by: str | None = None        # who signed, for what the decision then does to a use case's life
 
     @property
     def outcome(self) -> str:
@@ -110,7 +118,10 @@ def apply_decisions(ctx: ReviewContext, decisions: Sequence[Decision], *, month:
             set_use_case_status(ctx, d.item.ref_id, month, d.outcome, source="committee", decision_id=d.decision_id)
         elif d.item.kind == "item":
             from govern.intake import mark_items
+            from govern.lifecycle import after_decision, load_lifecycle
             mark_items(ctx.db, [d.item.ref_id], d.outcome, decided_on=meeting_date)
+            after_decision(ctx.db, ctx.run_id, item_id=d.item.ref_id, outcome=d.outcome, by=d.attested_by or "the committee",
+                           on=meeting_date, config=load_lifecycle(_config_dir()))
         elif d.item.kind == "policy_edit":
             edit = ctx.db.fetch_one("SELECT section, text FROM policy_edits WHERE edit_id = ?", (d.item.ref_id,))
             status = d.outcome

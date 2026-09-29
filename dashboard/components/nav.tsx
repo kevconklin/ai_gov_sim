@@ -41,6 +41,7 @@ type Item = { href: string; label: string; icon: string };
 const PRODUCT: Item[] = [
   { href: "/organizations", label: "Organizations", icon: "orgs" },
   { href: "/reviews", label: "Reviews", icon: "reviews" },
+  { href: "/portfolio", label: "Use cases", icon: "usecases" },
   { href: "/ask", label: "Ask", icon: "ask" },
   { href: "/approved", label: "Approved tools", icon: "approved" },
   { href: "/policy-record", label: "Policy", icon: "policy" },
