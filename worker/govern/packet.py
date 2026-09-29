@@ -44,6 +44,15 @@ def _facts(details: Mapping[str, Any]) -> str:
     return "\n".join(f"- {k.replace('_', ' ')}: {_fact(v)}" for k, v in details.items() if v not in (None, "", [], ()))
 
 
+def _submitted(row: Any, details: Mapping[str, Any]) -> str:
+    """A submitter's own words, fenced: the advisers must see where the organization's text ends and theirs begins."""
+    from govern.untrusted import quote
+    flagged = [str(f) for f in details.get("flagged_text") or []]
+    facts = _facts({k: v for k, v in details.items() if k != "flagged_text"})
+    body = row["description"] + (f"\n{facts}" if facts else "")
+    return quote(body, source=f"the submitter, {row['submitted_by']}", flagged=flagged)
+
+
 def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
     blocks = []
     for item in items:
@@ -52,8 +61,9 @@ def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
             # advise on a one-line title and never saw why it was being asked.
             row = ctx.db.fetch_one("SELECT * FROM items WHERE item_id = ?", (item.ref_id,)) if item.ref_id else None
             if row is not None:
-                blocks.append(f"{item.item_id} Question from {row['submitted_by']}: {row['title']}\n{row['description']}\n"
-                              + _facts(json.loads(row["details"] or "{}")))
+                details = json.loads(row["details"] or "{}")
+                blocks.append(f"{item.item_id} Question from {row['submitted_by']}: {row['title']}\n"
+                              + _submitted(row, details))
             continue
         if item.kind == "use_case":
             row = ctx.db.fetch_one("SELECT u.*, a.name AS proposer FROM use_cases u LEFT JOIN agents a "
@@ -66,9 +76,8 @@ def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
             row = ctx.db.fetch_one("SELECT * FROM items WHERE item_id = ?", (item.ref_id,))
             details = json.loads(row["details"] or "{}")
             blocks.append(f"{item.item_id} {KIND_LABELS[row['kind']]}: {row['title']} (submitted by {row['submitted_by']})\n"
-                          f"{row['description']}\n"
                           + (f"- submitted risk tier: {row['risk_tier']}\n" if row["risk_tier"] else "")
-                          + _facts(details))
+                          + _submitted(row, details))
         elif item.kind == "policy_edit":
             row = ctx.db.fetch_one("SELECT p.*, a.name AS proposer FROM policy_edits p LEFT JOIN agents a "
                                    "ON a.agent_id = p.agent_id WHERE edit_id = ?", (item.ref_id,))

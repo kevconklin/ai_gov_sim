@@ -42,10 +42,14 @@ def submit_item(db: Database, run_id: str, *, kind: str, title: str, description
         raise IntakeError("a submission needs a title and a description the committee can act on")
     if not submitted_by.strip():
         raise IntakeError("a submission needs a submitter")
+    from govern.untrusted import flags
     item_id = ids.scoped(run_id, "item", next_display_id(db, run_id, "items", "item_id", "IT"))
+    # text addressed to the advisers is recorded, not refused: the person deciding should see it was tried
+    flagged = flags(f"{title}\n{description}\n" + " ".join(str(v) for v in (details or {}).values()))
+    kept = {**dict(details or {}), **({"flagged_text": list(flagged)} if flagged else {})}
     db.insert("items", {
         "item_id": item_id, "run_id": run_id, "kind": kind, "title": title.strip(),
-        "description": description.strip(), "details": dict(details or {}), "risk_tier": risk_tier,
+        "description": description.strip(), "details": kept, "risk_tier": risk_tier,
         "status": OPEN, "submitted_by": submitted_by.strip(), "submitted_on": (today or date.today()).isoformat(),
     })
     return item_id

@@ -164,6 +164,10 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const shortId = (id: string) => id.split("/").pop() ?? id;
   const signedById = new Map(record.filter((r) => r.outcome !== "deferred").map((r) => [shortId(r.item_id), r]));
   const precedentOptions = [...signedById.entries()].map(([id, r]) => ({ id, title: r.title, outcome: r.outcome, actor: r.actor, when: when(r.created_at) }));
+  const flaggedIn = (detailsJson: string | null | undefined): string[] => {
+    const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).flagged_text;
+    return Array.isArray(v) ? v.map(String) : [];
+  };
   const citedIn = (detailsJson: string | null | undefined): string[] => {
     const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).related_decisions;
     return Array.isArray(v) ? v.map(String) : [];
@@ -287,6 +291,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             {brief.why ? <div className="rv-brief-row"><span>Why</span><span>{brief.why.text}<span className="rv-brief-who">{brief.why.seat}</span></span></div> : null}
             {brief.objection ? <div className="rv-brief-row" data-tone="objection"><span><Term word="objection">Strongest objection</Term></span><span>{brief.objection.text}<span className="rv-brief-who">{brief.objection.seat}</span></span></div>
               : <div className="rv-brief-row"><span>Objections</span><span>None. Every seat that sat agreed.</span></div>}
+            {flaggedIn(d.details).length ? <div className="rv-brief-row" data-tone="objection"><span>Flagged</span><span>The submission contained text addressed to the advisers, which they were told to ignore: {flaggedIn(d.details).join("; ")}. Weigh that it was tried.</span></div> : null}
             {citedIn(d.details).length ? <div className="rv-brief-row"><span>Cites</span><span className="flex flex-wrap gap-1.5">{precedentChips(citedIn(d.details))}</span></div> : null}
             <div className="rv-brief-row"><span>What <Term word="sign">signing</Term> does</span><span>{brief.signing}</span></div>
             <p className="rv-hint">This is a <Term word="recommendation">recommendation</Term> from AI advisers, written from their own reasons. You decide.</p>
@@ -313,8 +318,9 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             <dl className="rv-facts">
               {m.submitted_by ? <><dt>From</dt><dd>{m.submitted_by}</dd></> : null}
               <dt>Waiting</dt><dd>{ageOf(m.since)}</dd>
+              {flaggedIn(m.details).length ? <><dt>Flagged</dt><dd><Chip tone="objection">Text addressed to the advisers</Chip> <span className="muted text-xs">{flaggedIn(m.details).join("; ")}</span></dd></> : null}
               {citedIn(m.details).length ? <><dt>Earlier decisions</dt><dd className="flex flex-wrap gap-1.5">{precedentChips(citedIn(m.details))}</dd></> : null}
-              {Object.entries(parse<Record<string, unknown>>(m.details, {})).filter(([k]) => k !== "related_decisions").map(([k, v]) => (
+              {Object.entries(parse<Record<string, unknown>>(m.details, {})).filter(([k]) => k !== "related_decisions" && k !== "flagged_text").map(([k, v]) => (
                 <span key={k} className="contents"><dt>{k.replace(/_/g, " ").replace(/^./, (ch) => ch.toUpperCase())}</dt><dd>{Array.isArray(v) ? v.join(", ") : v === true ? "Yes" : v === false ? "No" : String(v)}</dd></span>
               ))}
               <dt>Priority</dt>

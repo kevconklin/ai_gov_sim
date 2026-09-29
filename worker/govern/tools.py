@@ -20,9 +20,12 @@ TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("committee/tools.
 # A real organization has no curated news feed or simulated inbox, and is not necessarily a bank.
 # Same definitions, minus the feeds, with the one bank-specific phrase generalised.
 _FEEDS = frozenset({"read_news", "read_inbox"})
+# A disclosed committee recommends; it never writes. Policy changes and new initiatives reach it only
+# through intake, from a person, so text a submitter slips past the advisers cannot become policy.
+_WRITES = frozenset({"propose_policy_edit", "propose_use_case", "propose_status_change"})
 REVIEW_TOOLS: tuple[Mapping[str, Any], ...] = tuple(
     {**tool, "description": str(tool["description"]).replace("the bank's", "the organization's")}
-    for tool in TOOLS if tool["name"] not in _FEEDS) + tuple(prompts.load_yaml("review/tools.yaml"))
+    for tool in TOOLS if tool["name"] not in _FEEDS | _WRITES) + tuple(prompts.load_yaml("review/tools.yaml"))
 
 
 def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
@@ -173,7 +176,8 @@ def _read_document(s: ToolSession, args: Mapping[str, Any]) -> str:
         next((d for d in in_force if wanted and wanted in d["title"].lower()), None)
     if match is None:
         return "No document by that title. In force: " + "; ".join(d["title"] for d in in_force) + "."
-    return f"{match['title']}\n\n{match['body']}"
+    from govern.untrusted import quote
+    return f"{match['title']}\n\n" + quote(match["body"], source=f"the organization's document \"{match['title']}\", added by {match['added_by']}")
 
 
 def _read_decision(s: ToolSession, args: Mapping[str, Any]) -> str:

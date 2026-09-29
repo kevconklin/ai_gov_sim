@@ -25,6 +25,7 @@ from govern.context import ReviewContext
 from govern.db import Database, utc_now_iso
 from govern.intake import submit_item
 from govern.policy import stats
+from govern.untrusted import quote
 
 MIN_QUESTION, MAX_QUESTION = 10, 2000
 MAX_ANSWER_TOKENS = 700
@@ -82,7 +83,7 @@ def answer(ctx: ReviewContext, *, question: str, asked_by: str, today: date | No
         "role": "utility", "purpose": PURPOSE, "run_id": ctx.run_id, "max_tokens": MAX_ANSWER_TOKENS,
         # the brief and the documents are stable between asks, so both sit in the cached block
         "system_fixed": (prompts.render("ask/fixed.md", org=org.name), _documents_block(ctx.db, ctx.run_id, policy_text)),
-        "messages": ({"role": "user", "content": f"Question from {asked_by.strip()}:\n\n{question}"},),
+        "messages": ({"role": "user", "content": f"Question from {asked_by.strip()}:\n\n" + quote(question, source=f"the person asking, {asked_by.strip()}")},),
     }, TOOL))
     settled = _settle(extract(result, TOOL["name"]), policy_controls=stats(policy_text).controls)
     if not settled["answer"]:
