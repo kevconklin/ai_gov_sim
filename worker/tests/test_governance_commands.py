@@ -273,3 +273,19 @@ def test_a_membership_goes_through_the_queue_under_the_sessions_name(workspace):
     assert (row["actor"], row["after_value"]) == ("cro@northwind.example", "decides")
     gone = run_command(workspace, "remove_member", {"user_id": uid, "why": "Left in October.", "actor": "cro@northwind.example", "source": "dashboard_session"})
     assert gone["status"] == "done", gone["result"]
+
+
+def test_a_malformed_command_fails_on_its_row_and_runs_nothing(workspace):
+    db, orch, run_id, data_dir = workspace
+    before = db.fetch_one("SELECT COUNT(*) AS n FROM items WHERE run_id = ?", (run_id,))["n"]
+    command_id = commands.enqueue(db, kind="submit", run_id=run_id, reason="Testing the fence.", source="test",
+                                  payload={"kind": "vendor", "title": "x", "description": "too short", "submitted_by": "a@b.c", "extra": "field"})
+    commands.process_pending(db, orch, data_dir)
+    row = db.fetch_one("SELECT status, result FROM commands WHERE command_id = ?", (command_id,))
+    assert row["status"] == "failed"
+    assert "payload refused" in json.loads(row["result"])["error"]
+    assert db.fetch_one("SELECT COUNT(*) AS n FROM items WHERE run_id = ?", (run_id,))["n"] == before
+    unknown = commands.enqueue(db, kind="set_stage", run_id=run_id, reason="Testing again.", source="test",
+                               payload={"item_id": "x", "to": "king", "actor": "a", "source": "cli_asserted"})
+    commands.process_pending(db, orch, data_dir)
+    assert "payload refused" in json.loads(db.fetch_one("SELECT result FROM commands WHERE command_id = ?", (unknown,))["result"])["error"]

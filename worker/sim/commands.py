@@ -61,8 +61,12 @@ def process_pending(db: Database, orchestrator: Any, data_dir: Path) -> list[str
         if not db.update("commands", {"status": "processing"},
                          where={"command_id": command["command_id"], "status": "pending"}):
             continue
-        payload = json.loads(command["payload"] or "{}")
         try:
+            # the queue is a table; whatever put a row there, the worker checks its shape before acting on it
+            from sim.command_schemas import validate
+            payload = validate(command["kind"], json.loads(command["payload"] or "{}"))
+            if not str(command.get("reason") or "").strip():
+                raise ValueError("a command needs a reason")
             result = _apply(db, orchestrator, data_dir, command, payload)
             _finish(db, command["command_id"], "done", result)
         except Exception as error:  # noqa: BLE001 - failures are reported on the command row

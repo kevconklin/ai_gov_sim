@@ -49,4 +49,4 @@ Job, the worker, the dashboard, and network policy.
   rolls back the in-progress month, checkpoints the last completed month, and exits. Note that a pending stop command
   halts the whole worker, not just one run.
 - Hard monthly cap (`config/budget.yaml`): alerts at 50/80/100%; runs pause at 100%.
-- Backups: schedule `pg_dump` nightly (Supabase includes daily backups on paid plans) plus `python -m sim export`.
+- Backups: `deploy/k8s/cronjob-backup.yaml` runs `python -m sim backup` nightly (pg_dump plus the policy repositories) into the `govsim-backups` volume and keeps 14 sets. That volume is a staging area: carry each set off the cluster (object storage, another region). Drill the restore monthly: `python -m sim restore <set> --into <empty database url> --data-dir <empty dir>`; `worker/tests/test_backup.py` runs the same drill on SQLite in CI.

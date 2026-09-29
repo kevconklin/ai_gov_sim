@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { ORG_ROLES, ROLE_HELP, ROLE_WORDS, type OrgRole } from "@/lib/auth/roles";
-import { changeNameAction, changePasswordAction, inviteMemberAction, inviteOperatorAction, removeMemberAction, type PeopleResult } from "./people-actions";
+import { changeNameAction, changePasswordAction, inviteMemberAction, inviteOperatorAction, removeMemberAction, resetPasswordAction, setDisabledAction, type PeopleResult } from "./people-actions";
 
 function Said({ state }: { state: PeopleResult | null }) {
   if (!state) return null;
@@ -101,6 +101,20 @@ export function AccountForms({ name, first }: { name: string; first: boolean }) 
           <Said state={nm} />
         </form>
       </section>
+    </div>
+  );
+}
+
+export function AccountAdmin({ userId, name, disabled, isSelf }: { userId: string; name: string; disabled: boolean; isSelf: boolean }) {
+  const [reset, resetAction, resetPending] = useActionState(resetPasswordAction, null);
+  const [flip, flipAction, flipPending] = useActionState(setDisabledAction, null);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <form action={resetAction}><input type="hidden" name="user_id" value={userId} /><button className="rv-btn rv-btn-sm" type="submit" disabled={resetPending || Boolean(reset?.success)}>{resetPending ? "Resetting…" : "Reset password"}</button></form>
+      {!isSelf ? <form action={flipAction}><input type="hidden" name="user_id" value={userId} /><input type="hidden" name="disabled" value={disabled ? "0" : "1"} /><button className="rv-btn rv-btn-sm" type="submit" disabled={flipPending}>{flipPending ? "…" : disabled ? "Restore" : "Disable"}</button></form> : null}
+      {reset ? <div className="w-full"><Said state={reset} /></div> : null}
+      {flip ? <div className="w-full"><Said state={flip} /></div> : null}
+      <span className="sr-only">{name}</span>
     </div>
   );
 }

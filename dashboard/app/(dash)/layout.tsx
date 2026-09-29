@@ -1,3 +1,5 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/session";
 import { Suspense } from "react";
 import { Nav } from "@/components/nav";
@@ -23,12 +25,15 @@ async function simulationAvailable(): Promise<boolean> {
 
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
-  const operator = user?.role === "operator";
+  if (!user) redirect("/login");                    // the cookie verified but the account is gone, disabled, or reset
+  const path = (await headers()).get("x-pathname") ?? "";
+  if (user.must_change && !path.startsWith("/account")) redirect("/account?first=1");
+  const operator = user.role === "operator";
   // the research bench and the raw logs are the operator's; a member of an organization never sees them
   const showSimulation = operator && (await simulationAvailable());
   return (
     <div className="dash">
-      <Suspense fallback={null}><Nav operator={user?.name ?? null} isOperator={operator} showSimulation={showSimulation} /></Suspense>
+      <Suspense fallback={null}><Nav operator={user.name} isOperator={operator} showSimulation={showSimulation} /></Suspense>
       <main className="dash-main">{children}</main>
     </div>
   );

@@ -1,0 +1,11 @@
+# How long the full text of model calls is kept. Every call is logged with its whole request and
+# response so a review can be audited and replayed; that text is also every document and matter a
+# customer has submitted, at rest, forever, unless something removes it. After `keep_text_days`
+# the text is replaced by a marker; the tokens, cost, model, purpose, and outcome stay, so spend
+# and health are unaffected and the record still shows the call happened.
+#
+# The simulation's runs keep their text: the study needs to replay them (SPEC section 12). A run
+# is exempt when its condition is not 'workspace'.
+llm_calls:
+  keep_text_days: 14        # PLACEHOLDER. Set to what the customer's records policy allows; 0 keeps nothing
+  redact_marker: "[text removed after the retention window; tokens and cost kept]"

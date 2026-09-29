@@ -11,6 +11,7 @@ const ERRORS: Record<string, string> = {
   config: "Sign-in is disabled: the server is missing its session secret.",
   exists: "The first account already exists. Sign in instead.",
   setup: "The account could not be made.",
+  locked: "Too many failed sign-ins for that email or from this address. Wait 15 minutes and try again.",
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

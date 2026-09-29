@@ -68,3 +68,19 @@ def test_membership_changes_are_on_the_change_record(ws):
 def test_memberships_travel_with_the_workspace():
     from sim.checkpoint import RUN_TABLES
     assert "memberships" in RUN_TABLES
+
+
+def test_a_reset_or_a_disable_ends_every_session_by_bumping_the_version(ws):
+    db, _ = ws
+    accounts.create_user(db, email="lee@harbor.example", name="Lee Park", password="a long enough password")
+    assert accounts.user_by_email(db, "lee@harbor.example")["session_version"] == 0
+    accounts.reset_password(db, email="lee@harbor.example", password="a temporary password")
+    u = accounts.user_by_email(db, "lee@harbor.example")
+    assert u["session_version"] == 1 and bool(u["must_change"]) and accounts.verify_password("a temporary password", u["password_hash"])
+    accounts.set_disabled(db, email="lee@harbor.example", disabled=True)
+    u = accounts.user_by_email(db, "lee@harbor.example")
+    assert u["session_version"] == 2 and u["disabled_at"]
+    accounts.set_disabled(db, email="lee@harbor.example", disabled=False)
+    assert accounts.user_by_email(db, "lee@harbor.example")["disabled_at"] is None
+    with pytest.raises(accounts.AccountError, match="no account"):
+        accounts.reset_password(db, email="nobody@harbor.example", password="a temporary password")

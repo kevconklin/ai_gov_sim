@@ -37,9 +37,10 @@ describe("roles", () => {
 
 describe("session body", () => {
   it("round-trips an account and refuses anything else", () => {
-    const u = { user_id: "u1", email: "dana@harbor.example", name: "Dana", role: "operator" as const };
+    const u = { user_id: "u1", email: "dana@harbor.example", name: "Dana", role: "operator" as const, version: 3 };
     expect(decodeUser(encodeUser(u))).toEqual(u);
     expect(decodeUser("Kevin Conklin, CRO")).toBeNull();
-    expect(decodeUser(JSON.stringify({ u: "x", e: "y", n: "z", r: "king" }))).toBeNull();
+    expect(decodeUser(JSON.stringify({ u: "x", e: "y", n: "z", r: "king", v: 0 }))).toBeNull();
+    expect(decodeUser(JSON.stringify({ u: "x", e: "y", n: "z", r: "member" }))).toBeNull();      // no version: an older cookie
   });
 });

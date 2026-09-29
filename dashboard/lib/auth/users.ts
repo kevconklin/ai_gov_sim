@@ -18,6 +18,7 @@ export interface UserRow {
   must_change: boolean | number;
   disabled_at: string | null;
   created_at: string;
+  session_version: number;
 }
 
 export async function countUsers(): Promise<number> {
@@ -70,8 +71,63 @@ export async function setPassword(userId: string, password: string): Promise<{ o
     return { ok: false, error: e instanceof Error ? e.message : "Bad password." };
   }
   const db = await controlDb();
-  await db.transaction([{ sql: "UPDATE users SET password_hash = ?, must_change = (0 = 1) WHERE user_id = ?", params: [hash, userId] }]);
+  // a new password ends every other session of this account; the caller re-issues its own cookie
+  await db.transaction([{ sql: "UPDATE users SET password_hash = ?, must_change = (0 = 1), session_version = session_version + 1 WHERE user_id = ?", params: [hash, userId] }]);
   return { ok: true };
+}
+
+/** An operator gives someone a temporary password. Every session they had ends; they must change it at sign-in. */
+export async function resetPassword(userId: string, temporary: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  let hash: string;
+  try {
+    hash = hashPassword(temporary);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Bad password." };
+  }
+  const db = await controlDb();
+  await db.transaction([{ sql: "UPDATE users SET password_hash = ?, must_change = (1 = 1), session_version = session_version + 1 WHERE user_id = ?", params: [hash, userId] }]);
+  return { ok: true };
+}
+
+export async function setDisabled(userId: string, disabled: boolean): Promise<void> {
+  const db = await controlDb();
+  await db.transaction([{ sql: "UPDATE users SET disabled_at = ?, session_version = session_version + 1 WHERE user_id = ?", params: [disabled ? new Date().toISOString() : null, userId] }]);
+}
+
+/** The account rows an operator manages. */
+export async function allUsers(): Promise<Pick<UserRow, "user_id" | "email" | "name" | "role" | "created_at" | "disabled_at" | "must_change">[]> {
+  const db = await readDb();
+  return db.all("SELECT user_id, email, name, role, created_at, disabled_at, must_change FROM users ORDER BY role, name");
+}
+
+// ---- sign-in failures: a wall for credential stuffing ------------------------------------------
+
+export const LOCK_AFTER = 5;              // failures for one email in the window
+export const LOCK_ADDRESS_AFTER = 20;     // failures from one address in the window
+export const LOCK_WINDOW_MIN = 15;
+
+export async function recentFailures(email: string, address: string): Promise<{ email: number; address: number }> {
+  const db = await readDb();
+  const since = new Date(Date.now() - LOCK_WINDOW_MIN * 60_000).toISOString();
+  const [e, a] = await Promise.all([
+    db.get<{ n: unknown }>("SELECT COUNT(*) AS n FROM login_failures WHERE email = ? AND failed_at > ?", [email.trim().toLowerCase(), since]),
+    db.get<{ n: unknown }>("SELECT COUNT(*) AS n FROM login_failures WHERE address = ? AND failed_at > ?", [address, since]),
+  ]);
+  return { email: Number(e?.n ?? 0), address: Number(a?.n ?? 0) };
+}
+
+export async function recordFailure(email: string, address: string): Promise<void> {
+  const db = await controlDb();
+  await db.transaction([
+    { sql: "INSERT INTO login_failures (failure_id, email, address, failed_at) VALUES (?, ?, ?, ?)", params: [randomUUID(), email.trim().toLowerCase(), address, new Date().toISOString()] },
+    // failures older than a day are noise
+    { sql: "DELETE FROM login_failures WHERE failed_at < ?", params: [new Date(Date.now() - 24 * 3_600_000).toISOString()] },
+  ]);
+}
+
+export async function clearFailures(email: string): Promise<void> {
+  const db = await controlDb();
+  await db.transaction([{ sql: "DELETE FROM login_failures WHERE email = ?", params: [email.trim().toLowerCase()] }]);
 }
 
 export async function setName(userId: string, name: string): Promise<void> {

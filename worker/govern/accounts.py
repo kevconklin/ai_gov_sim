@@ -116,3 +116,20 @@ def remove_member(db: Database, run_id: str, *, user_id: str, actor: str, reason
 def members(db: Database, run_id: str) -> list[Any]:
     return db.fetch_all("SELECT m.membership_id, m.role, m.added_by, m.added_at, u.user_id, u.email, u.name FROM memberships m "
                         "JOIN users u ON u.user_id = m.user_id WHERE m.run_id = ? AND m.removed_at IS NULL ORDER BY u.name", (run_id,))
+
+
+def reset_password(db: Database, *, email: str, password: str) -> None:
+    """A new temporary password. Every session the account had ends; the person must change it at sign-in."""
+    user = user_by_email(db, email)
+    if user is None:
+        raise AccountError(f"no account for {email}")
+    db.update("users", {"password_hash": hash_password(password), "must_change": True,
+                        "session_version": int(user["session_version"] or 0) + 1}, where={"user_id": user["user_id"]})
+
+
+def set_disabled(db: Database, *, email: str, disabled: bool) -> None:
+    user = user_by_email(db, email)
+    if user is None:
+        raise AccountError(f"no account for {email}")
+    db.update("users", {"disabled_at": utc_now_iso() if disabled else None,
+                        "session_version": int(user["session_version"] or 0) + 1}, where={"user_id": user["user_id"]})

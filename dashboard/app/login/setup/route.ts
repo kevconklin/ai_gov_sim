@@ -35,6 +35,6 @@ export async function POST(request: Request) {
     return NextResponse.redirect(url, 303);
   }
   const res = NextResponse.redirect(new URL("/organizations", request.url), 303);
-  res.cookies.set(SESSION_COOKIE, await signSession(cfg.secret, encodeUser({ user_id: made.user_id, email: email.trim().toLowerCase(), name: name.trim(), role: "operator" })), sessionCookie(request));
+  res.cookies.set(SESSION_COOKIE, await signSession(cfg.secret, encodeUser({ user_id: made.user_id, email: email.trim().toLowerCase(), name: name.trim(), role: "operator", version: 0 })), sessionCookie(request));
   return res;
 }

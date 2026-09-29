@@ -157,6 +157,24 @@ def cmd_advance(args: argparse.Namespace) -> None:
             log.info("%s: completed %s", run_id, orch.advance(run_id))
 
 
+_last_redaction: list[float] = []
+
+
+def _redact_if_due(db: Database) -> None:
+    """Once an hour, drop model-call text past the retention window. Cheap when nothing qualifies."""
+    from govern.retention import load_retention, redact_expired
+    now = time.monotonic()
+    if _last_redaction and now - _last_redaction[0] < 3600:
+        return
+    _last_redaction[:] = [now]
+    try:
+        n = redact_expired(db, load_retention(REPO_ROOT / "config"))
+        if n:
+            log.info("retention: removed the text of %d model calls past the window", n)
+    except Exception as error:  # noqa: BLE001 - retention must never stop the loop
+        log.warning("retention pass failed: %s", error)
+
+
 def cmd_serve(args: argparse.Namespace) -> None:
     """Long-running worker: apply commands, then advance running runs one month at a time, lowest month first."""
     db = _open_db()
@@ -175,6 +193,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
             log.info("stop flag set; exiting")
             return
         commands.process_pending(db, orch, data_dir)
+        _redact_if_due(db)
         running = db.fetch_all("SELECT run_id, current_month FROM runs WHERE status = 'running' "
                                "ORDER BY COALESCE(current_month, ''), replicate, bank_id")
         if not running:
@@ -222,9 +241,21 @@ def cmd_user(args: argparse.Namespace) -> None:
     """Make or list accounts. The first operator account is made here, on a machine with no dashboard session yet."""
     import getpass
 
-    from govern.accounts import AccountError, create_user
+    from govern.accounts import AccountError, create_user, reset_password, set_disabled
 
     db = _open_db()
+    if args.action in ("reset", "disable", "enable"):
+        try:
+            if args.action == "reset":
+                password = args.password or getpass.getpass("New temporary password (at least 12 characters): ")
+                reset_password(db, email=args.email, password=password)
+                print(f"reset: {args.email} must change it at next sign-in; every session ended")
+            else:
+                set_disabled(db, email=args.email, disabled=args.action == "disable")
+                print(f"{args.action}d: {args.email}")
+        except AccountError as error:
+            sys.exit(str(error))
+        return
     if args.action == "list":
         for u in db.fetch_all("SELECT email, name, role, created_at, disabled_at FROM users ORDER BY created_at"):
             print(f"{u['email']:40} {u['name']:28} {u['role']:9} {u['created_at'][:10]}{'  disabled' if u['disabled_at'] else ''}")
@@ -399,6 +430,30 @@ def cmd_status(args: argparse.Namespace) -> None:
         print(f"{r['run_id']:<60} {r['condition']:<12} {r['status']:<8} month={r['current_month']} cost=${r['cost']:.2f}")
 
 
+def cmd_backup(args: argparse.Namespace) -> None:
+    """Write a backup set: a consistent copy of the database and the policy repositories."""
+    from govern.backup import BackupError, backup, prune
+
+    target = os.environ.get("DATABASE_URL") or str(_data_dir() / "sim.sqlite")
+    try:
+        made = backup(target, _data_dir(), Path(args.out))
+        removed = prune(Path(args.out), args.keep) if args.keep else []
+    except BackupError as error:
+        sys.exit(str(error))
+    print(json.dumps({**made, "pruned": removed}, indent=2))
+
+
+def cmd_restore(args: argparse.Namespace) -> None:
+    """Put a backup set back into an empty database and data directory. Never merges."""
+    from govern.backup import BackupError, restore
+
+    target = args.into or os.environ.get("DATABASE_URL") or str(_data_dir() / "sim.sqlite")
+    try:
+        print(json.dumps(restore(Path(args.backup), target, Path(args.data_dir) if args.data_dir else _data_dir()), indent=2))
+    except BackupError as error:
+        sys.exit(str(error))
+
+
 def cmd_export(args: argparse.Namespace) -> None:
     from sim.analysis.exports import export_all
 
@@ -465,8 +520,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--framework", help="control framework id; defaults to the kit's")
     p.set_defaults(func=cmd_workspace)
 
+    p = sub.add_parser("backup", help="write a backup set (database copy or pg_dump, plus policy repositories)")
+    p.add_argument("--out", required=True, help="folder that holds backup sets; something else must carry it off the machine")
+    p.add_argument("--keep", type=int, default=14, help="how many sets to keep in --out; 0 keeps all")
+    p.set_defaults(func=cmd_backup)
+
+    p = sub.add_parser("restore", help="restore a backup set into an empty database; run this as a drill, not only in anger")
+    p.add_argument("backup", help="the backup set folder, such as backups/20260929T120000Z")
+    p.add_argument("--into", help="database target to restore into (default: DATABASE_URL or data/sim.sqlite); must be empty")
+    p.add_argument("--data-dir", dest="data_dir", help="data directory for the policy repositories; must be empty")
+    p.set_defaults(func=cmd_restore)
+
     p = sub.add_parser("user", help="make or list accounts; `user add --role operator` makes the first one")
-    p.add_argument("action", choices=["add", "list"])
+    p.add_argument("action", choices=["add", "list", "reset", "disable", "enable"])
     p.add_argument("--email")
     p.add_argument("--name")
     p.add_argument("--role", choices=["operator", "member"], default="member")

@@ -5,12 +5,26 @@ import { SESSION_COOKIE, verifySession } from "./token";
 import { decodeUser, type SessionUser } from "./account-token";
 export { encodeUser, decodeUser, type SessionUser } from "./account-token";
 
-async function session(): Promise<SessionUser | null> {
+export interface Account extends SessionUser {
+  must_change: boolean;
+}
+
+/**
+ * The cookie is a signed claim; the account is the truth. Every request looks the account up, so a
+ * disabled account, a demoted operator, or a changed password (which bumps session_version) ends
+ * the session at once rather than at the cookie's expiry.
+ */
+async function session(): Promise<Account | null> {
   const cfg = getAuthConfig();
   if (!cfg.ok) return null;
   const store = await cookies();
   const result = await verifySession(cfg.secret, store.get(SESSION_COOKIE)?.value);
-  return result.ok ? decodeUser(result.operator) : null;
+  const claimed = result.ok ? decodeUser(result.operator) : null;
+  if (!claimed) return null;
+  const { userById } = await import("./users");
+  const user = await userById(claimed.user_id);
+  if (!user || user.disabled_at || Number(user.session_version ?? 0) !== claimed.version) return null;
+  return { user_id: user.user_id, email: user.email, name: user.name, role: user.role, version: Number(user.session_version ?? 0), must_change: Boolean(user.must_change) };
 }
 
 /** Defense in depth for write paths: re-check the session inside the handler. */
@@ -18,8 +32,8 @@ export async function hasValidSession(): Promise<boolean> {
   return (await session()) !== null;
 }
 
-/** The signed-in account. */
-export async function currentUser(): Promise<SessionUser | null> {
+/** The signed-in account, as it is now, not as it was when the cookie was issued. */
+export async function currentUser(): Promise<Account | null> {
   return session();
 }
 
