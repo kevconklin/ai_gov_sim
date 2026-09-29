@@ -95,7 +95,7 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
   const respondedTo = formData
     .getAll("responded_to")
     .filter((v): v is string => typeof v === "string" && v.length > 0);
-  return done(await submitCommand({
+  const attested = await submitCommand({
     kind: "attest",
     run_id: f.run_id ?? "",
     reason: `${operator}: attesting to ${f.decision_id ?? "a decision"}`,
@@ -110,7 +110,19 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
       // A review takes effect when its last matter is signed; the worker reports "waiting" until then.
       apply: true,
     },
-  }));
+  });
+  // sent back with "convene now": the worker runs commands in order, so the matter is waiting again before this runs
+  if (attested.success && f.outcome === "deferred" && f.convene_now === "1" && f.agenda_item) {
+    let item: { item_id: string; kind: string; title: string; ref_id: string } | null = null;
+    try { item = JSON.parse(f.agenda_item); } catch { item = null; }
+    if (item?.ref_id) {
+      await submitCommand({
+        kind: "convene", run_id: f.run_id ?? "", reason: `${operator}: another look at ${item.item_id}, with their note`,
+        payload: { agenda: [{ item_id: item.item_id, kind: "item", title: item.title, ref_id: item.ref_id }] },
+      });
+    }
+  }
+  return done(attested);
 }
 
 /** Put a matter in front of the committee. It becomes a ranked candidate; a person decides when it is heard. */

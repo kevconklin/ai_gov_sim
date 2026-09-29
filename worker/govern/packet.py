@@ -44,13 +44,46 @@ def _facts(details: Mapping[str, Any]) -> str:
     return "\n".join(f"- {k.replace('_', ' ')}: {_fact(v)}" for k, v in details.items() if v not in (None, "", [], ()))
 
 
+KEPT_OUT = ("flagged_text", "decider_notes", "related_decisions")
+
+
 def _submitted(row: Any, details: Mapping[str, Any]) -> str:
     """A submitter's own words, fenced: the advisers must see where the organization's text ends and theirs begins."""
     from govern.untrusted import quote
     flagged = [str(f) for f in details.get("flagged_text") or []]
-    facts = _facts({k: v for k, v in details.items() if k != "flagged_text"})
+    facts = _facts({k: v for k, v in details.items() if k not in KEPT_OUT})
     body = row["description"] + (f"\n{facts}" if facts else "")
     return quote(body, source=f"the submitter, {row['submitted_by']}", flagged=flagged)
+
+
+def _earlier_reviews(db: Any, item_id: str, details: Mapping[str, Any]) -> str:
+    """What happened when this matter was reviewed before, and what the person deciding asked for.
+
+    The person's note is their direction to the committee, not submitted text, so it sits outside the fence.
+    """
+    rows = db.fetch_all(
+        """SELECT m.meeting_date, d.outcome, d.yes_votes, d.no_votes, a.actor, a.outcome AS signed, a.rationale
+           FROM decisions d JOIN meetings m ON m.meeting_id = d.meeting_id
+           LEFT JOIN attestations a ON a.decision_id = d.decision_id
+           WHERE d.ref_id = ? ORDER BY m.meeting_date, d.decision_id""", (item_id,))
+    if not rows:
+        return ""
+    lines = ["Earlier reviews of this matter:"]
+    for r in rows:
+        line = f"- {r['meeting_date']}: the committee recommended {r['outcome']} ({r['yes_votes']} yes, {r['no_votes']} no)."
+        if r["signed"] == "deferred":
+            line += f" {r['actor']} sent it back for another look."
+        elif r["signed"]:
+            line += f" {r['actor']} signed it {r['signed']}."
+        else:
+            line += " No decision was signed."
+        lines.append(line)
+    notes = details.get("decider_notes") or []
+    if notes:
+        lines.append("From the person deciding, when they sent it back:")
+        lines += [f"- {n['on']}, {n['by']}: {n['note']}" for n in notes]
+        lines.append("Answer what they asked. If the committee's view has not changed, say why in the face of it.")
+    return "\n".join(lines)
 
 
 def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
@@ -75,9 +108,10 @@ def decision_details(ctx: ReviewContext, items: Sequence[AgendaItem]) -> str:
             from govern.intake import KIND_LABELS
             row = ctx.db.fetch_one("SELECT * FROM items WHERE item_id = ?", (item.ref_id,))
             details = json.loads(row["details"] or "{}")
+            earlier = _earlier_reviews(ctx.db, row["item_id"], details)
             blocks.append(f"{item.item_id} {KIND_LABELS[row['kind']]}: {row['title']} (submitted by {row['submitted_by']})\n"
                           + (f"- submitted risk tier: {row['risk_tier']}\n" if row["risk_tier"] else "")
-                          + _submitted(row, details))
+                          + _submitted(row, details) + (f"\n{earlier}" if earlier else ""))
         elif item.kind == "policy_edit":
             row = ctx.db.fetch_one("SELECT p.*, a.name AS proposer FROM policy_edits p LEFT JOIN agents a "
                                    "ON a.agent_id = p.agent_id WHERE edit_id = ?", (item.ref_id,))

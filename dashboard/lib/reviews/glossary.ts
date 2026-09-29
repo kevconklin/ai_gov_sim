@@ -6,7 +6,7 @@ export const GLOSSARY: Record<string, string> = {
   sign: "Your decision, in your own words, with your name and the date on the record. This is what makes anything take effect.",
   attestation: "Your signed decision: who decided, what, when, and why. It cannot be edited afterward.",
   overrule: "Deciding the opposite of what the committee recommended. Allowed, and recorded as such.",
-  defer: "Send it back to Waiting to be reviewed again later. Two deferrals escalate it.",
+  defer: "Send it back for another look, with a note the committee reads first next time. It returns to Waiting; two send-backs escalate it.",
   control: "One numbered rule in your AI policy, such as AI-GOV-010. Answers and reviews cite them by number.",
   panel: "The seats that review a given kind of matter. High-risk matters seat the whole committee.",
   seat: "One AI adviser on the committee, with a brief that says what it argues for and what it is blind to.",

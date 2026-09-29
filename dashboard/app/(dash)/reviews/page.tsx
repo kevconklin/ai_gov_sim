@@ -194,6 +194,10 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).flagged_text;
     return Array.isArray(v) ? v.map(String) : [];
   };
+  const notesIn = (detailsJson: string | null | undefined): { by: string; on: string; note: string }[] => {
+    const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).decider_notes;
+    return Array.isArray(v) ? (v as { by: string; on: string; note: string }[]) : [];
+  };
   const citedIn = (detailsJson: string | null | undefined): string[] => {
     const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).related_decisions;
     return Array.isArray(v) ? v.map(String) : [];
@@ -338,6 +342,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             {brief.why ? <div className="rv-brief-row"><span>Why</span><span>{brief.why.text}<span className="rv-brief-who">{brief.why.seat}</span></span></div> : null}
             {brief.objection ? <div className="rv-brief-row" data-tone="objection"><span><Term word="objection">Strongest objection</Term></span><span>{brief.objection.text}<span className="rv-brief-who">{brief.objection.seat}</span></span></div>
               : <div className="rv-brief-row"><span>Objections</span><span>None. Every seat that sat agreed.</span></div>}
+            {notesIn(d.details).length ? <div className="rv-brief-row"><span>Sent back before</span><span>{notesIn(d.details).map((n) => <span key={n.on + n.note} className="block">{n.on}, {n.by.replace(/ <.*>$/, "")}: “{n.note}”</span>)}</span></div> : null}
             {flaggedIn(d.details).length ? <div className="rv-brief-row" data-tone="objection"><span>Flagged</span><span>The submission contained text addressed to the advisers, which they were told to ignore: {flaggedIn(d.details).join("; ")}. Weigh that it was tried.</span></div> : null}
             {citedIn(d.details).length ? <div className="rv-brief-row"><span>Cites</span><span className="flex flex-wrap gap-1.5">{precedentChips(citedIn(d.details))}</span></div> : null}
             <div className="rv-brief-row"><span>What <Term word="sign">signing</Term> does</span><span>{brief.signing}</span></div>
@@ -351,7 +356,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           {!canDecide ? <p className="rv-hint" data-tone="wait">Only someone who decides for this organization can sign. You can read everything here.</p> : null}
           {canDecide ? <section className="rv-card" data-tone="you">
             <SignDecision runId={runId} decisionId={d.decision_id} recommended={d.recommended} mustWeighAll={d.risk_tier === "high"}
-              dissents={dissents} operator={operator ?? "You"} reviewTotal={Number(d.review_total)} reviewSigned={Number(d.review_signed)} />
+              dissents={dissents} operator={operator ?? "You"} reviewTotal={Number(d.review_total)} reviewSigned={Number(d.review_signed)}
+              agendaItem={{ item_id: d.item_id, kind: "item", title: d.title, ref_id: d.ref_id }} />
           </section> : null}
         </Drawer>
       );
@@ -366,9 +372,10 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             <dl className="rv-facts">
               {m.submitted_by ? <><dt>From</dt><dd>{m.submitted_by}</dd></> : null}
               <dt>Waiting</dt><dd>{ageOf(m.since)}</dd>
+              {notesIn(m.details).length ? <><dt>Sent back with</dt><dd>{notesIn(m.details).map((n) => <span key={n.on + n.note} className="block">{n.on}, {n.by.replace(/ <.*>$/, "")}: “{n.note}”</span>)}</dd></> : null}
               {flaggedIn(m.details).length ? <><dt>Flagged</dt><dd><Chip tone="objection">Text addressed to the advisers</Chip> <span className="muted text-xs">{flaggedIn(m.details).join("; ")}</span></dd></> : null}
               {citedIn(m.details).length ? <><dt>Earlier decisions</dt><dd className="flex flex-wrap gap-1.5">{precedentChips(citedIn(m.details))}</dd></> : null}
-              {Object.entries(parse<Record<string, unknown>>(m.details, {})).filter(([k]) => k !== "related_decisions" && k !== "flagged_text").map(([k, v]) => (
+              {Object.entries(parse<Record<string, unknown>>(m.details, {})).filter(([k]) => !["related_decisions", "flagged_text", "decider_notes"].includes(k)).map(([k, v]) => (
                 <span key={k} className="contents"><dt>{k.replace(/_/g, " ").replace(/^./, (ch) => ch.toUpperCase())}</dt><dd>{Array.isArray(v) ? v.join(", ") : v === true ? "Yes" : v === false ? "No" : String(v)}</dd></span>
               ))}
               <dt>Priority</dt>

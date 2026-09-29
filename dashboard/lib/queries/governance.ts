@@ -228,6 +228,7 @@ export interface DecisionRow {
   meeting_id: string;
   meeting_date: string;
   item_id: string;
+  ref_id: string;
   kind: string;
   item_kind: string | null;
   title: string;
@@ -251,7 +252,7 @@ export interface DecisionRow {
 export async function decisionsToSign(runId: string): Promise<DecisionRow[]> {
   const db = await readDb();
   return db.all<DecisionRow>(
-    `SELECT d.decision_id, d.meeting_id, m.meeting_date, d.item_id, d.kind, i.kind AS item_kind,
+    `SELECT d.decision_id, d.meeting_id, m.meeting_date, d.item_id, d.ref_id, d.kind, i.kind AS item_kind,
             COALESCE(i.title, u.title, d.item_id) AS title, COALESCE(i.description, u.description) AS description,
             d.outcome AS recommended, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, i.submitted_by, i.details,
             d.yes_votes, d.no_votes, d.abstentions,

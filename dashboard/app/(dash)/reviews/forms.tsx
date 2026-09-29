@@ -150,7 +150,7 @@ export interface DissentView {
   rationale: string | null;
 }
 
-export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dissents, operator, reviewTotal, reviewSigned }: {
+export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dissents, operator, reviewTotal, reviewSigned, agendaItem }: {
   runId: string;
   decisionId: string;
   recommended: string;
@@ -159,12 +159,15 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
   operator: string;
   reviewTotal: number;
   reviewSigned: number;
+  agendaItem: { item_id: string; kind: string; title: string; ref_id: string };
 }) {
   const [state, action, pending] = useActionState(attestAction, null);
   const [outcome, setOutcome] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set(mustWeighAll ? dissents.map((d) => d.agent_id) : []));
   const left = reviewTotal - reviewSigned - 1;
-  const choices: [string, string, string][] = [["approved", "Approve", "ok"], ["rejected", "Reject", "no"], ["deferred", "Defer", "wait"]];
+  const choices: [string, string, string][] = [["approved", "Approve", "ok"], ["rejected", "Reject", "no"], ["deferred", "Send back", "wait"]];
+  const sendingBack = outcome === "deferred";
+  const canConveneNow = left <= 0;
 
   function flip(id: string) {
     setOpen((before) => {
@@ -179,6 +182,7 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
     <form action={action} className="grid gap-4">
       <input type="hidden" name="run_id" value={runId} />
       <input type="hidden" name="decision_id" value={decisionId} />
+      <input type="hidden" name="agenda_item" value={JSON.stringify(agendaItem)} />
 
       {dissents.length > 0 ? (
         <div>
@@ -213,21 +217,28 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
             </label>
           ))}
         </div>
-        {outcome === "deferred" ? <p className="rv-hint" data-tone="wait"><Term word="defer">Deferring</Term> sends it back to Waiting. Two deferrals escalate it.</p>
+        {sendingBack ? <p className="rv-hint" data-tone="wait"><Term word="defer">Sending it back</Term> asks the committee to look again. Your note below is what they read first next time, with what they recommended this time. Two send-backs escalate it.</p>
           : outcome && outcome !== recommended ? <p className="rv-hint" data-tone="objection">This <Term word="overrule">overrules</Term> the committee, and the record says so.</p> : null}
       </fieldset>
 
       <label>
-        <span className="rv-label">Your reasoning</span>
-        <textarea className="rv-field" name="rationale" rows={3} required placeholder="In your own words. Nothing drafts this for you." />
+        <span className="rv-label">{sendingBack ? "What should the committee look at, or know, next time?" : "Your reasoning"}</span>
+        <textarea className="rv-field" name="rationale" rows={sendingBack ? 4 : 3} required
+          placeholder={sendingBack ? "The context they were missing, the question to answer, the condition you would need to see." : "In your own words. Nothing drafts this for you."} />
       </label>
+      {sendingBack ? (
+        <label className={`rv-tick is-wide${!canConveneNow ? " is-off" : ""}`} title={canConveneNow ? undefined : "The rest of this review has to be signed first; convene it from Waiting after."}>
+          <input type="checkbox" name="convene_now" value="1" disabled={!canConveneNow} />
+          <span>Convene the next review on this matter now{canConveneNow ? "" : " (after the other matters are signed)"}</span>
+        </label>
+      ) : null}
 
       <div className="rv-signrow">
         <span className="rv-signer" title="Your name goes on the record with this decision.">
           <span className="rv-avatar is-you">{initials(operator)}</span>
           <span className="rv-signer-name">{operator}</span>
         </span>
-        <button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Signing…" : "Sign decision"}</button>
+        <button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Signing…" : sendingBack ? "Sign and send back" : "Sign decision"}</button>
       </div>
       {left > 0 ? <p className="rv-hint" style={{ marginTop: "-0.5rem" }}>Takes effect once the other {plural(left, "matter")} from this review {left === 1 ? "is" : "are"} signed.</p> : null}
       <Said state={state} ok="Signed. It is being recorded now." />

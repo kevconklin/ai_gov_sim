@@ -169,10 +169,23 @@ def apply_attested(ctx: ReviewContext, decisions: Sequence[Decision], *, month: 
             record_deferral(ctx.db, ctx.run_id, ref_id=decision.item.ref_id,
                             meeting_id=_decision_row(ctx.db, decision.decision_id)["meeting_id"],
                             sim_month=month, reason=TABLED)
+            _keep_note(ctx, decision.item.ref_id, by=attested.actor, on=meeting_date, note=attested.rationale)
             mark_items(ctx.db, [decision.item.ref_id], OPEN)      # tabled, so it is a candidate again
             continue
         applying.append(replace(decision, attested_outcome=attested.outcome))
     return apply_decisions(ctx, applying, month=month, meeting_date=meeting_date)
+
+
+def _keep_note(ctx: ReviewContext, ref_id: str | None, *, by: str, on: date, note: str) -> None:
+    """What the person wrote when sending a matter back is direction for the next review, kept on the matter."""
+    import json
+    row = ctx.db.fetch_one("SELECT details FROM items WHERE item_id = ?", (ref_id,)) if ref_id else None
+    if row is None:
+        return
+    details = row["details"]
+    details = json.loads(details) if isinstance(details, str) else dict(details or {})
+    notes = list(details.get("decider_notes") or []) + [{"by": by, "on": on.isoformat(), "note": note}]
+    ctx.db.update("items", {"details": {**details, "decider_notes": notes}}, where={"item_id": ref_id})
 
 
 def apply_meeting(ctx: ReviewContext, meeting_id: str, *, month: str, meeting_date: date) -> list[str]:
