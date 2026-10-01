@@ -3,9 +3,8 @@ import { atLeast, orgRole, visibleRuns } from "@/lib/auth/access";
 import { first, href, type SearchParams } from "@/lib/params";
 import { currentScope, rereviewsOf, stageHistory, useCases, type UseCaseRow } from "@/lib/queries/product";
 import { dueSoon, INTAKE_WORDS, isOverdue, STAGE_HINT, STAGE_TONE, STAGE_WORDS, STAGES, type Stage } from "@/lib/lifecycle/stages";
-import { plural } from "@/lib/reviews/model";
 import { EscClose } from "../reviews/forms";
-import { Chip, Drawer, Icon, RiskChip } from "../reviews/parts";
+import { Chip, Drawer, Help, Icon, RiskChip } from "../reviews/parts";
 import { MoveStageForm, OwnerForm } from "./forms";
 
 const who = (actor: string | null) => (actor ?? "").replace(/ <.*>$/, "");
@@ -39,10 +38,8 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
         <span className="min-w-0">
           <span className="rv-rowtitle">{r.title}</span>
           <span className="rv-rowmeta">
-            <RiskChip tier={r.risk_tier} />
-            {r.owner ? <Chip plain>{r.owner}</Chip> : <Chip tone="wait">No owner</Chip>}
-            {stage ? null : <Chip tone={r.status === "rejected" ? "no" : "wait"} dot>{INTAKE_WORDS[r.status] ?? r.status}</Chip>}
-            {late ? <Chip tone="no" dot>Review overdue since {r.review_due}</Chip> : soon ? <Chip tone="wait" dot>Review due {r.review_due}</Chip> : stage && r.review_due ? <Chip plain>Review {r.review_due}</Chip> : null}
+            {late ? <Chip tone="no" dot>Review overdue</Chip> : soon ? <Chip tone="wait" dot>Review due {r.review_due}</Chip> : stage ? <RiskChip tier={r.risk_tier} /> : <Chip tone={r.status === "rejected" ? "no" : "wait"} dot>{INTAKE_WORDS[r.status] ?? r.status}</Chip>}
+            <span className="muted text-xs">{r.owner ?? "No owner yet"}</span>
           </span>
         </span>
         <span className="rv-rowend"><span className="is-wide muted text-xs">{stage ? `${STAGE_WORDS[stage]} since ${r.stage_changed_on}` : `Submitted ${r.submitted_on}`}</span><Icon name="chevron" className="rv-chev" /></span>
@@ -91,7 +88,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
   }
 
   const groups: [string, UseCaseRow[], string][] = [
-    ["Before approval", before, "Waiting for review, with the committee, waiting for a decision, or not approved."],
+    ["Not yet approved", before, "Waiting for review, with the committee, waiting for a decision, or not approved."],
     ...STAGES.map((s): [string, UseCaseRow[], string] => [STAGE_WORDS[s], inStage(s), STAGE_HINT[s]]),
   ];
 
@@ -100,25 +97,24 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
       {drawer}
       {drawer ? <EscClose href={closeHref} /> : null}
       <header className="rv-top">
-        <div className="flex flex-wrap items-center gap-2.5"><h1 className="rv-org">Use cases</h1><Chip plain>{scope.name}</Chip></div>
+        <div className="flex flex-wrap items-center gap-2.5"><h1 className="rv-org">Use cases</h1><Chip plain>{scope.name}</Chip><Help><p><strong>Every AI use case, across its life.</strong> Its life begins when a person signs an approval. Move it as work happens; it comes back for review every 6, 12, or 24 months by risk.</p></Help></div>
         <Link href={`/reviews?run=${run}&open=submit:use_case`} className="rv-btn rv-btn-you"><Icon name="plus" /> Propose a use case</Link>
       </header>
       <div className="rv-tiles">
         <span className="rv-tile" data-tone="ok"><span className="rv-tile-icon"><Icon name="check" /></span><span><span className="rv-tile-count">{live}</span><span className="rv-tile-label">Live</span></span></span>
-        <span className="rv-tile" data-tone="ai"><span className="rv-tile-icon"><Icon name="refresh" /></span><span><span className="rv-tile-count">{building}</span><span className="rv-tile-label">Building or piloting</span></span></span>
+        <span className="rv-tile" data-tone="ai"><span className="rv-tile-icon"><Icon name="refresh" /></span><span><span className="rv-tile-count">{building}</span><span className="rv-tile-label">In progress</span></span></span>
         <span className={`rv-tile${overdue ? " is-hot" : ""}`} data-tone={overdue ? "no" : "ok"}><span className="rv-tile-icon"><Icon name="alert" /></span><span><span className="rv-tile-count">{overdue}</span><span className="rv-tile-label">{overdue === 1 ? "Review overdue" : "Reviews overdue"}</span></span></span>
-        <Link href={`/reviews?run=${run}&tab=needs`} className={`rv-tile${deciding ? " is-hot" : ""}`} data-tone="you"><span className="rv-tile-icon"><Icon name="pen" /></span><span><span className="rv-tile-count">{deciding}</span><span className="rv-tile-label">Waiting for a decision</span></span></Link>
+        <Link href={`/reviews?run=${run}&tab=needs`} className={`rv-tile${deciding ? " is-hot" : ""}`} data-tone="you"><span className="rv-tile-icon"><Icon name="pen" /></span><span><span className="rv-tile-count">{deciding}</span><span className="rv-tile-label">To sign</span></span></Link>
       </div>
       {groups.map(([title, list, hint]) => (
         list.length ? (
           <section key={title} className="rv-board">
-            <nav className="rv-tabs" aria-label={title}><span className="rv-tab" aria-current="page">{title}<span className="rv-tab-count">{list.length}</span></span><span className="ml-auto muted text-xs pb-1.5 pr-1">{hint}</span></nav>
+            <nav className="rv-tabs" aria-label={title}><span className="rv-tab" aria-current="page">{title}<span className="rv-tab-count">{list.length}</span></span><span className="rv-lead"><Help right><p>{hint}</p></Help></span></nav>
             <div className="rv-rows">{list.map(row)}</div>
           </section>
         ) : null
       ))}
       {rows.length === 0 ? <div className="rv-empty"><span className="rv-empty-icon" data-tone="you"><Icon name="inbox" /></span><span>No use case yet. <Link href={`/reviews?run=${run}&open=submit:use_case`}>Propose one</Link>: what you want to do with AI, who it affects, and who owns it.</span></div> : null}
-      <p className="rv-hint">{plural(rows.length, "use case")} on the record. A use case comes back for review every 6, 12, or 24 months by risk; when its date passes, the next ranking of Waiting opens the re-review.</p>
     </div>
   );
 }

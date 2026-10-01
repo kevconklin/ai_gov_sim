@@ -72,11 +72,11 @@ export function decisionBrief(input: {
   const why = spokesman(forSide, input.chairSeat);
   const objection = spokesman(against, input.chairSeat);
   const left = input.reviewTotal - input.reviewSigned - 1;
+  // one line: what the signature does and when; the form beneath says the rest when it matters
   const signing = [
-    `Signing "${approving ? "Approve" : "Reject"}" agrees with the committee; choosing the other way overrules it, and the record says so.`,
-    input.riskTier === "high" && againstCount ? "This is high risk, so every objection must be ticked as weighed before you can sign." : "",
-    left > 0 ? `It takes effect once the other ${left === 1 ? "matter" : `${left} matters`} from this review ${left === 1 ? "is" : "are"} signed.` : "It takes effect as soon as you sign.",
-    "Your name goes on the record with your reasons, in your own words.",
+    left > 0 ? `Takes effect once the other ${left === 1 ? "matter" : `${left} matters`} from this review ${left === 1 ? "is" : "are"} signed.` : "Takes effect as soon as you sign.",
+    "Deciding the other way overrules the committee, and the record says so.",
+    input.riskTier === "high" && againstCount ? "High risk: tick each objection as weighed first." : "",
   ].filter(Boolean).join(" ");
 
   return {

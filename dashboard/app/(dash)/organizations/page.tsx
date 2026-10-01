@@ -5,7 +5,7 @@ import { allUsers } from "@/lib/auth/users";
 import { currentUser } from "@/lib/auth/session";
 import { AccountAdmin, InviteOperatorForm } from "../reviews/people-forms";
 import { FRAMEWORK_LABELS, plural } from "@/lib/reviews/model";
-import { Chip, Icon } from "../reviews/parts";
+import { Chip, Help, Icon } from "../reviews/parts";
 
 const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const KIT_LABELS: Record<string, string> = { general_business: "General business", regulated: "Regulated", software: "Software and SaaS" };
@@ -37,19 +37,11 @@ export default async function OrganizationsPage() {
           <span className="rv-rowtitle">{r.name}</span>
           <span className="rv-rowmeta">
             {r.status === "archived" ? <Chip tone="wait">Archived</Chip> : null}
-            {r.starter ? <Chip plain>{KIT_LABELS[r.starter] ?? r.starter}</Chip> : <Chip plain>Blank start</Chip>}
-            <Chip plain>{FRAMEWORK_LABELS[r.framework ?? "none"] ?? r.framework}</Chip>
-            <Chip plain>{plural(r.seats, "seat")}</Chip>
-            {r.controls ? <Chip plain>{plural(r.controls, "control")}</Chip> : null}
-            <Chip plain>Set up {since(r.started_at)}</Chip>
+            {r.needs_you ? <Chip tone="you" solid>{plural(r.needs_you, "decision")} to sign</Chip> : r.waiting ? <Chip tone="wait" dot>{r.waiting} waiting</Chip> : r.gaps ? <Chip tone="wait">{plural(r.gaps, "gap")}</Chip> : <Chip tone="ok" dot>Nothing waiting</Chip>}
+            <span className="muted text-xs">{FRAMEWORK_LABELS[r.framework ?? "none"] ?? r.framework}, {r.reviews ? `last review ${r.last_review}` : "no review yet"}</span>
           </span>
         </span>
-        <span className="rv-rowend rv-orgstats">
-          {r.needs_you ? <Chip tone="you" solid>{plural(r.needs_you, "decision")} to sign</Chip> : null}
-          {r.waiting ? <Chip tone="wait" dot>{r.waiting} waiting</Chip> : null}
-          {r.gaps ? <Chip tone="wait">{plural(r.gaps, "gap")}</Chip> : null}
-          <span className="is-wide muted text-xs">{r.reviews ? `${plural(r.reviews, "review")}, last ${r.last_review}` : "No review yet"}</span>
-          <span className="is-wide muted text-xs">{plural(r.signed, "signed decision")}</span>
+        <span className="rv-rowend">
           <span className={`is-wide text-xs ${overCap ? "font-semibold" : "muted"}`} style={overCap ? { color: "var(--no)" } : undefined}>{usd(r.spend_month)}{r.cap !== null ? ` of ${usd(r.cap)}` : ""}</span>
           <Icon name="chevron" className="rv-chev" />
         </span>
@@ -65,29 +57,29 @@ export default async function OrganizationsPage() {
       </header>
 
       <div className="rv-tiles">
-        <span className={`rv-tile${needing ? " is-hot" : ""}`} data-tone="you"><span className="rv-tile-icon"><Icon name="pen" /></span><span><span className="rv-tile-count">{totals.needs}</span><span className="rv-tile-label">{totals.needs === 1 ? "Decision to sign" : "Decisions to sign"}{needing ? ` across ${plural(needing, "organization")}` : ""}</span></span></span>
-        <span className="rv-tile" data-tone="wait"><span className="rv-tile-icon"><Icon name="inbox" /></span><span><span className="rv-tile-count">{totals.waiting}</span><span className="rv-tile-label">Matters waiting for review</span></span></span>
-        <span className="rv-tile" data-tone="ai"><span className="rv-tile-icon"><Icon name="chat" /></span><span><span className="rv-tile-count">{totals.gaps}</span><span className="rv-tile-label">Policy gaps the committees have not heard</span></span></span>
-        <span className="rv-tile" data-tone="ok"><span className="rv-tile-icon"><Icon name="flag" /></span><span><span className="rv-tile-count">{usd(totals.spend)}</span><span className="rv-tile-label">Spent this month, all organizations</span></span></span>
+        <span className={`rv-tile${needing ? " is-hot" : ""}`} data-tone="you"><span className="rv-tile-icon"><Icon name="pen" /></span><span><span className="rv-tile-count">{totals.needs}</span><span className="rv-tile-label">{totals.needs === 1 ? "Decision to sign" : "Decisions to sign"}</span></span></span>
+        <span className="rv-tile" data-tone="wait"><span className="rv-tile-icon"><Icon name="inbox" /></span><span><span className="rv-tile-count">{totals.waiting}</span><span className="rv-tile-label">Waiting for review</span></span></span>
+        <span className="rv-tile" data-tone="ai"><span className="rv-tile-icon"><Icon name="chat" /></span><span><span className="rv-tile-count">{totals.gaps}</span><span className="rv-tile-label">Policy gaps</span></span></span>
+        <span className="rv-tile" data-tone="ok"><span className="rv-tile-icon"><Icon name="flag" /></span><span><span className="rv-tile-count">{usd(totals.spend)}</span><span className="rv-tile-label">Spent this month</span></span></span>
       </div>
 
       <section className="rv-board">
-        <nav className="rv-tabs" aria-label="Organizations"><span className="rv-tab" aria-current="page">Active<span className="rv-tab-count">{active.length}</span></span></nav>
+        <nav className="rv-tabs" aria-label="Organizations"><span className="rv-tab" aria-current="page">Active<span className="rv-tab-count">{active.length}</span></span><span className="rv-lead"><Help right><p><strong>One row per organization.</strong> Blue means a decision is waiting for your signature; amber means matters are waiting or the policy could not answer a question. Open a row for its Reviews page.</p></Help></span></nav>
         {active.length === 0 ? (
           <div className="rv-empty"><span className="rv-empty-icon" data-tone="you"><Icon name="users" /></span><span>{operator ? <>No organization yet. <Link href="/reviews?open=customer">Set one up</Link> in about five minutes.</> : "You are not a member of any organization yet. Ask the person who runs governance to add you."}</span></div>
         ) : <div className="rv-rows">{active.map(row)}</div>}
       </section>
 
       {operator ? (
-        <section className="rv-board">
-          <nav className="rv-tabs" aria-label="Accounts"><span className="rv-tab" aria-current="page">Accounts<span className="rv-tab-count">{accounts.length}</span></span><span className="ml-auto muted text-xs pb-1.5 pr-1">{ops.length} operators run the service. Reset ends every session of that account.</span></nav>
+        <details className="rv-board rv-fold-board">
+          <summary className="rv-tabs" aria-label="Accounts"><span className="rv-tab" aria-current="page">Accounts<span className="rv-tab-count">{accounts.length}</span></span><span className="rv-lead muted text-xs">{ops.length === 1 ? "1 operator" : `${ops.length} operators`}</span></summary>
           <div className="rv-rows">
             {accounts.map((a) => (
               <div key={a.user_id} className="rv-rowline" style={{ cursor: "default", alignItems: "flex-start" }}>
                 <span className="rv-riskmark" data-tone={a.disabled_at ? "no" : a.role === "operator" ? "ai" : "ok"} />
                 <span className="min-w-0">
                   <span className="rv-rowtitle">{a.name}</span>
-                  <span className="rv-rowmeta"><Chip plain>{a.email}</Chip>{a.role === "operator" ? <Chip tone="ai">Operator</Chip> : <Chip plain>Member</Chip>}{a.disabled_at ? <Chip tone="no" dot>Disabled</Chip> : null}{a.must_change ? <Chip tone="wait">Temporary password</Chip> : null}<Chip plain>Since {a.created_at.slice(0, 10)}</Chip></span>
+                  <span className="rv-rowmeta">{a.disabled_at ? <Chip tone="no" dot>Disabled</Chip> : a.must_change ? <Chip tone="wait">Temporary password</Chip> : a.role === "operator" ? <Chip tone="ai">Operator</Chip> : <Chip plain>Member</Chip>}<span className="muted text-xs">{a.email}</span></span>
                 </span>
                 <span className="rv-rowend"><AccountAdmin userId={a.user_id} name={a.name} disabled={Boolean(a.disabled_at)} isSelf={a.user_id === me?.user_id} /></span>
               </div>
@@ -97,7 +89,7 @@ export default async function OrganizationsPage() {
             <summary className="rv-fold-head"><span>Add an operator</span></summary>
             <div className="rv-fold-body"><InviteOperatorForm /></div>
           </details>
-        </section>
+        </details>
       ) : null}
 
       {archived.length ? (

@@ -22,7 +22,7 @@ export function AskForm({ runId }: { runId: string }) {
           placeholder="Can I paste a customer's email into ChatGPT to draft a reply?" />
       </label>
       <div className="rv-ask-row">
-        <span className="rv-hint" style={{ marginTop: 0 }}>Answered from the policy and documents in force, with the controls cited. An AI reading, not legal advice.</span>
+        <span className="rv-hint" style={{ marginTop: 0 }}>Answered from the policy, with the controls cited. Not legal advice.</span>
         <button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Asking…" : "Ask"}</button>
       </div>
       <Said state={state} ok="Reading the policy. The answer appears below in a moment." />

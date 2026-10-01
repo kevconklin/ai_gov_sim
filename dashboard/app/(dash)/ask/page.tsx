@@ -62,8 +62,8 @@ export default async function AskPage({ searchParams }: { searchParams: Promise<
 
       <div className="rv-tiles">
         <span className="rv-tile" data-tone="ai"><span className="rv-tile-icon"><Icon name="chat" /></span><span><span className="rv-tile-count">{asks.length}</span><span className="rv-tile-label">Questions asked</span></span></span>
-        <span className="rv-tile" data-tone="ok"><span className="rv-tile-icon"><Icon name="check" /></span><span><span className="rv-tile-count">{covered}</span><span className="rv-tile-label">Answered by the policy</span></span></span>
-        <Link href={`/reviews?run=${run}&tab=waiting`} className={`rv-tile${unanswered ? " is-hot" : ""}`} data-tone={unanswered ? "wait" : "ok"}><span className="rv-tile-icon"><Icon name="inbox" /></span><span><span className="rv-tile-count">{unanswered}</span><span className="rv-tile-label">{unanswered === 1 ? "Gap the committee has not heard" : "Gaps the committee has not heard"}</span></span></Link>
+        <span className="rv-tile" data-tone="ok"><span className="rv-tile-icon"><Icon name="check" /></span><span><span className="rv-tile-count">{covered}</span><span className="rv-tile-label">Answered</span></span></span>
+        <Link href={`/reviews?run=${run}&tab=waiting`} className={`rv-tile${unanswered ? " is-hot" : ""}`} data-tone={unanswered ? "wait" : "ok"}><span className="rv-tile-icon"><Icon name="inbox" /></span><span><span className="rv-tile-count">{unanswered}</span><span className="rv-tile-label">{unanswered === 1 ? "Gap to send on" : "Gaps to send on"}</span></span></Link>
       </div>
 
       <section className="rv-board">

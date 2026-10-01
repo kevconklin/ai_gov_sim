@@ -19,8 +19,8 @@ describe("decisionBrief", () => {
     expect(b.why).toEqual({ seat: "Committee Chair", text: "The value is clear and the data terms hold. We should approve with monitoring." });
     expect(b.objection?.seat).toBe("General Counsel");
     expect(b.objection?.text).toContain("retain transcripts for a year");
-    expect(b.signing).toContain("takes effect as soon as you sign");
-    expect(b.signing).not.toContain("high risk");
+    expect(b.signing).toContain("Takes effect as soon as you sign");
+    expect(b.signing).not.toContain("High risk");
   });
 
   it("a unanimous vote says so and has no objection", () => {
@@ -44,7 +44,7 @@ describe("decisionBrief", () => {
     expect(b.firmness).toBe("split");
     expect(b.why?.seat).toBe("GC");
     expect(b.objection).toEqual({ seat: "Chair", text: "Too soon." });
-    expect(b.signing).toContain("high risk");
+    expect(b.signing).toContain("High risk");
   });
 
   it("long reasons are cut to two sentences", () => {

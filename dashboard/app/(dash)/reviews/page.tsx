@@ -171,9 +171,9 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const openRisk = [...queue.map((q) => q.risk_tier), ...decisions.map((d) => d.risk_tier)];
   const riskCount = (tier: string | null) => openRisk.filter((t) => t === tier).length;
   const tiles: { tab: Tab; tone: string; icon: string; count: number; label: string }[] = [
-    { tab: "needs", tone: "you", icon: "pen", count: decisions.length, label: decisions.length === 1 ? "Needs your decision" : "Need your decision" },
-    { tab: "waiting", tone: "wait", icon: "inbox", count: queue.length, label: "Waiting for review" },
-    { tab: "needs", tone: "ai", icon: "users", count: reviewing, label: "With the committee" },
+    { tab: "needs", tone: "you", icon: "pen", count: decisions.length, label: "To sign" },
+    { tab: "waiting", tone: "wait", icon: "inbox", count: queue.length, label: "Waiting" },
+    { tab: "needs", tone: "ai", icon: "users", count: reviewing, label: "In review" },
     { tab: "decided", tone: "ok", icon: "check", count: record.length, label: "Signed" },
   ];
   const tabs: { id: Tab; label: string; count: number; tone: string }[] = [
@@ -512,7 +512,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         ))}
       </div>
 
-      {openRisk.length > 0 ? (
+      {openRisk.some((t) => t !== null) ? (
         <div className="rv-riskbar">
           <span>Open risk</span>
           <span className="rv-riskbar-track" role="img" aria-label={`${riskCount("high")} high, ${riskCount("medium")} medium, ${riskCount("low")} low, ${riskCount(null)} not rated`}>
@@ -565,7 +565,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             ].map((s) => (
               <Link key={s.title} href={s.href} scroll={false} className="rv-start-row" data-done={s.done ? "true" : undefined}>
                 <span className="rv-start-mark" aria-hidden>{s.done ? "✓" : ""}</span>
-                <span className="min-w-0"><span className="rv-start-title">{s.title}</span><span className="rv-start-text">{s.text}</span></span>
+                <span className="min-w-0"><span className="rv-start-title">{s.title}</span>{!s.done ? <span className="rv-start-text">{s.text}</span> : null}</span>
                 {!s.done ? <Icon name="chevron" className="rv-chev ml-auto" /> : null}
               </Link>
             ))}
@@ -576,9 +576,12 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       <section className="rv-board">
         <nav className="rv-tabs" aria-label="Matters">
           {tabs.map((t) => (
-            <Link key={t.id} href={to({ tab: t.id, open: null })} scroll={false} className="rv-tab" aria-current={tab === t.id ? "page" : undefined}>
-              {t.label}<span className="rv-tab-count" data-tone={t.count ? t.tone : undefined}>{t.count}</span>
-            </Link>
+            <span key={t.id} className="contents">
+              {t.id === "reviews" ? <span className="rv-tab-sep" aria-hidden /> : null}
+              <Link href={to({ tab: t.id, open: null })} scroll={false} className="rv-tab" aria-current={tab === t.id ? "page" : undefined}>
+                {t.label}{t.count ? <span className="rv-tab-count" data-tone={t.tone}>{t.count}</span> : null}
+              </Link>
+            </span>
           ))}
           <span className="ml-auto flex items-center gap-2 pb-1.5 pr-1">
             {tab === "waiting" && queue.length ? <><span className="muted text-xs">{ranked ? `Ranked ${when(ranked.at)}` : "Not ranked"}</span><RefreshRanking runId={runId} /></> : null}
@@ -603,9 +606,9 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
                     <span className="min-w-0">
                       <span className="rv-rowtitle">{d.title}</span>
                       <span className="rv-rowmeta">
-                        <KindChip kind={d.item_kind ?? d.kind} /><RiskChip tier={d.risk_tier} />
                         <Chip tone="ai">Recommends {d.recommended === "approved" ? "approve" : "reject"}</Chip>
-                        {objections ? <Chip tone="objection">{plural(objections, "objection")}</Chip> : null}
+                        {objections ? <Chip tone="objection">{plural(objections, "objection")}</Chip> : <RiskChip tier={d.risk_tier} />}
+                        <span className="muted text-xs">{KIND_LABELS[d.item_kind ?? d.kind] ?? d.kind}</span>
                       </span>
                     </span>
                     <span className="rv-rowend"><span className="is-wide"><VoteBar yes={Number(d.yes_votes)} no={Number(d.no_votes)} abstain={Number(d.abstentions)} /></span><Chip tone="you" solid>Sign</Chip><Icon name="chevron" className="rv-chev" /></span>

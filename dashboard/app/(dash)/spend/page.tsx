@@ -30,9 +30,9 @@ export default async function SpendPage({ searchParams }: { searchParams: Promis
 
       <div className="rv-tiles">
         <span className="rv-tile" data-tone={tone}><span className="rv-tile-icon"><Icon name="flag" /></span><span><span className="rv-tile-count">{usd(now.cost)}</span><span className="rv-tile-label">This month{cap ? ` of ${usd(cap)}` : ""}</span></span></span>
-        <span className="rv-tile" data-tone="ai"><span className="rv-tile-icon"><Icon name="users" /></span><span><span className="rv-tile-count">{now.calls}</span><span className="rv-tile-label">Model calls this month</span></span></span>
-        <span className={`rv-tile${now.failed ? " is-hot" : ""}`} data-tone={now.failed ? "no" : "ok"}><span className="rv-tile-icon"><Icon name="alert" /></span><span><span className="rv-tile-count">{now.failed}</span><span className="rv-tile-label">Failed this month</span></span></span>
-        <span className="rv-tile" data-tone="wait"><span className="rv-tile-icon"><Icon name="refresh" /></span><span><span className="rv-tile-count">{now.retried}</span><span className="rv-tile-label">Needed a retry</span></span></span>
+        <span className="rv-tile" data-tone="ai"><span className="rv-tile-icon"><Icon name="users" /></span><span><span className="rv-tile-count">{now.calls}</span><span className="rv-tile-label">Calls</span></span></span>
+        <span className={`rv-tile${now.failed ? " is-hot" : ""}`} data-tone={now.failed ? "no" : "ok"}><span className="rv-tile-icon"><Icon name="alert" /></span><span><span className="rv-tile-count">{now.failed}</span><span className="rv-tile-label">Failed</span></span></span>
+        <span className="rv-tile" data-tone="wait"><span className="rv-tile-icon"><Icon name="refresh" /></span><span><span className="rv-tile-count">{now.retried}</span><span className="rv-tile-label">Retried</span></span></span>
       </div>
 
       {cap ? (

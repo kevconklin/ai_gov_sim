@@ -193,6 +193,7 @@ pre.code {
    --------------------------------------------------------------------------------------------- */
 
 .rv {
+  max-width: 72rem;          /* one column a person can scan; nothing spans a wide monitor */
   font-size: 14px;
   line-height: 1.5;
 }
@@ -333,9 +334,9 @@ pre.code {
 /* tiles: how many, where */
 .rv-tiles {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 14rem));   /* sized to the number, not the page */
+  gap: 0.6rem;
+  margin-top: 0.9rem;
 }
 @media (max-width: 760px) {
   .rv-tiles {
@@ -560,6 +561,23 @@ pre.code {
   border-radius: 14px;
   overflow: hidden;
 }
+/* A board that folds: the summary is its tab bar. Closed by default for things read rarely. */
+.rv-fold-board > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.rv-fold-board > summary::-webkit-details-marker {
+  display: none;
+}
+.rv-fold-board > summary .rv-lead::after {
+  content: "Show";
+  margin-left: 0.5rem;
+  color: var(--you);
+  font-weight: 600;
+}
+.rv-fold-board[open] > summary .rv-lead::after {
+  content: "Hide";
+}
 .rv-tabs {
   display: flex;
   align-items: center;
@@ -653,6 +671,13 @@ pre.code {
   align-items: center;
   gap: 0.3rem 0.45rem;
   margin-top: 0.2rem;
+}
+/* A list row says three things; the rest is in the drawer. */
+.rv-rows .rv-rowmeta > :nth-child(n + 4) {
+  display: none;
+}
+.rv-rowend .is-wide + .is-wide {
+  display: none;
 }
 .rv-rowend {
   display: flex;
@@ -905,6 +930,18 @@ pre.code {
   font-size: 12.5px;
   color: var(--muted);
   margin-top: 0.3rem;
+}
+/* Two groups of tabs: the matters, then the organization behind them. */
+.rv-tab-sep {
+  width: 1px;
+  height: 1.1rem;
+  margin: 0 0.5rem 0.45rem;
+  background: var(--border);
+  align-self: center;
+}
+.rv-tabs .rv-lead {
+  margin-left: auto;
+  padding: 0 0.25rem 0.4rem;
 }
 .rv-hint[data-tone] {
   color: var(--tone);
@@ -1189,9 +1226,11 @@ pre.code {
   gap: 0.6rem;
 }
 .rv-brief-head {
-  font-size: 1.05rem;
-  font-weight: 650;
-  line-height: 1.35;
+  font-family: var(--font-doc);
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 .rv-brief-row {
   display: grid;
@@ -1354,6 +1393,7 @@ pre.code {
 .rv-start {
   display: grid;
   gap: 0.35rem;
+  max-width: 44rem;
 }
 .rv-start-row {
   display: flex;
