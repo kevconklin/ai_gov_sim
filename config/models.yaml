@@ -10,6 +10,26 @@ prices:
   claude-sonnet-5: {input: 2.00, output: 10.00}            # from SPEC section 12, unverified
   claude-haiku-4-5-20251001: {input: 1.00, output: 5.00}   # from SPEC section 12, unverified
   claude-opus-5: {input: 5.00, output: 25.00}              # from SPEC section 12, unverified
+  # PLACEHOLDER prices for other providers. They exist so spend can be counted and the budget
+  # enforced; they are NOT verified. Check each provider's current pricing, and that the model id
+  # is one your account can call, before a paid run. Hugging Face router prices depend on which
+  # inference provider serves the model.
+  "openai:gpt-4.1": {input: 2.00, output: 8.00}                                    # unverified
+  "openai:gpt-4.1-mini": {input: 0.40, output: 1.60}                               # unverified
+  "huggingface:meta-llama/Llama-3.3-70B-Instruct": {input: 0.60, output: 0.60}     # unverified
+  "huggingface:Qwen/Qwen2.5-72B-Instruct": {input: 0.60, output: 0.60}             # unverified
+  "local:default": {input: 0.00, output: 0.00}                                     # your own hardware
+
+# Models a customer can give a committee seat. Every entry must be priced above.
+catalog:
+  - {id: claude-sonnet-5, label: "Claude Sonnet 5", provider: anthropic}
+  - {id: claude-opus-5, label: "Claude Opus 5", provider: anthropic}
+  - {id: claude-haiku-4-5-20251001, label: "Claude Haiku 4.5", provider: anthropic}
+  - {id: "openai:gpt-4.1", label: "OpenAI GPT-4.1", provider: openai}
+  - {id: "openai:gpt-4.1-mini", label: "OpenAI GPT-4.1 mini", provider: openai}
+  - {id: "huggingface:meta-llama/Llama-3.3-70B-Instruct", label: "Llama 3.3 70B (Hugging Face)", provider: huggingface}
+  - {id: "huggingface:Qwen/Qwen2.5-72B-Instruct", label: "Qwen 2.5 72B (Hugging Face)", provider: huggingface}
+  - {id: "local:default", label: "Self-hosted model", provider: local}
 
 multipliers:
   cache_write: 1.25   # 5-minute cache write, relative to input rate

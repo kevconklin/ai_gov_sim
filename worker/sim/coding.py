@@ -11,7 +11,7 @@ import re
 from functools import lru_cache
 from typing import Any, Mapping
 
-from sim.agents.structured import StructuredOutputError, extract, forced, tool
+from govern.agents.structured import StructuredOutputError, extract, forced, tool
 from sim.context import RunContext
 from sim.world import REPO_ROOT
 

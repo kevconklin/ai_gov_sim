@@ -13,7 +13,12 @@ export async function proxy(request: NextRequest) {
   }
 
   const result = await verifySession(cfg.secret, request.cookies.get(SESSION_COOKIE)?.value);
-  if (result.ok) return NextResponse.next();
+  if (result.ok) {
+    // the layout enforces "change your temporary password first"; it needs to know where the request is going
+    const headers = new Headers(request.headers);
+    headers.set("x-pathname", pathname);
+    return NextResponse.next({ request: { headers } });
+  }
 
   if (isApi) {
     return NextResponse.json({ success: false, data: null, error: "Unauthorized" }, { status: 401 });

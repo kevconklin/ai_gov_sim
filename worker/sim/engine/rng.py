@@ -14,8 +14,8 @@ import random
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from sim import ids
-from sim.db import Database
+from govern import ids
+from govern.db import Database
 
 
 def derive_seed(*parts: object) -> int:

@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from sim.policy import PolicyError, PolicyRepo, apply_edit, read_section, sections, stats
+from govern.policy import PolicyError, PolicyRepo, apply_edit, read_section, sections, stats
 
 BASE = "# Bank AI Policy\n\nOwner: AI Governance Committee\n"
 

@@ -8,11 +8,11 @@ import pytest
 
 from conftest import REPO_ROOT
 from fakes import FakeClient, make_message
-from sim.agents.runner import run_turn
-from sim.config import load_config
+from govern.agents.runner import run_turn
+from govern.config import load_config
 from sim.context import RunContext
-from sim.llm import LLMClient
-from sim.tools import ToolSession
+from govern.llm import LLMClient
+from govern.tools import ToolSession
 from sim.world import load_world
 
 

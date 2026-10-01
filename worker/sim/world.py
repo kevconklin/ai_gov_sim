@@ -11,7 +11,7 @@ from typing import Any, Mapping
 
 import yaml
 
-from sim.config import ConfigError
+from govern.config import ConfigError
 
 REPO_ROOT = Path(os.environ.get("SIM_REPO_ROOT") or Path(__file__).resolve().parents[2])
 DEFAULT_CONFIG_DIR = REPO_ROOT / "config"

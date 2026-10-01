@@ -122,6 +122,20 @@ export function seedGovernance(insert: Insert): void {
       narrative: null,
     });
 
+    const INTAKE = [
+      { n: 1, kind: "vendor", title: "Transcript analytics vendor", tier: "medium", status: "submitted" },
+      { n: 2, kind: "tool", title: "Code assistant for the platform team", tier: "low", status: "approved" },
+      { n: 3, kind: "question", title: "May staff use public chat assistants?", tier: null, status: "advised" },
+    ] as const;
+    for (const item of INTAKE) {
+      insert("items", {
+        item_id: rid(bank, `item/IT-00${item.n}`), run_id: bank.runId, kind: item.kind, title: item.title,
+        description: "Submitted by the business for the committee to consider.", details: json({}),
+        risk_tier: item.tier, status: item.status, submitted_by: "business@example.invalid",
+        submitted_on: "2027-03-02", decided_on: item.status === "submitted" ? null : date,
+      });
+    }
+
     insert("agenda_deferrals", {
       deferral_id: rid(bank, `deferral/${QUEUED.itemId}`), run_id: bank.runId,
       ref_id: rid(bank, `uc/${QUEUED.itemId}`), meeting_id: meetingId, sim_month: MONTH, reason: "tabled",

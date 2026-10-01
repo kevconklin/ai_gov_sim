@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from sim import prompts
-from sim.calendar import add_months, month_name, quarter_of
+from govern import prompts
+from govern.calendar import add_months, month_name, quarter_of
 from sim.engine.rng import RNG
 from sim.engine.state import CompanyState
 

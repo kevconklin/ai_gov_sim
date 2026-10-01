@@ -9,15 +9,15 @@ import pytest
 from conftest import REPO_ROOT
 from sim import commands
 from sim.board import replace_member
-from sim.config import load_config
-from sim.db import Database
+from govern.config import load_config
+from govern.db import Database
 from sim.demo_llm import DemoAnthropic
-from sim.llm import LLMClient
+from govern.llm import LLMClient
 from sim.orchestrator import Orchestrator
 from sim.regulator import conduct_exam, exam_due
 from sim.engine.resolve import load_state
 from sim.setup import create_experiment
-from sim.tools import ToolSession, execute
+from govern.tools import ToolSession, execute
 from sim.world import load_world
 
 

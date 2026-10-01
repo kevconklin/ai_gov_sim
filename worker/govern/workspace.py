@@ -1,0 +1,141 @@
+"""A workspace: one organization's committee, with no simulation behind it.
+
+It reuses the run as its scope, so every run-scoped table, id convention, checkpoint and audit
+record works unchanged. What makes it a workspace is that it has an organization profile, its
+committee's briefs are stored rather than read from files, and its status is one the simulation's
+clock never advances.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from datetime import date
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+from govern import ids
+from govern.committee import load_default_committee
+from govern.config import Config
+from govern.db import Database, utc_now_iso
+from govern.policy import PolicyRepo
+from govern.starter import apply_starter, get_starter
+
+WORKSPACE = "workspace"          # runs.condition and runs.status; `serve` only advances 'running'
+ARCHIVED = "archived"            # runs.status for a workspace put away: kept whole, hidden from the picker, refuses new work
+
+
+def is_workspace(run: Mapping[str, Any]) -> bool:
+    return run["condition"] == WORKSPACE
+
+
+def _slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:40] or "org"
+
+
+def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir: Path, name: str,
+                     risk_appetite: str, facts: str = "", today: date | None = None,
+                     committee: Mapping[str, Mapping[str, Any]] | None = None, source: str = "cli",
+                     actor: str = "unknown", profile: Mapping[str, Any] | None = None,
+                     starter: str | None = None, matters: Sequence[Mapping[str, Any]] = (),
+                     answers: Mapping[str, Any] | None = None) -> str:
+    """Create the organization's committee.
+
+    With `starter`, a kit also gives it a policy, documents, and a first matter. `matters` are submitted
+    straight into Waiting under the creator's name (the AI already in use, listed at setup). `answers`
+    are the setup questionnaire's answers, kept on the change record so the setup can be explained later.
+    """
+    if len(name.strip()) < 2:
+        raise ValueError("a workspace needs the organization's name")
+    if len(risk_appetite.strip()) < 20:
+        raise ValueError("a workspace needs the board's direction on AI: the committee argues from it")
+    kit = get_starter(config_dir, starter) if starter else None      # refuse a bad kit before anything is created
+    today = today or date.today()
+    month = today.isoformat()[:7]
+    seats = committee or load_default_committee(config_dir)
+    slug = _slug(name)
+    experiment_id = f"{slug}-{ids.global_id()[:6]}"
+    run_id = ids.new_run_id(experiment_id, slug, 1)
+    db.insert("experiments", {"experiment_id": experiment_id, "name": name.strip(),
+                              "notes": "workspace", "created_at": utc_now_iso()})
+    db.insert("runs", {
+        "run_id": run_id, "experiment_id": experiment_id, "bank_id": slug, "condition": WORKSPACE, "replicate": 1,
+        "seed": 0, "model_versions": dict(config.models.roles), "config_hash": "workspace", "start_month": month,
+        "current_month": None, "status": WORKSPACE,
+        "spend_cap_usd_per_month": float(config.budget.raw["spend_caps_usd"]["per_workspace_per_month"]),
+        "started_at": utc_now_iso(),
+    })
+    db.insert("org_profiles", {
+        "run_id": run_id, "name": name.strip(), "risk_appetite": risk_appetite.strip(),
+        "facts": facts.strip() or f"{name.strip()} has not yet described itself to the committee.",
+        "seats": list(seats), "chair_seat": next(s for s, v in seats.items() if v.get("chair")),
+        "created_at": utc_now_iso(),
+        **{k: (str(v).strip() or None) for k, v in (profile or {}).items()
+           if k in ("framework", "business_goals", "ai_landscape", "ai_tools")},
+    })
+    from govern.settings import record_change
+    record_change(db, run_id, actor=actor, source=source, area="workspace", target="created",
+                  before=None, after=name.strip(), reason=f"New customer with {len(seats)} committee seats")
+    for seat_id, seat in seats.items():
+        db.insert("agents", {"agent_id": ids.scoped(run_id, "agent", seat_id), "run_id": run_id, "bank_id": slug,
+                             "seat": seat_id, "name": seat["name"], "title": seat["title"],
+                             "persona_file": "", "persona_text": str(seat["brief"]).strip(),
+                             "active_from": month, "active_to": None, "stance_baseline": float(seat.get("stance", 3.0))})
+    PolicyRepo(Path(data_dir) / "policies" / run_id / slug).init(name.strip(), "ai-governance@workspace.invalid", today)
+    db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None,
+                                "real_ts": utc_now_iso(), "kind": "workspace_created",
+                                "description": f"Workspace for {name.strip()} with {len(seats)} seats", "source": source})
+    if answers:
+        record_change(db, run_id, actor=actor, source=source, area="questionnaire", target="setup", before=None,
+                      after=json.dumps(dict(answers), sort_keys=True), reason="Answered at setup; the configuration follows from it")
+    if kit is not None:
+        apply_starter(db, run_id, kit, org=name.strip(), slug=slug, framework=(profile or {}).get("framework") or None,
+                      data_dir=Path(data_dir), today=today, actor=actor, source=source)
+    from govern.intake import submit_item
+    for matter in matters:
+        submit_item(db, run_id, kind=str(matter["kind"]), title=str(matter["title"]), description=str(matter["description"]),
+                    submitted_by=actor, risk_tier=matter.get("risk_tier") or None, details=matter.get("details"), today=today)
+    return run_id
+
+
+class WorkspaceError(ValueError):
+    """The workspace cannot be changed as asked."""
+
+
+def _workspace_row(db: Database, run_id: str) -> Any:
+    row = db.fetch_one("SELECT run_id, condition, status FROM runs WHERE run_id = ?", (run_id,))
+    if row is None or not is_workspace(row):
+        raise WorkspaceError(f"{run_id} is not a workspace")
+    return row
+
+
+def archive_workspace(db: Database, run_id: str, *, actor: str, reason: str, source: str = "cli_asserted") -> None:
+    """Put a workspace away. Nothing is deleted: the record stays readable, and it can be restored."""
+    from govern.settings import _reason, record_change
+    why = _reason(reason)
+    row = _workspace_row(db, run_id)
+    if row["status"] == ARCHIVED:
+        raise WorkspaceError("that workspace is already archived")
+    db.update("runs", {"status": ARCHIVED}, where={"run_id": run_id})
+    record_change(db, run_id, actor=actor, source=source, area="workspace", target="status", before=row["status"], after=ARCHIVED, reason=why)
+    db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None, "real_ts": utc_now_iso(),
+                                "kind": "workspace_archived", "description": f"Archived by {actor}: {why}", "source": source})
+
+
+def restore_workspace(db: Database, run_id: str, *, actor: str, reason: str, source: str = "cli_asserted") -> None:
+    from govern.settings import _reason, record_change
+    why = _reason(reason)
+    row = _workspace_row(db, run_id)
+    if row["status"] != ARCHIVED:
+        raise WorkspaceError("that workspace is not archived")
+    db.update("runs", {"status": WORKSPACE}, where={"run_id": run_id})
+    record_change(db, run_id, actor=actor, source=source, area="workspace", target="status", before=ARCHIVED, after=WORKSPACE, reason=why)
+    db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None, "real_ts": utc_now_iso(),
+                                "kind": "workspace_restored", "description": f"Restored by {actor}: {why}", "source": source})
+
+
+def require_active(db: Database, run_id: str) -> None:
+    """An archived workspace takes no new work: no reviews, no asks, no submissions."""
+    row = db.fetch_one("SELECT condition, status FROM runs WHERE run_id = ?", (run_id,))
+    if row is not None and is_workspace(row) and row["status"] == ARCHIVED:
+        raise WorkspaceError("this organization is archived; restore it under Settings before doing anything else with it")

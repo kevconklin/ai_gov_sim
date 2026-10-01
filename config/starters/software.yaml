@@ -1,0 +1,76 @@
+# Starter kit: a company that ships AI in its own product as well as using it internally. Defaults
+# to the EU AI Act because a product sold into the EU may put the company in scope as a provider or
+# deployer; a US-only company may choose NIST AI RMF instead.
+id: software
+label: Software and SaaS
+summary: For a company that ships AI features to its customers as well as using AI tools inside the business.
+audience: Software companies, SaaS products, platforms, and agencies that build AI features for clients.
+framework: eu_ai_act
+
+stances:
+  cautious:
+    label: Cautious
+    text: >-
+      Ship AI features only where a wrong output costs the customer little and is easy to see. Customer data
+      never trains a model without written agreement. Internally, use AI for drafting and coding with a person
+      reviewing everything that ships. We protect customer trust before we protect a launch date.
+  balanced:
+    label: Balanced
+    text: >-
+      AI features are core to the product and we ship them deliberately: each with a stated purpose, tests, a
+      way to turn it off, and honest limits told to customers. Move fast on features that assist a user and
+      slowly on features that act for one. Customer data is the customer's.
+  ambitious:
+    label: Ambitious
+    text: >-
+      We are an AI company and we ship weekly. The committee exists so that speed does not become recklessness:
+      every feature has an owner, an evaluation, a kill switch, and a disclosure, and we pull anything that
+      fails them. We do not use customer data to train without agreement, and we do not ship decisions about
+      people without a person able to overrule them.
+
+facts_template: >-
+  What the product does, who buys it and where, whether AI features act on the customer's data or their end
+  users, which models and providers are behind them, and roughly how many staff.
+business_goals: >-
+  Ship AI features customers trust and pay for, keep the company clear of provider and deployer obligations it
+  has not planned for, and use AI internally to build faster without leaking what customers gave us.
+
+controls:
+  - scope
+  - committee
+  - owner
+  - literacy
+  - inventory
+  - approval
+  - tiering
+  - prohibited
+  - rereview
+  - data_entry
+  - data_basis
+  - retention
+  - human_decision
+  - disclosure
+  - fairness
+  - off_switch
+  - vendor_review
+  - vendor_terms
+  - embedded_ai
+  - incident
+  - exceptions
+  - policy_review
+  - product_purpose
+  - product_release
+  - provenance
+  - customer_incidents
+
+documents: [charter, acceptable_use]
+
+first_matter:
+  title: Does the starter AI policy fit {org}?
+  description: >-
+    The policy now in force was written from the Software and SaaS starter kit and mapped to {framework}. It has
+    not been read against this organization, its product, or where it sells. Read it against the board's
+    direction and what you know of us. Which controls fit a product we do not have? Which are missing for the AI
+    features we ship and the providers behind them? Which would slow releases without reducing risk? Recommend
+    adopting it as it stands, adopting it with the edits you propose, or sending it back, and say which controls
+    you would change first.

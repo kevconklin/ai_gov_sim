@@ -6,22 +6,23 @@ import hashlib
 from pathlib import Path
 from typing import Sequence
 
-from sim import ids
-from sim.calendar import add_months, day_in_month
-from sim.config import Config
-from sim.db import Database, utc_now_iso
+from govern import ids
+from govern.calendar import add_months, day_in_month
+from govern.config import Config
+from govern.db import Database, utc_now_iso
 from sim.engine.rng import derive_seed
 from sim.engine.state import initial_state
-from sim.policy import PolicyRepo
-from sim.prompts import PROMPTS_DIR
+from govern.policy import PolicyRepo
+from govern import prompts
 from sim.world import World
 
 
 def prompts_hash() -> str:
     digest = hashlib.sha256()
-    for path in sorted(PROMPTS_DIR.rglob("*")):
-        if path.is_file() and path.suffix in (".md", ".yaml"):
-            digest.update(path.read_bytes())
+    for root in prompts.roots():
+        for path in sorted(root.rglob("*")):
+            if path.is_file() and path.suffix in (".md", ".yaml"):
+                digest.update(path.read_bytes())
     return digest.hexdigest()[:16]
 
 

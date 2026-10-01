@@ -119,6 +119,17 @@ def _forced(name: str, schema: Mapping[str, Any], key: str) -> dict[str, Any]:
         return {"sender_name": "Owen Takahara", "sender_title": "Senior Credit Risk Analyst", "subject": "Update for the committee",
                 "body": "Committee members,\n\nI wanted to share a short update from my team on how AI is showing up in our day-to-day "
                         "work and a few questions we would like the committee to consider.\n\nOwen Takahara"}
+    if name == "answer_from_policy":
+        # a topic the starter policies never mention is the scripted "not covered"; one cited control is
+        # invented on purpose, so the filter that drops it is exercised
+        if "biometric" in key.lower():
+            return {"covered": False, "controls_cited": [],
+                    "answer": "The policy and documents in force do not address this. Nothing in them permits or forbids it, "
+                              "so it is a question for the committee."}
+        return {"covered": True, "controls_cited": ["AI-GOV-010", "AI-GOV-099"],
+                "answer": "Not unless the tool has been approved for that class of data. AI-GOV-010 says confidential, personal, "
+                          "or client information may only be entered into an AI tool approved for it, whose terms forbid training "
+                          "on it. Check the approved list first; if the tool is not on it, submit it for review."}
     if name == "write_news":
         return {"outlet": "Regional Banking Week", "headline": "Midwest lenders weigh AI spending against exam scrutiny",
                 "body": "Regional banks across the Midwest are increasing technology budgets for AI while supervisors ask sharper "
@@ -159,7 +170,7 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
             return [_tool("propose_policy_edit", {"section": section, "text": text,
                                                   "rationale": "We need clear, written requirements before we scale."}, key)]
         return [{"type": "text", "text": "Nothing to add to the agenda this month."}]
-    items = re.findall(r"- ((?:UC|PE|SC|ADV)-\d{3}):", instruction)
+    items = re.findall(r"- ((?:UC|PE|SC|ADV|IT)-\d{3}):", instruction)
     if "confidential position" in instruction:
         return [_tool("submit_position", {"item_id": i, "support": 1 + _h(key, i) % 5, "summary": REMARKS[_h(key, i) % len(REMARKS)],
                                           "concerns": ["delivery capacity"], "conditions": ["quarterly reporting"]}, (key, i))
@@ -192,7 +203,7 @@ COMMITTEE_FORCED = {"cast_vote", "submit_position", "submit_perspective", "recor
 
 def _forced_committee(params: Mapping[str, Any], name: str) -> list[dict[str, Any]]:
     instruction = params["messages"][0]["content"]
-    items = re.findall(r"- ((?:UC|PE|SC|ADV)-\d{3}):", instruction)
+    items = re.findall(r"- ((?:UC|PE|SC|ADV|IT)-\d{3}):", instruction)
     done = {b["input"].get("item_id") for m in params["messages"] if m["role"] == "assistant" and isinstance(m["content"], list)
             for b in m["content"] if b.get("type") == "tool_use" and b.get("name") == name}
     remaining = [i for i in items if i not in done] or items[:1]

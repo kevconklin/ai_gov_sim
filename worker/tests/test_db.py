@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import REPO_ROOT
-from sim.db import Database
+from govern.db import Database
 
 RUN_ROW = {
     "run_id": "r1", "experiment_id": "e1", "bank_id": "calder_ridge", "condition": "conservative", "replicate": 1,

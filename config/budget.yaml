@@ -27,6 +27,10 @@ debate:
   max_speakers: 8
 spend_caps_usd:
   per_bank_per_sim_month: 4.00
+  # PLACEHOLDER: a new customer's monthly cap on review spend, in real calendar months. A customer
+  # changes its own under Settings, and the change is recorded. Set from observed cost per review
+  # once real reviews have run; the pilot's simulated months are not a basis for it.
+  per_workspace_per_month: 50.00
   hard_monthly: 200.00
 retries:
   max_attempts: 5

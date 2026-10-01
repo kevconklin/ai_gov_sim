@@ -57,15 +57,14 @@ describe("session tokens", () => {
 describe("auth config", () => {
   it("fails closed in production when env is missing", () => {
     expect(getAuthConfig({ NODE_ENV: "production" }).ok).toBe(false);
-    expect(getAuthConfig({ NODE_ENV: "production", DASHBOARD_PASSWORD: "x" }).ok).toBe(false);
   });
 
   it("rejects short secrets", () => {
-    expect(getAuthConfig({ NODE_ENV: "production", DASHBOARD_PASSWORD: "x", DASHBOARD_SESSION_SECRET: "short" }).ok).toBe(false);
+    expect(getAuthConfig({ NODE_ENV: "production", DASHBOARD_SESSION_SECRET: "short" }).ok).toBe(false);
   });
 
   it("accepts full config and uses dev fallback only outside production", () => {
-    const full = getAuthConfig({ NODE_ENV: "production", DASHBOARD_PASSWORD: "pw", DASHBOARD_SESSION_SECRET: SECRET });
+    const full = getAuthConfig({ NODE_ENV: "production", DASHBOARD_SESSION_SECRET: SECRET });
     expect(full).toMatchObject({ ok: true, devFallback: false });
     expect(getAuthConfig({ NODE_ENV: "development" })).toMatchObject({ ok: true, devFallback: true });
   });

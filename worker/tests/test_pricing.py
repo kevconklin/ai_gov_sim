@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sim.pricing import TokenUsage, compute_cost
+from govern.pricing import TokenUsage, compute_cost
 
 
 def test_standard_call_cost(config):

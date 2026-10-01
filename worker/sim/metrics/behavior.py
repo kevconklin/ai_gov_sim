@@ -6,8 +6,8 @@ import json
 from collections import defaultdict
 from typing import Any, Mapping
 
-from sim.alerts import raise_alert
-from sim.calendar import add_months
+from govern.alerts import raise_alert
+from govern.calendar import add_months
 from sim.coding import claim_value, keyword_suspicion, load_codes
 from sim.context import RunContext
 from sim.metrics.text import catchphrases, estimate_tokens, ngram_repeat_rate, type_token_ratio

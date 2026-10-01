@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from sim.agenda import CandidateFacts, candidates, deferral_count, record_deferral, score
-from sim.config import ConfigError, load_agenda_priority
+from govern.agenda import CandidateFacts, candidates, deferral_count, record_deferral, score
+from govern.config import ConfigError, load_agenda_priority
 
 # ---- config ---------------------------------------------------------------
 

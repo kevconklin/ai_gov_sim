@@ -15,10 +15,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from sim import commands
-from sim.alerts import raise_alert
-from sim.config import load_config
-from sim.db import Database
-from sim.llm import LLMClient, StopRequested
+from govern.alerts import raise_alert
+from govern.config import load_config
+from govern.db import Database
+from govern.llm import LLMClient, StopRequested
 from sim.orchestrator import Orchestrator, RunNotActive
 from sim.world import REPO_ROOT, load_world
 
@@ -107,13 +107,22 @@ def _orchestrator(db: Database, *, demo: bool) -> Orchestrator:
     from sim.storage import SupabaseStorage
 
     config, world, data_dir = load_config(REPO_ROOT / "config"), load_world(REPO_ROOT / "config"), _data_dir()
+    from govern.providers import Registry, load_providers, publish_catalog
+
+    # Which providers this worker can reach is decided by which keys it holds. The scripted client
+    # answers for every model, so a demo needs none of them.
+    registry = Registry(load_providers(REPO_ROOT / "config"))
     client = None
     if demo:
         from sim.demo_llm import DemoAnthropic
         client = DemoAnthropic()
-    elif not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit("ANTHROPIC_API_KEY is not set. Use --demo for a free scripted run.")
-    llm = LLMClient(db=db, config=config, client=client, sleep=(lambda s: None) if demo else time.sleep,
+    elif not any(registry.available(m.id) for m in config.models.catalog if m.provider != "local"):
+        sys.exit("No model provider key is set (ANTHROPIC_API_KEY, OPENAI_API_KEY or HF_TOKEN). Use --demo for a free scripted run.")
+    publish_catalog(db, config.models, registry)
+    from govern.starter import publish_starters
+    publish_starters(db, REPO_ROOT / "config")
+    llm = LLMClient(db=db, config=config, client=client, registry=None if demo else registry,
+                    sleep=(lambda s: None) if demo else time.sleep,
                     should_stop=lambda: terminating() or commands.stop_requested(db, data_dir),
                     on_failure_streak=lambda n, d: raise_alert(db, "api_failures", "critical", f"{n} consecutive failed API calls: {d}"),
                     price_scale=0.0 if demo else 1.0)
@@ -148,6 +157,24 @@ def cmd_advance(args: argparse.Namespace) -> None:
             log.info("%s: completed %s", run_id, orch.advance(run_id))
 
 
+_last_redaction: list[float] = []
+
+
+def _redact_if_due(db: Database) -> None:
+    """Once an hour, drop model-call text past the retention window. Cheap when nothing qualifies."""
+    from govern.retention import load_retention, redact_expired
+    now = time.monotonic()
+    if _last_redaction and now - _last_redaction[0] < 3600:
+        return
+    _last_redaction[:] = [now]
+    try:
+        n = redact_expired(db, load_retention(REPO_ROOT / "config"))
+        if n:
+            log.info("retention: removed the text of %d model calls past the window", n)
+    except Exception as error:  # noqa: BLE001 - retention must never stop the loop
+        log.warning("retention pass failed: %s", error)
+
+
 def cmd_serve(args: argparse.Namespace) -> None:
     """Long-running worker: apply commands, then advance running runs one month at a time, lowest month first."""
     db = _open_db()
@@ -166,9 +193,14 @@ def cmd_serve(args: argparse.Namespace) -> None:
             log.info("stop flag set; exiting")
             return
         commands.process_pending(db, orch, data_dir)
+        _redact_if_due(db)
         running = db.fetch_all("SELECT run_id, current_month FROM runs WHERE status = 'running' "
                                "ORDER BY COALESCE(current_month, ''), replicate, bank_id")
         if not running:
+            if args.once:
+                # Draining the queue is the whole job when nothing has a clock to advance, which
+                # is always true of a workspace. Sleeping here would make --once never return.
+                return
             time.sleep(args.poll_seconds)
             continue
         run_id = running[0]["run_id"]
@@ -188,12 +220,112 @@ def cmd_serve(args: argparse.Namespace) -> None:
             return
 
 
+def _text(value: str) -> str:
+    """A literal, or @path to read it from a file: briefs and board direction are paragraphs, not flags."""
+    return Path(value[1:]).read_text().strip() if value.startswith("@") else value
+
+
+def cmd_workspace(args: argparse.Namespace) -> None:
+    """Create a workspace: one organization's committee, with no simulation behind it."""
+    from govern.workspace import create_workspace
+
+    db = _open_db()
+    run_id = create_workspace(db, load_config(REPO_ROOT / "config"), config_dir=REPO_ROOT / "config",
+                              data_dir=_data_dir(), name=args.name, risk_appetite=_text(args.risk_appetite),
+                              facts=_text(args.facts) if args.facts else "", starter=args.starter,
+                              profile={"framework": args.framework} if args.framework else None)
+    print(json.dumps({"workspace": run_id}, indent=2))
+
+
+def cmd_user(args: argparse.Namespace) -> None:
+    """Make or list accounts. The first operator account is made here, on a machine with no dashboard session yet."""
+    import getpass
+
+    from govern.accounts import AccountError, create_user, reset_password, set_disabled
+
+    db = _open_db()
+    if args.action in ("reset", "disable", "enable"):
+        try:
+            if args.action == "reset":
+                password = args.password or getpass.getpass("New temporary password (at least 12 characters): ")
+                reset_password(db, email=args.email, password=password)
+                print(f"reset: {args.email} must change it at next sign-in; every session ended")
+            else:
+                set_disabled(db, email=args.email, disabled=args.action == "disable")
+                print(f"{args.action}d: {args.email}")
+        except AccountError as error:
+            sys.exit(str(error))
+        return
+    if args.action == "list":
+        for u in db.fetch_all("SELECT email, name, role, created_at, disabled_at FROM users ORDER BY created_at"):
+            print(f"{u['email']:40} {u['name']:28} {u['role']:9} {u['created_at'][:10]}{'  disabled' if u['disabled_at'] else ''}")
+        return
+    password = args.password or getpass.getpass("Password (at least 12 characters): ")
+    try:
+        user_id = create_user(db, email=args.email, name=args.name, password=password, role=args.role, created_by="cli")
+    except AccountError as error:
+        sys.exit(str(error))
+    print(json.dumps({"user_id": user_id, "email": args.email.strip().lower(), "role": args.role}, indent=2))
+
+
+def cmd_ask(args: argparse.Namespace) -> None:
+    """Ask the policy a question. One model call; the answer cites controls or says the policy does not cover it."""
+    from govern.ask import AskError, answer
+
+    db = _open_db()
+    try:
+        asked = answer(_orchestrator(db, demo=args.demo).context(args.run), question=_text(args.question), asked_by=args.by)
+    except AskError as error:
+        sys.exit(str(error))
+    print(json.dumps({"ask_id": asked.ask_id, "covered": asked.covered, "controls": list(asked.controls), "answer": asked.answer}, indent=2))
+
+
+def cmd_submit(args: argparse.Namespace) -> None:
+    """Put a matter in front of the committee. It becomes a ranked candidate; a person decides when it is heard."""
+    from govern.intake import IntakeError, submit_item
+
+    db = _open_db()
+    try:
+        item_id = submit_item(db, args.run, kind=args.kind, title=args.title, description=_text(args.description),
+                              submitted_by=args.by, risk_tier=args.risk_tier,
+                              details=json.loads(args.details) if args.details else None)
+    except IntakeError as error:
+        sys.exit(str(error))
+    print(json.dumps({"item": item_id}, indent=2))
+
+
+def cmd_seat(args: argparse.Namespace) -> None:
+    """List the committee, or rewrite one member's brief (logged as an intervention)."""
+    from govern.committee import seats, set_brief
+
+    db = _open_db()
+    if args.seat and args.brief:
+        try:
+            set_brief(db, args.run, args.seat, _text(args.brief), reason=args.reason or "")
+        except ValueError as error:
+            sys.exit(str(error))
+    print(json.dumps([{"seat": s["seat"], "name": s["name"], "title": s["title"],
+                       "brief": s["persona_text"] or "(read from the persona file)"} for s in seats(db, args.run)], indent=2))
+
+
+def cmd_disclosure_check(args: argparse.Namespace) -> None:
+    from govern import prompts
+    from govern.disclosure import scan
+
+    problems = scan(prompts.PROMPTS_DIR)
+    for problem in problems:
+        print(problem)
+    if problems:
+        sys.exit(1)
+    print("disclosure check passed")
+
+
 def cmd_candidates(args: argparse.Namespace) -> None:
     """The ranked list a human builds an agenda from. Priority is computed, never asked of a model."""
     from datetime import date as _date
 
-    from sim.agenda import candidates
-    from sim.config import load_agenda_priority
+    from govern.agenda import candidates
+    from govern.config import load_agenda_priority
 
     db = _open_db()
     ranked = candidates(db, args.run, load_agenda_priority(REPO_ROOT / "config"),
@@ -203,17 +335,24 @@ def cmd_candidates(args: argparse.Namespace) -> None:
                       for c in ranked], indent=2))
 
 
-def _agenda_from(args: argparse.Namespace) -> list:
-    from sim.packet import AgendaItem
+def _agenda_from(args: argparse.Namespace, db: Database | None = None) -> list:
+    from govern.packet import AgendaItem
 
     items = []
+    if getattr(args, "top", 0) and db is not None:
+        from datetime import date as _date
+
+        from govern.agenda import candidates
+        from govern.config import load_agenda_priority
+        ranked = candidates(db, args.run, load_agenda_priority(REPO_ROOT / "config"), today=_date.today())
+        items += [AgendaItem(c.ref_id.rsplit("/", 1)[-1], c.kind, c.title, c.ref_id) for c in ranked[: args.top]]
     if args.agenda:
         raw = Path(args.agenda[1:]).read_text() if args.agenda.startswith("@") else args.agenda
         items += [AgendaItem(i["item_id"], i["kind"], i["title"], i.get("ref_id")) for i in json.loads(raw)]
     for n, question in enumerate(args.advisory or [], start=len(items) + 1):
         items.append(AgendaItem(f"ADV-{n:03d}", "advisory", question))
     if not items:
-        sys.exit("nothing to discuss; pass --agenda and/or --advisory")
+        sys.exit("nothing to discuss; pass --top N, --agenda, and/or --advisory")
     return items
 
 
@@ -221,7 +360,7 @@ def cmd_convene(args: argparse.Namespace) -> None:
     """Hold a meeting a human called. Recommendations come back; nothing applies until attested."""
     db = _open_db()
     orch = _orchestrator(db, demo=args.demo)
-    result = orch.convene(args.run, agenda=_agenda_from(args), month=args.month)
+    result = orch.convene(args.run, agenda=_agenda_from(args, db), month=args.month)
     print(json.dumps({"meeting_id": result.meeting_id, "date": result.meeting_date.isoformat(),
                       "recommendations": [{"decision_id": d.decision_id, "item_id": d.item.item_id,
                                            "recommended": d.outcome, "yes": d.tally.yes, "no": d.tally.no,
@@ -232,9 +371,9 @@ def cmd_attest(args: argparse.Namespace) -> None:
     """Record a person against one decision, then optionally apply the meeting."""
     from datetime import date as _date
 
-    from sim.attestation import AttestationInvalid, apply_meeting, dissents, record_attestation
-    from sim.config import load_attestation
-    from sim.decisions import decisions_for_meeting
+    from govern.attestation import AttestationInvalid, apply_meeting, dissents, record_attestation
+    from govern.config import load_attestation
+    from govern.decisions import decisions_for_meeting
 
     db = _open_db()
     orch = _orchestrator(db, demo=args.demo)
@@ -289,6 +428,30 @@ def cmd_status(args: argparse.Namespace) -> None:
                           "(SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls c WHERE c.run_id = r.run_id) AS cost "
                           "FROM runs r ORDER BY r.experiment_id, r.replicate, r.bank_id"):
         print(f"{r['run_id']:<60} {r['condition']:<12} {r['status']:<8} month={r['current_month']} cost=${r['cost']:.2f}")
+
+
+def cmd_backup(args: argparse.Namespace) -> None:
+    """Write a backup set: a consistent copy of the database and the policy repositories."""
+    from govern.backup import BackupError, backup, prune
+
+    target = os.environ.get("DATABASE_URL") or str(_data_dir() / "sim.sqlite")
+    try:
+        made = backup(target, _data_dir(), Path(args.out))
+        removed = prune(Path(args.out), args.keep) if args.keep else []
+    except BackupError as error:
+        sys.exit(str(error))
+    print(json.dumps({**made, "pruned": removed}, indent=2))
+
+
+def cmd_restore(args: argparse.Namespace) -> None:
+    """Put a backup set back into an empty database and data directory. Never merges."""
+    from govern.backup import BackupError, restore
+
+    target = args.into or os.environ.get("DATABASE_URL") or str(_data_dir() / "sim.sqlite")
+    try:
+        print(json.dumps(restore(Path(args.backup), target, Path(args.data_dir) if args.data_dir else _data_dir()), indent=2))
+    except BackupError as error:
+        sys.exit(str(error))
 
 
 def cmd_export(args: argparse.Namespace) -> None:
@@ -348,6 +511,62 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--once", action="store_true", help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_serve)
 
+    p = sub.add_parser("workspace", help="create a workspace for a real organization")
+    p.add_argument("--name", required=True, help="the organization's name")
+    p.add_argument("--risk-appetite", required=True, dest="risk_appetite",
+                   help="the board's direction on AI, or @path to a file holding it")
+    p.add_argument("--facts", help="a few lines about the organization, or @path")
+    p.add_argument("--starter", help="start from a kit in config/starters (general_business, regulated, software)")
+    p.add_argument("--framework", help="control framework id; defaults to the kit's")
+    p.set_defaults(func=cmd_workspace)
+
+    p = sub.add_parser("backup", help="write a backup set (database copy or pg_dump, plus policy repositories)")
+    p.add_argument("--out", required=True, help="folder that holds backup sets; something else must carry it off the machine")
+    p.add_argument("--keep", type=int, default=14, help="how many sets to keep in --out; 0 keeps all")
+    p.set_defaults(func=cmd_backup)
+
+    p = sub.add_parser("restore", help="restore a backup set into an empty database; run this as a drill, not only in anger")
+    p.add_argument("backup", help="the backup set folder, such as backups/20260929T120000Z")
+    p.add_argument("--into", help="database target to restore into (default: DATABASE_URL or data/sim.sqlite); must be empty")
+    p.add_argument("--data-dir", dest="data_dir", help="data directory for the policy repositories; must be empty")
+    p.set_defaults(func=cmd_restore)
+
+    p = sub.add_parser("user", help="make or list accounts; `user add --role operator` makes the first one")
+    p.add_argument("action", choices=["add", "list", "reset", "disable", "enable"])
+    p.add_argument("--email")
+    p.add_argument("--name")
+    p.add_argument("--role", choices=["operator", "member"], default="member")
+    p.add_argument("--password", help="omit to be prompted")
+    p.set_defaults(func=cmd_user)
+
+    p = sub.add_parser("ask", help="ask the policy a question; the answer cites controls or admits the gap")
+    p.add_argument("--run", required=True, help="the workspace")
+    p.add_argument("--question", required=True, help="the question, or @path")
+    p.add_argument("--by", required=True, help="who is asking")
+    p.add_argument("--demo", action="store_true")
+    p.set_defaults(func=cmd_ask)
+
+    p = sub.add_parser("submit", help="submit an AI matter for review")
+    p.add_argument("--run", required=True)
+    p.add_argument("--kind", required=True,
+                   choices=("use_case", "tool", "vendor", "policy_change", "exception", "incident", "question"))
+    p.add_argument("--title", required=True)
+    p.add_argument("--description", required=True, help="what the committee needs to know, or @path")
+    p.add_argument("--by", required=True, help="who is submitting it")
+    p.add_argument("--risk-tier", dest="risk_tier", choices=("low", "medium", "high"))
+    p.add_argument("--details", help="JSON object of extra facts")
+    p.set_defaults(func=cmd_submit)
+
+    p = sub.add_parser("seat", help="list the committee, or rewrite a member's brief")
+    p.add_argument("--run", required=True)
+    p.add_argument("--seat")
+    p.add_argument("--brief", help="the new brief, or @path")
+    p.add_argument("--reason", help="why the brief is changing (recorded)")
+    p.set_defaults(func=cmd_seat)
+
+    sub.add_parser("disclosure-check",
+                   help="confirm a disclosed committee is still told what it is").set_defaults(func=cmd_disclosure_check)
+
     p = sub.add_parser("candidates", help="ranked items a human can put on an agenda")
     p.add_argument("--run", required=True)
     p.add_argument("--today", help="ISO date the age signal is measured from (default: today)")
@@ -355,6 +574,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("convene", help="hold a meeting on an agenda you set")
     p.add_argument("--run", required=True)
+    p.add_argument("--top", type=int, default=0, help="take the N highest-ranked candidates")
     p.add_argument("--agenda", help='JSON list of agenda items, or @path to a file')
     p.add_argument("--advisory", action="append", help="a question for discussion only, no vote (repeatable)")
     p.add_argument("--month", help="the month to book it under (default: the run's current month)")

@@ -33,7 +33,7 @@ AGENT_FACING_GLOBS: tuple[str, ...] = (
     "config/personas/**/*.md",
     "config/risk_appetite/*.md",
     "config/universe/*.yaml",
-    "worker/sim/prompts/committee/*",
+    "worker/govern/prompts/committee/*",
     "worker/sim/prompts/world/*",
 )
 

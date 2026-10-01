@@ -10,11 +10,11 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from sim import prompts
-from sim.agents.structured import StructuredOutputError, call_structured, extract, forced, number_range, tool
+from govern import prompts
+from govern.agents.structured import StructuredOutputError, call_structured, extract, forced, number_range, tool
 from sim.engine.rng import RNG
 from sim.engine.state import Plan
-from sim.llm import LLMClient
+from govern.llm import LLMClient
 
 log = logging.getLogger(__name__)
 

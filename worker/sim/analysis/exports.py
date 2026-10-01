@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from sim.db import Database
+from govern.db import Database
 
 EXPORT_QUERIES = {
     "runs": "SELECT run_id, experiment_id, bank_id, condition, replicate, seed, parent_run_id, fork_month, model_versions, "
