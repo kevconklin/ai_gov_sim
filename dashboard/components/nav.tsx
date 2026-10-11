@@ -52,6 +52,14 @@ const PRODUCT: Item[] = [
   { href: "/logs", label: "Logs", icon: "logs" },
   { href: "/how-to", label: "How to", icon: "howto" },
 ];
+// where each link sits in the sidebar; the order within a section is PRODUCT's
+const SECTIONS: [string, string[]][] = [
+  ["", ["/organizations"]],
+  ["Govern", ["/portfolio", "/reviews", "/committee", "/record", "/ask"]],
+  ["Reference", ["/approved", "/policy-record"]],
+  ["Operate", ["/spend", "/logs"]],
+  ["Help", ["/how-to"]],
+];
 // The research instrument. Shown only when the person is looking at a simulated run, or has
 // asked for it: a customer never sees "Reality engine" in their sidebar.
 const SIMULATION: Item[] = [
@@ -96,9 +104,18 @@ function Menu({ pathname, operator, isOperator, showSimulation, run, onPick }: {
   const inSimulation = isOperator && SIMULATION.some((i) => isOn(pathname, i.href));
   return (
     <>
-      <ul className="nav-list">
-        {PRODUCT.filter((item) => isOperator || !OPERATOR_ONLY.has(item.href)).map((item) => <li key={item.href}><NavLink item={item} current={isOn(pathname, item.href)} run={run} onPick={onPick} /></li>)}
-      </ul>
+      {SECTIONS.map(([title, hrefs]) => {
+        const items = PRODUCT.filter((item) => hrefs.includes(item.href) && (isOperator || !OPERATOR_ONLY.has(item.href)));
+        if (!items.length) return null;
+        return (
+          <div key={title || "top"}>
+            {title ? <div className="nav-section">{title}</div> : null}
+            <ul className="nav-list">
+              {items.map((item) => <li key={item.href}><NavLink item={item} current={isOn(pathname, item.href)} run={run} onPick={onPick} /></li>)}
+            </ul>
+          </div>
+        );
+      })}
       {showSimulation || inSimulation ? <details className="nav-group" open={inSimulation}>
         <summary className="nav-group-head">
           <span>Simulation</span>
@@ -112,8 +129,7 @@ function Menu({ pathname, operator, isOperator, showSimulation, run, onPick }: {
         <ThemeToggle />
         <div className="nav-user">
           <Link href="/account" className="nav-user-link" title="Your account" onClick={onPick}>
-            <span className="rv-avatar is-you" aria-hidden>{operator ? initials(operator) : "?"}</span>
-            <span className="nav-user-name">{operator ?? "Signed in"}</span>
+            <span className="nav-user-name muted">{operator ? "Account" : "Signed in"}</span>
           </Link>
           <form method="post" action="/logout">
             <button className="nav-out" type="submit" title="Sign out" aria-label="Sign out"><Icon name="out" /></button>

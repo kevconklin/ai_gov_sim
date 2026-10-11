@@ -564,3 +564,22 @@ export async function revisionsFor(meetingId: string, itemId: string): Promise<R
      FROM document_revisions r JOIN agents a ON a.agent_id = r.agent_id LEFT JOIN documents d ON d.document_id = r.document_id
      WHERE r.meeting_id = ? AND r.item_id = ? ORDER BY r.target, r.created_at`, [meetingId, itemId.toUpperCase()]);
 }
+
+/** A submission with this title queued in the last two minutes, so a double press makes one matter. */
+export async function pendingSubmitFor(runId: string, title: string): Promise<string | null> {
+  if (!title.trim()) return null;
+  const db = await readDb();
+  const row = await db.get<{ command_id: string }>(
+    "SELECT command_id FROM commands WHERE run_id = ? AND kind = 'submit' AND created_at > ? AND payload LIKE ? ORDER BY created_at DESC LIMIT 1",
+    [runId, new Date(Date.now() - 2 * 60_000).toISOString(), `%"title":${JSON.stringify(title.trim())}%`]);
+  return row?.command_id ?? null;
+}
+
+/** A command of this kind whose payload matches, queued in the last two minutes: a double press is one request. */
+export async function pendingCommandLike(runId: string, kind: string, payloadLike: string): Promise<string | null> {
+  const db = await readDb();
+  const row = await db.get<{ command_id: string }>(
+    "SELECT command_id FROM commands WHERE run_id = ? AND kind = ? AND created_at > ? AND payload LIKE ? ORDER BY created_at DESC LIMIT 1",
+    [runId, kind, new Date(Date.now() - 2 * 60_000).toISOString(), payloadLike]);
+  return row?.command_id ?? null;
+}

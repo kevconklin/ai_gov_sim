@@ -26,28 +26,30 @@ export default async function OrganizationsPage() {
   const needing = active.filter((r) => r.needs_you > 0).length;
   const totals = active.reduce((t, r) => ({ waiting: t.waiting + r.waiting, needs: t.needs + r.needs_you, gaps: t.gaps + r.gaps, spend: t.spend + r.spend_month }), { waiting: 0, needs: 0, gaps: 0, spend: 0 });
 
-  const row = (r: (typeof rows)[number]) => {
-    const run = encodeURIComponent(r.run_id);
-    const overCap = r.cap !== null && r.spend_month >= r.cap;
-    const attention = r.needs_you > 0 ? "you" : r.waiting > 0 || r.gaps > 0 ? "wait" : "ok";
-    return (
-      <Link key={r.run_id} href={`/reviews?run=${run}`} className="rv-rowline">
-        <span className="rv-riskmark" data-tone={r.status === "archived" ? undefined : attention} />
-        <span className="min-w-0">
-          <span className="rv-rowtitle">{r.name}</span>
-          <span className="rv-rowmeta">
-            {r.status === "archived" ? <Chip tone="wait">Archived</Chip> : null}
-            {r.needs_you ? <Chip tone="you" solid>{plural(r.needs_you, "decision")} to sign</Chip> : r.waiting ? <Chip tone="wait" dot>{r.waiting} waiting</Chip> : r.gaps ? <Chip tone="wait">{plural(r.gaps, "gap")}</Chip> : <Chip tone="ok" dot>Nothing waiting</Chip>}
-            <span className="muted text-xs">{FRAMEWORK_LABELS[r.framework ?? "none"] ?? r.framework}, {r.reviews ? `last review ${r.last_review}` : "no review yet"}</span>
-          </span>
-        </span>
-        <span className="rv-rowend">
-          <span className={`is-wide text-xs ${overCap ? "font-semibold" : "muted"}`} style={overCap ? { color: "var(--no)" } : undefined}>{usd(r.spend_month)}{r.cap !== null ? ` of ${usd(r.cap)}` : ""}</span>
-          <Icon name="chevron" className="rv-chev" />
-        </span>
-      </Link>
-    );
-  };
+  const table = (list: typeof rows) => (
+    <div className="rv-table-wrap">
+      <table className="rv-table">
+        <thead><tr><th>Organization</th><th>Needs attention</th><th>Framework</th><th>Last review</th><th className="num">Signed</th><th className="num">Spend this month</th><th /></tr></thead>
+        <tbody>
+          {list.map((r) => {
+            const run = encodeURIComponent(r.run_id);
+            const overCap = r.cap !== null && r.spend_month >= r.cap;
+            return (
+              <tr key={r.run_id}>
+                <td><Link href={`/reviews?run=${run}`} className="rv-cell">{r.name}</Link><span className="rv-sub">{r.starter ? KIT_LABELS[r.starter] ?? r.starter : "Blank start"}, {plural(r.seats, "seat")}{r.controls ? `, ${plural(r.controls, "control")}` : ""}, set up {since(r.started_at)}</span></td>
+                <td>{r.status === "archived" ? <Chip tone="wait">Archived</Chip> : r.needs_you ? <Chip tone="you" solid>{plural(r.needs_you, "decision")} to sign</Chip> : r.waiting ? <Chip tone="wait" dot>{r.waiting} waiting</Chip> : r.gaps ? <Chip tone="wait">{plural(r.gaps, "gap")}</Chip> : <Chip tone="ok" dot>Nothing waiting</Chip>}</td>
+                <td className="muted">{FRAMEWORK_LABELS[r.framework ?? "none"] ?? r.framework}</td>
+                <td className="muted">{r.reviews ? `${r.last_review} (${plural(r.reviews, "review")})` : "None yet"}</td>
+                <td className="num">{r.signed}</td>
+                <td className="num" style={overCap ? { color: "var(--no)", fontWeight: 600 } : undefined}>{usd(r.spend_month)}{r.cap !== null ? <span className="muted"> / {usd(r.cap)}</span> : null}</td>
+                <td><Link href={`/reviews?run=${run}`} aria-label={`Open ${r.name}`}><Icon name="chevron" className="rv-chev" /></Link></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="rv">
@@ -67,7 +69,7 @@ export default async function OrganizationsPage() {
         <nav className="rv-tabs" aria-label="Organizations"><span className="rv-tab" aria-current="page">Active<span className="rv-tab-count">{active.length}</span></span><span className="rv-lead"><Help right><p><strong>One row per organization.</strong> Blue means a decision is waiting for your signature; amber means matters are waiting or the policy could not answer a question. Open a row for its Reviews page.</p></Help></span></nav>
         {active.length === 0 ? (
           <div className="rv-empty"><span className="rv-empty-icon" data-tone="you"><Icon name="users" /></span><span>{operator ? <>No organization yet. <Link href="/reviews?open=customer">Set one up</Link> in about five minutes.</> : "You are not a member of any organization yet. Ask the person who runs governance to add you."}</span></div>
-        ) : <div className="rv-rows">{active.map(row)}</div>}
+        ) : table(active)}
       </section>
 
       {operator ? (
@@ -95,7 +97,7 @@ export default async function OrganizationsPage() {
       {archived.length ? (
         <section className="rv-board">
           <nav className="rv-tabs" aria-label="Archived"><span className="rv-tab" aria-current="page">Archived<span className="rv-tab-count">{archived.length}</span></span></nav>
-          <div className="rv-rows">{archived.map(row)}</div>
+          {table(archived)}
         </section>
       ) : null}
     </div>

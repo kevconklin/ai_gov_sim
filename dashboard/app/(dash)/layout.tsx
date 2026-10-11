@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/session";
 import { Suspense } from "react";
 import { Nav } from "@/components/nav";
+import { TopBar, type SwitchOption } from "@/components/topbar";
+import { visibleRuns } from "@/lib/auth/access";
+import { reviewScopes } from "@/lib/queries/governance";
 import { readDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +34,17 @@ export default async function DashLayout({ children }: { children: React.ReactNo
   const operator = user.role === "operator";
   // the research bench and the raw logs are the operator's; a member of an organization never sees them
   const showSimulation = operator && (await simulationAvailable());
+  const scopes = await reviewScopes(await visibleRuns());
+  const options: SwitchOption[] = scopes
+    .filter((s) => s.condition === "workspace" || showSimulation)
+    .map((s) => ({ run_id: s.run_id, label: s.org_name ?? s.experiment_name, group: s.condition !== "workspace" ? "Simulated runs" : s.status === "archived" ? "Archived" : "Organizations" }));
   return (
     <div className="dash">
       <Suspense fallback={null}><Nav operator={user.name} isOperator={operator} showSimulation={showSimulation} /></Suspense>
-      <main className="dash-main">{children}</main>
+      <main className="dash-main">
+        <Suspense fallback={null}><TopBar options={options} operator={user.name} /></Suspense>
+        <div className="dash-body">{children}</div>
+      </main>
     </div>
   );
 }

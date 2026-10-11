@@ -38,18 +38,22 @@ export default async function RecordPage({ searchParams }: { searchParams: Promi
       <section className="rv-board">
         <nav className="rv-tabs" aria-label="Record"><span className="rv-tab" aria-current="page">{rows.length === all.length ? "Everything" : "Matching"}<span className="rv-tab-count">{rows.length}</span></span></nav>
         {rows.length === 0 ? <div className="rv-empty"><span className="muted">Nothing on the record matches.</span></div> : (
-          <ol className="rv-story is-record">
-            {rows.map((e, i) => (
-              <li key={i} className="rv-story-row" data-tone={e.tone ?? undefined}>
-                <span className="rv-story-mark"><Icon name={e.kind === "signature" ? "pen" : e.kind === "review" ? "users" : e.kind === "use case" ? "check" : "flag"} /></span>
-                <div className="rv-story-body">
-                  <div className="rv-story-head"><span className="rv-story-title">{e.title}</span><span className="rv-story-meta">{e.who}, {e.at.slice(0, 16).replace("T", " ")}</span></div>
-                  {e.body ? <p className="rv-prose rv-story-text">{e.body}</p> : null}
-                  {e.href ? <Link href={e.href} className="rv-story-link">Open <Icon name="chevron" className="rv-chev" /></Link> : null}
-                </div>
-              </li>
-            ))}
-          </ol>
+          <div className="rv-table-wrap">
+            <table className="rv-table">
+              <thead><tr><th>When</th><th>Who</th><th>What</th><th>Kind</th><th /></tr></thead>
+              <tbody>
+                {rows.map((e, i) => (
+                  <tr key={i}>
+                    <td className="muted" style={{ whiteSpace: "nowrap" }}>{e.at.slice(0, 16).replace("T", " ")}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{e.who}</td>
+                    <td><span className="rv-dot" data-tone={e.tone ?? "you"} />{e.title}{e.body ? <span className="rv-sub">{e.body}</span> : null}</td>
+                    <td className="muted">{KIND_WORDS[e.kind] ?? e.kind}</td>
+                    <td>{e.href ? <Link href={e.href} className="rv-btn rv-btn-sm">Open</Link> : null}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

@@ -497,7 +497,6 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           ) : <Chip plain>Simulated run</Chip>}
         </div>
         <div className="rv-top-actions">
-          {scopes.length > 1 ? <WorkspacePicker scopes={scopeOptions} current={runId} /> : null}
           {operatorAccount ? <Link href={to({ open: "customer" })} scroll={false} className="rv-btn">New organization</Link> : null}
           <Link href={to({ open: "submit" })} scroll={false} className="rv-btn rv-btn-you"><Icon name="plus" /> Submit a matter</Link>
         </div>

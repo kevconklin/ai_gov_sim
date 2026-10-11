@@ -28,24 +28,31 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
   const overdue = rows.filter((r) => r.stage && r.stage !== "retired" && r.stage !== "paused" && isOverdue(r.review_due, today)).length;
   const deciding = before.filter((r) => r.status === "recommended").length;
 
-  const row = (r: UseCaseRow) => {
-    const stage = r.stage as Stage | null;
-    const late = stage && isOverdue(r.review_due, today);
-    const soon = stage && dueSoon(r.review_due, today);
-    return (
-      <Link key={r.item_id} href={to({ open: r.item_id })} scroll={false} className="rv-rowline">
-        <span className="rv-riskmark" data-tone={stage ? (late ? "no" : STAGE_TONE[stage] === "plain" ? undefined : STAGE_TONE[stage]) : r.status === "rejected" ? "no" : "wait"} />
-        <span className="min-w-0">
-          <span className="rv-rowtitle">{r.title}</span>
-          <span className="rv-rowmeta">
-            {late ? <Chip tone="no" dot>Review overdue</Chip> : soon ? <Chip tone="wait" dot>Review due {r.review_due}</Chip> : stage ? <RiskChip tier={r.risk_tier} /> : <Chip tone={r.status === "rejected" ? "no" : "wait"} dot>{INTAKE_WORDS[r.status] ?? r.status}</Chip>}
-            <span className="muted text-xs">{r.owner ?? "No owner yet"}</span>
-          </span>
-        </span>
-        <span className="rv-rowend"><span className="is-wide muted text-xs">{stage ? `${STAGE_WORDS[stage]} since ${r.stage_changed_on}` : `Submitted ${r.submitted_on}`}</span><Icon name="chevron" className="rv-chev" /></span>
-      </Link>
-    );
-  };
+  const table = (list: UseCaseRow[]) => (
+    <div className="rv-table-wrap">
+      <table className="rv-table">
+        <thead><tr><th>Use case</th><th>Status</th><th>Owner</th><th>Risk</th><th>Next review</th><th>Since</th><th /></tr></thead>
+        <tbody>
+          {list.map((r) => {
+            const stage = r.stage as Stage | null;
+            const late = stage && isOverdue(r.review_due, today);
+            const soon = stage && dueSoon(r.review_due, today);
+            return (
+              <tr key={r.item_id}>
+                <td><Link href={to({ open: r.item_id })} scroll={false} className="rv-cell">{r.title}</Link></td>
+                <td>{stage ? <Chip tone={STAGE_TONE[stage] === "plain" ? undefined : STAGE_TONE[stage]} plain={STAGE_TONE[stage] === "plain"} dot>{STAGE_WORDS[stage]}</Chip> : <Chip tone={r.status === "rejected" ? "no" : "wait"} dot>{INTAKE_WORDS[r.status] ?? r.status}</Chip>}</td>
+                <td className={r.owner ? "" : "muted"}>{r.owner ?? "Nobody yet"}</td>
+                <td><RiskChip tier={r.risk_tier} /></td>
+                <td>{late ? <Chip tone="no" dot>Overdue, {r.review_due}</Chip> : soon ? <Chip tone="wait" dot>{r.review_due}</Chip> : <span className="muted">{r.review_due ?? "—"}</span>}</td>
+                <td className="muted">{stage ? r.stage_changed_on : r.submitted_on}</td>
+                <td><Link href={`/matter?run=${run}&id=${encodeURIComponent(r.item_id)}`} className="rv-btn rv-btn-sm" title="How did we get here">Story</Link></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   let drawer = null;
   const openId = first(sp, "open");
@@ -111,7 +118,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
         list.length ? (
           <section key={title} className="rv-board">
             <nav className="rv-tabs" aria-label={title}><span className="rv-tab" aria-current="page">{title}<span className="rv-tab-count">{list.length}</span></span><span className="rv-lead"><Help right><p>{hint}</p></Help></span></nav>
-            <div className="rv-rows">{list.map(row)}</div>
+            {table(list)}
           </section>
         ) : null
       ))}

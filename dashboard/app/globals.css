@@ -25,6 +25,7 @@
   --ok: #079455;           /* approved */
   --no: #b42318;           /* rejected */
   --objection: #c11574;
+  --wait: #dc6803;
   --font-ui: "Public Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-doc: "Newsreader Variable", "Iowan Old Style", Georgia, serif;
   --c-bank-a: #2f6db3;
@@ -2077,3 +2078,108 @@ pre.code {
     padding: 1.5rem;
   }
 }
+
+/* =============================================================================================
+   Production pass. The details other products get right and a demo does not: a single accent,
+   hairline borders, one radius scale, dense rows with real column headers, tiles that read
+   label-then-number, a top bar with the organization switcher, and no tinted card washes.
+   These rules come last so they win over the earlier ones without rewriting them.
+   ============================================================================================= */
+:root {
+  --bg: #f8f9fb;
+  --panel: #ffffff;
+  --panel-2: #f2f4f7;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+  --text: #101828;
+  --muted: #667085;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0f14; --panel: #12161d; --panel-2: #1a1f28; --border: #262c37; --border-strong: #343b49; --text: #e9ecf1; --muted: #98a2b3;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c0f14; --panel: #12161d; --panel-2: #1a1f28; --border: #262c37; --border-strong: #343b49; --text: #e9ecf1; --muted: #98a2b3;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.rv { font-size: 13.5px; }
+.rv-org { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.rv-crumb { display: block; font-size: 12px; color: var(--muted); margin-bottom: 0.15rem; }
+.rv-top { padding-bottom: 0.25rem; }
+
+/* surfaces: one radius, hairline borders, no washes except where tone is the message */
+.rv-card, .rv-board, .rv-tile, .rv-seat, .rv-rec, .rv-askcard, .rv-seatcard, .rv-filed, .rv-choice, .rv-tick, .rv-fold {
+  border-radius: var(--radius);
+}
+.rv-card { padding: 0.9rem 1rem; background: var(--panel); box-shadow: var(--shadow-sm); }
+.rv-card[data-tone] { background: var(--panel); border-color: var(--border); border-left: 3px solid var(--tone); }
+.rv-card.rv-brief[data-tone] { background: color-mix(in srgb, var(--ai) 4%, var(--panel)); border-left-width: 3px; }
+.rv-board { margin-top: 1rem; box-shadow: var(--shadow-sm); }
+.rv-card-h { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 0.5rem; }
+.rv-btn { border-radius: var(--radius-sm); padding: 0.42rem 0.8rem; font-size: 13px; box-shadow: var(--shadow-sm); border-color: var(--border-strong); }
+.rv-btn-sm { padding: 0.3rem 0.6rem; font-size: 12.5px; }
+.rv-btn-you { box-shadow: var(--shadow-sm), inset 0 -1px 0 rgba(0, 0, 0, 0.12); }
+.rv-field, .rv-select { border-radius: var(--radius-sm); border-color: var(--border-strong); font-size: 13.5px; }
+.rv-field:focus, .rv-select:focus { outline: none; border-color: var(--you); box-shadow: 0 0 0 3px color-mix(in srgb, var(--you) 18%, transparent); }
+.rv-chip { font-size: 11.5px; font-weight: 500; padding: 0.1rem 0.5rem; border: 1px solid color-mix(in srgb, var(--tone) 22%, transparent); background: color-mix(in srgb, var(--tone) 8%, var(--panel)); }
+.rv-chip.is-plain { border-color: var(--border); background: var(--panel-2); }
+.rv-chip.is-solid { border-color: var(--tone); }
+
+/* tiles read label then number, the way a finance product does */
+.rv-tiles { grid-template-columns: repeat(auto-fit, minmax(11rem, 15rem)); gap: 0.75rem; }
+.rv-tile { flex-direction: column; align-items: flex-start; gap: 0.35rem; padding: 0.85rem 1rem; box-shadow: var(--shadow-sm); }
+.rv-tile > span:last-child { display: flex; flex-direction: column-reverse; gap: 0.15rem; }
+.rv-tile-icon { display: none; }
+.rv-tile-count { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.rv-tile-label { font-size: 12px; font-weight: 500; }
+.rv-tile:hover { box-shadow: var(--shadow-sm); border-color: var(--border-strong); }
+.rv-tile[aria-current="true"] { background: var(--panel); border-color: var(--tone); box-shadow: inset 0 0 0 1px var(--tone); }
+
+/* tabs and rows */
+.rv-tabs { padding: 0 0.75rem; gap: 0.1rem; background: var(--panel); }
+.rv-tab { font-size: 13px; padding: 0.7rem 0.6rem 0.65rem; }
+.rv-tab-count { font-size: 11px; }
+.rv-rowline { padding: 0.6rem 0.9rem; }
+.rv-rowtitle { font-size: 13.5px; }
+.rv-rowmeta { font-size: 12px; }
+
+/* data tables: column headers, aligned cells, dense rows, hover */
+.rv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rv-table th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--border); background: var(--panel-2); white-space: nowrap; letter-spacing: 0.01em; }
+.rv-table td { padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.rv-table tr:last-child td { border-bottom: 0; }
+.rv-table tbody tr { transition: background 0.1s; }
+.rv-table tbody tr:hover { background: color-mix(in srgb, var(--you) 4%, var(--panel)); }
+.rv-table td.num, .rv-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.rv-table td.muted, .rv-table .muted { color: var(--muted); }
+.rv-table a.rv-cell { color: inherit; text-decoration: none; font-weight: 500; }
+.rv-table a.rv-cell:hover { color: var(--you); }
+.rv-table .rv-sub { display: block; font-size: 12px; color: var(--muted); margin-top: 0.1rem; max-width: 60ch; white-space: normal; }
+.rv-table-wrap { overflow-x: auto; }
+.rv-table td.row-link { position: relative; }
+.rv-dot { display: inline-block; width: 8px; height: 8px; border-radius: 99px; background: var(--tone, var(--border-strong)); margin-right: 0.4rem; vertical-align: middle; }
+
+/* the sidebar: sections, a quieter active state */
+.nav { width: 14.5rem; gap: 0.6rem; padding: 0.75rem 0.6rem; background: var(--panel); }
+.nav-brand { font-size: 14px; }
+.nav-section { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; padding: 0.6rem 0.6rem 0.25rem; }
+.nav-link { font-size: 13px; padding: 0.38rem 0.6rem; border-radius: var(--radius-sm); }
+.nav-link[aria-current="page"] { background: var(--panel-2); color: var(--text); box-shadow: inset 2px 0 0 var(--you); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.nav-foot { gap: 0.4rem; }
+
+/* the top bar: switch organization, search the record, your account */
+.topbar { display: flex; align-items: center; gap: 0.75rem; height: 52px; padding: 0 1.25rem; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 20; }
+.topbar-switch { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 13.5px; padding: 0.35rem 0.6rem; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--panel); color: var(--text); max-width: 22rem; }
+.topbar-switch select { font: inherit; font-weight: 600; border: 0; background: transparent; color: inherit; max-width: 18rem; outline: none; }
+.topbar-search { flex: 1; max-width: 30rem; display: flex; align-items: center; gap: 0.4rem; padding: 0 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel-2); color: var(--muted); }
+.topbar-search input { flex: 1; font: inherit; font-size: 13px; border: 0; background: transparent; padding: 0.4rem 0; color: var(--text); outline: none; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+.topbar-user { display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--text); font-size: 13px; font-weight: 500; }
+.dash-main { padding: 0; }
+.dash-body { padding: 1.25rem 1.5rem 3rem; }
+@media (max-width: 767.98px) { .topbar { display: none; } .dash-body { padding: 1rem; } }

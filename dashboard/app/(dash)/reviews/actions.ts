@@ -138,6 +138,9 @@ export async function submitItemAction(_prev: ControlResult | null, formData: Fo
   const denied = await allowed(f.run_id ?? "", "asks");
   if (denied) return denied;
   const details = detailsFromFields(formData.entries());
+  const { pendingSubmitFor } = await import("@/lib/queries/governance");
+  const twin = await pendingSubmitFor(f.run_id ?? "", f.title ?? "");
+  if (twin) return done({ success: true, data: { command_id: twin, intervention_id: "" }, error: null });
   return done(await submitCommand({
     kind: "submit",
     run_id: f.run_id ?? "",
