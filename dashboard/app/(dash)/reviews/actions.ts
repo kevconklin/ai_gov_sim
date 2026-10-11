@@ -365,3 +365,16 @@ export async function setOwnerAction(_prev: ControlResult | null, formData: Form
   if (result.success) revalidatePath("/portfolio");
   return result;
 }
+
+/** Clear a failure banner. The command row keeps its result; only its status changes. */
+export async function dismissFailureAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "asks");
+  if (denied) return denied;
+  const { dismissFailure } = await import("@/lib/queries/governance");
+  const ok = await dismissFailure(f.run_id ?? "", f.command_id ?? "");
+  revalidatePath("/reviews");
+  return ok ? { success: true, data: { intervention_id: "" }, error: null } : { success: false, data: null, error: "That failure is already gone." };
+}

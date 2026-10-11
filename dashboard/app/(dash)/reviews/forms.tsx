@@ -6,7 +6,7 @@ import { useActionState, useEffect, useState } from "react";
 import type { ControlResult } from "@/lib/control/submit";
 import type { SeatRow } from "@/lib/queries/governance";
 import { ageOf, initials, plural, seatCode, seatColor, type QueueEntry } from "@/lib/reviews/model";
-import { attestAction, conveneAction, refreshCandidatesAction, setBriefAction } from "./actions";
+import { attestAction, conveneAction, dismissFailureAction, refreshCandidatesAction, setBriefAction } from "./actions";
 import { Term } from "./parts";
 
 /** What the page says back. Every action is queued for the worker, so "done" means "asked", and says so. */
@@ -273,6 +273,18 @@ export function BriefForm({ runId, seat }: { runId: string; seat: SeatRow }) {
       </label>
       <div><button className="rv-btn" type="submit" disabled={pending}>{pending ? "Saving…" : "Save brief"}</button></div>
       <Said state={state} ok="Saved. It applies from the next review." />
+    </form>
+  );
+}
+
+/** The x on a failure banner. */
+export function DismissFailure({ runId, commandId }: { runId: string; commandId: string }) {
+  const [, action, pending] = useActionState(dismissFailureAction, null);
+  return (
+    <form action={action}>
+      <input type="hidden" name="run_id" value={runId} />
+      <input type="hidden" name="command_id" value={commandId} />
+      <button className="rv-btn rv-btn-sm" type="submit" disabled={pending} aria-label="Dismiss">{pending ? "…" : "Dismiss"}</button>
     </form>
   );
 }

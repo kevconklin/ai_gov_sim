@@ -1,5 +1,5 @@
 import "server-only";
-import { readDb } from "@/lib/db";
+import { controlDb, readDb } from "@/lib/db";
 
 export interface AwaitingRow {
   decision_id: string;
@@ -340,7 +340,10 @@ export interface WorkRow {
   created_at: string;
 }
 
-/** What has been asked of the worker and not finished, plus anything that failed in the last day. */
+/**
+ * What has been asked of the worker and not finished, plus a failure from the last two hours that still
+ * matters: not one a later success replaced, and not one the person dismissed.
+ */
 export async function openWork(runId: string): Promise<WorkRow[]> {
   const db = await readDb();
   return db.all<WorkRow>(
@@ -353,10 +356,23 @@ export async function openWork(runId: string): Promise<WorkRow[]> {
                 -- a failed ranking that a later one replaced is no longer news
                 AND NOT (kind = 'candidates' AND EXISTS (
                   SELECT 1 FROM commands later WHERE later.run_id = commands.run_id AND later.kind = 'candidates'
-                    AND later.status = 'done' AND later.created_at > commands.created_at))))
+                    AND later.status = 'done' AND later.created_at > commands.created_at))
+                -- nor a failed signature on a decision that has since been signed
+                AND NOT (kind = 'attest' AND EXISTS (
+                  SELECT 1 FROM attestations a WHERE a.run_id = commands.run_id
+                    AND commands.payload LIKE '%"decision_id":"' || a.decision_id || '"%'))))
      ORDER BY created_at DESC LIMIT 12`,
-    [runId, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()],
+    [runId, new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()],
   );
+}
+
+/** A person has read a failure and wants it gone: the row keeps its result, its status says dismissed. */
+export async function dismissFailure(runId: string, commandId: string): Promise<boolean> {
+  const db = await controlDb();
+  const row = await db.get<{ command_id: string }>("SELECT command_id FROM commands WHERE command_id = ? AND (run_id = ? OR run_id IS NULL) AND status = 'failed'", [commandId, runId]);
+  if (!row) return false;
+  await db.transaction([{ sql: "UPDATE commands SET status = 'dismissed' WHERE command_id = ?", params: [commandId] }]);
+  return true;
 }
 
 /** How many matters have been settled: signed decisions plus questions that were answered. */

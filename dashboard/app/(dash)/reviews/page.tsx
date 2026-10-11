@@ -29,7 +29,7 @@ import { citedBy } from "@/lib/queries/governance";
 import { unansweredCount } from "@/lib/queries/product";
 import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
 import { AREA_LABELS, FRAMEWORK_LABELS, PROVIDER_TONES, STANCE_WORDS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
-import { AutoRefresh, BriefForm, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
+import { AutoRefresh, BriefForm, DismissFailure, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
 import { SubmitMatterForm } from "./intake-form";
 import { AddSeatForm, RemoveSeatForm, SeatForm } from "./seat-forms";
 import { Trail } from "./trail";
@@ -533,8 +533,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       {reviewingLive ? <div className="rv-banner" data-tone="ai"><Icon name="users" /><span>A live review takes a few minutes: each adviser writes a position, then they debate, then they vote. This page refreshes on its own.</span></div> : null}
       {failed.map((w) => (
         <div key={w.command_id} className="rv-banner" data-tone="no">
-          <Icon name="alert" /><span className="flex-1">{describeWork(w.kind, w.payload)} did not go through.</span>
-          <details className="rv-pop"><summary><span className="rv-btn rv-btn-sm">Why</span></summary><div className="rv-pop-card is-right"><p>{errorOf(w.result)}</p><p className="rv-hint">{when(w.created_at)}</p></div></details>
+          <Icon name="alert" /><span className="flex-1">{describeWork(w.kind, w.payload)} did not go through: {errorOf(w.result).replace(/^\w+Error: /, "")}</span>
+          <DismissFailure runId={runId} commandId={w.command_id} />
         </div>
       ))}
 
