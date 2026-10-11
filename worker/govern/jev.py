@@ -174,7 +174,8 @@ class Jev:
 
 
 class ScriptedJev:
-    """Fixed answers for tests and demos: each question gets its first option, or a set noul, with confidence 0.9."""
+    """Fixed answers for tests and demos: each question gets its first option at p 0.8 (under the debate gate's
+    threshold, so a scripted review still debates), or a noul of 0.1, unless an answer is scripted."""
 
     def __init__(self, db: Database, settings: JevSettings, answers: Mapping[str, Mapping[str, Any]] | None = None) -> None:
         self.inner = Jev(db, settings, transport=self._transport, key="scripted")
@@ -190,8 +191,8 @@ class ScriptedJev:
                 answers[qid] = {"type": "noul", "noul": 0.1}
             elif q["type"] == "choice":
                 options = list(q["criteria"])
-                answers[qid] = {"type": "choice", "choice": options[0], "confidence": 0.9,
-                                "probabilities": {o: (0.9 if i == 0 else 0.1 / max(1, len(options) - 1)) for i, o in enumerate(options)}}
+                answers[qid] = {"type": "choice", "choice": options[0], "confidence": 0.8,
+                                "probabilities": {o: (0.8 if i == 0 else 0.2 / max(1, len(options) - 1)) for i, o in enumerate(options)}}
             else:
                 levels = list(q["criteria"])
                 answers[qid] = {"type": "score", "score": 0.0, "confidence": 0.9, "legend": {str(i): l for i, l in enumerate(levels)},

@@ -44,7 +44,7 @@ def test_the_positions_reading_is_high_when_everyone_agrees_and_low_when_split()
 
 def test_the_config_loads_and_bounds_the_threshold():
     cfg = load_classify(CONFIG)
-    assert cfg.provider == "positions" and 0.5 <= cfg.debate_skip_threshold <= 1.0
+    assert cfg.provider in ("positions", "jev") and 0.5 <= cfg.debate_skip_threshold <= 1.0
 
 
 @pytest.fixture
