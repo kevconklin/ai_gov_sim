@@ -65,9 +65,14 @@ export async function submitWorkspace(raw: unknown): Promise<ControlResult> {
   if (!parsed.success) return fail("That customer cannot be created yet.", issuesToMessages(parsed.error));
   const input = parsed.data;
   try {
+    const db = await controlDb();
+    // a double press, a retried request, or a refreshed form must not make two organizations
+    const recent = await db.get<{ command_id: string }>(
+      `SELECT command_id FROM commands WHERE kind = 'create_workspace' AND created_at > ? AND payload LIKE ? ORDER BY created_at DESC LIMIT 1`,
+      [new Date(Date.now() - 2 * 60_000).toISOString(), `%"name":${JSON.stringify(input.payload.name)}%`]);
+    if (recent) return { success: true, data: { command_id: recent.command_id, intervention_id: "" }, error: null };
     const ids = { commandId: crypto.randomUUID(), interventionId: crypto.randomUUID() };
     const now = new Date().toISOString();
-    const db = await controlDb();
     await db.transaction([
       {
         sql: `INSERT INTO commands (command_id, run_id, kind, payload, reason, status, result, created_at, processed_at)

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import type { ControlResult } from "@/lib/control/submit";
 import { FRAMEWORK_LABELS } from "@/lib/reviews/model";
 import {
@@ -71,6 +72,14 @@ function Ticks<T extends string>({ name, values, onChange, options, max }: { nam
  */
 export function SetupWizard({ kits }: { kits: KitView[] }) {
   const [state, action, pending] = useActionState(createCustomerAction, null);
+  const router = useRouter();
+  const created = Boolean(state?.success);
+  // once it is queued, this form is finished: a second press would make a second organization
+  useEffect(() => {
+    if (!created) return;
+    const t = setTimeout(() => router.push("/organizations"), 2500);
+    return () => clearTimeout(t);
+  }, [created, router]);
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [sector, setSector] = useState<Sector>("professional");
@@ -250,9 +259,9 @@ export function SetupWizard({ kits }: { kits: KitView[] }) {
       <div className="rv-wizard-nav">
         {step > 0 ? <button type="button" className="rv-btn rv-btn-sm" onClick={() => setStep(step - 1)}>Back</button> : <span />}
         {step < 3 ? <button type="button" className="rv-btn rv-btn-you" disabled={step === 0 && name.trim().length < 2} onClick={() => setStep(step + 1)}>Next</button>
-          : <button type="submit" className="rv-btn rv-btn-you" disabled={pending || appetite.trim().length < 20}>{pending ? "Creating…" : `Create ${orgName === "your organization" ? "committee" : orgName}`}</button>}
+          : <button type="submit" className="rv-btn rv-btn-you" disabled={pending || created || appetite.trim().length < 20}>{created ? "Created" : pending ? "Creating…" : `Create ${orgName === "your organization" ? "committee" : orgName}`}</button>}
       </div>
-      <Said state={state} ok="Setting them up. They appear in the picker in a moment, with their first matters waiting." />
+      <Said state={state} ok="Created. Setting them up now; taking you to Organizations." />
     </form>
   );
 }
