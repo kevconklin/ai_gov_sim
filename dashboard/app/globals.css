@@ -2193,37 +2193,37 @@ pre.code {
 .rv-drawer-title { font-size: 17px; font-weight: 600; }
 .rv-filed { border-radius: var(--radius); }
 
-/* ---- vote chart: one row per seat, a diverging bar for the ballot and a hollow mark for the leaning ---- */
-.rv-vc { display: grid; gap: 0.9rem; }
-.rv-vc-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding: 0 0 0 11rem; }
-.rv-vc-axis span:last-child { padding-right: 7.5rem; }
-.rv-vc-review { display: grid; gap: 0.3rem; }
-.rv-vc-h { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); padding-bottom: 0.2rem; border-bottom: 1px solid var(--border); }
-.rv-vc-tally b { font-weight: 600; }
-.rv-vc-tally b[data-vote="yes"] { color: var(--ok); }
-.rv-vc-tally b[data-vote="no"] { color: var(--no); }
-.rv-vc-row { display: grid; grid-template-columns: 11rem minmax(0, 1fr) 7.5rem; align-items: center; gap: 0.6rem; min-height: 1.5rem; }
-.rv-vc-seat { font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rv-vc-row[data-vote="absent"] .rv-vc-seat, .rv-vc-row[data-vote="absent"] .rv-vc-label { color: var(--muted); opacity: 0.7; }
-.rv-vc-track { position: relative; height: 0.9rem; background: color-mix(in srgb, var(--border) 45%, transparent); border-radius: 3px; }
-.rv-vc-mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--border); }
-.rv-vc-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; }
-.rv-vc-bar[data-vote="yes"] { background: var(--ok); }
-.rv-vc-bar[data-vote="no"] { background: var(--no); }
-.rv-vc-bar[data-unscored] { opacity: 0.45; background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,255,255,0.5) 4px 6px); }
-.rv-vc-abstain { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--muted); }
-.rv-vc-lean { position: absolute; top: 50%; width: 9px; height: 9px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid var(--text, currentColor); background: var(--panel, var(--bg)); box-sizing: border-box; }
-.rv-vc-lean-inline { position: static; display: inline-block; transform: rotate(45deg); vertical-align: middle; margin: 0 0.2rem; }
-.rv-vc-label { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
-.rv-vc-moved { margin-left: 0.4rem; font-size: 0.68rem; color: var(--wait); }
-.rv-vc-legend { font-size: 0.72rem; color: var(--muted); margin: 0; }
-.rv-vc-swatch { display: inline-block; width: 10px; height: 8px; border-radius: 2px; vertical-align: middle; margin: 0 0.15rem; }
-.rv-vc-swatch[data-vote="yes"] { background: var(--ok); }
-.rv-vc-swatch[data-vote="no"] { background: var(--no); }
-.rv-vc[data-compact] .rv-vc-row { grid-template-columns: 8rem minmax(0, 1fr) 6.5rem; }
-.rv-vc[data-compact] .rv-vc-axis { padding-left: 8rem; }
-@media (max-width: 640px) {
-  .rv-vc-row, .rv-vc[data-compact] .rv-vc-row { grid-template-columns: 1fr; gap: 0.15rem; }
-  .rv-vc-axis, .rv-vc[data-compact] .rv-vc-axis { padding: 0; }
-  .rv-vc-axis span:last-child { padding-right: 0; }
-}
+/* ---- vote chart: the split as a bar, then who was on each side and how strongly ---- */
+.rv-vt { display: grid; gap: 1.25rem; }
+.rv-vt-review { display: grid; gap: 0.7rem; }
+.rv-vt-h { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.rv-vt-when { font-size: 0.82rem; color: var(--muted); }
+.rv-vt-result { font-size: 0.9rem; font-weight: 600; }
+.rv-vt-result[data-vote="yes"] { color: var(--ok); }
+.rv-vt-result[data-vote="no"] { color: var(--no); }
+.rv-vt-signed { font-weight: 500; color: var(--text); }
+.rv-vt-bar { display: flex; height: 2rem; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--border) 45%, transparent); font-size: 0.82rem; font-weight: 600; color: #fff; }
+.rv-vt-bar > span { display: flex; align-items: center; padding: 0 0.7rem; white-space: nowrap; overflow: hidden; min-width: 0; }
+.rv-vt-bar > span[data-vote="yes"] { background: var(--ok); }
+.rv-vt-bar > span[data-vote="no"] { background: var(--no); }
+.rv-vt-bar > span[data-vote="abstain"] { background: var(--muted); }
+.rv-vt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.rv-vt-col { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; border-top-width: 3px; }
+.rv-vt-col[data-vote="yes"] { border-top-color: var(--ok); }
+.rv-vt-col[data-vote="no"] { border-top-color: var(--no); }
+.rv-vt-col[data-vote="abstain"] { border-top-color: var(--muted); }
+.rv-vt-colh { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 0.4rem; font-size: 0.8rem; text-transform: none; color: var(--muted); font-weight: 600; }
+.rv-vt-colh b { font-size: 1.35rem; font-weight: 700; color: var(--text); }
+.rv-vt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.rv-vt-seat { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.1rem 0.6rem; align-items: center; }
+.rv-vt-name { font-size: 0.88rem; font-weight: 500; line-height: 1.25; }
+.rv-vt-strength { display: inline-flex; align-items: center; gap: 2px; }
+.rv-vt-strength i { display: inline-block; width: 9px; height: 12px; border-radius: 2px; background: color-mix(in srgb, var(--border) 70%, transparent); }
+.rv-vt-strength[data-vote="yes"] i[data-on] { background: var(--ok); }
+.rv-vt-strength[data-vote="no"] i[data-on] { background: var(--no); }
+.rv-vt-strength b { font-size: 0.74rem; font-weight: 600; margin-left: 0.3rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rv-vt-lean { grid-column: 1 / -1; font-size: 0.74rem; color: var(--muted); }
+.rv-vt-lean[data-moved] { color: var(--wait); font-weight: 600; }
+.rv-vt-none { margin: 0.2rem 0; font-size: 0.82rem; color: var(--muted); }
+.rv-vt-legend { font-size: 0.74rem; color: var(--muted); margin: 0; }
+@media (max-width: 640px) { .rv-vt-cols { grid-template-columns: 1fr; } }
