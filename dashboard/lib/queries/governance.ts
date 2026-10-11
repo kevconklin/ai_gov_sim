@@ -524,3 +524,14 @@ export async function pendingAttestFor(runId: string, decisionId: string): Promi
     [runId, `%"decision_id":${JSON.stringify(decisionId)}%`]);
   return row?.command_id ?? null;
 }
+
+export interface RecommendationRow { rec_id: string; item_id: string; agent_id: string; seat: string; seat_title: string; kind: string; title: string; body: string; due: string | null }
+
+/** What the committee recommended a person do about one matter in one review. */
+export async function recommendationsFor(meetingId: string, itemId: string): Promise<RecommendationRow[]> {
+  const db = await readDb();
+  return db.all<RecommendationRow>(
+    `SELECT r.rec_id, r.item_id, r.agent_id, a.seat, a.title AS seat_title, r.kind, r.title, r.body, r.due
+     FROM recommendations r JOIN agents a ON a.agent_id = r.agent_id WHERE r.meeting_id = ? AND r.item_id = ? ORDER BY r.kind, r.created_at`,
+    [meetingId, itemId.toUpperCase()]);
+}

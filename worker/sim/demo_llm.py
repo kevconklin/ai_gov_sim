@@ -172,9 +172,25 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
         return [{"type": "text", "text": "Nothing to add to the agenda this month."}]
     items = re.findall(r"- ((?:UC|PE|SC|ADV|IT)-\d{3}):", instruction)
     if "confidential position" in instruction:
-        return [_tool("submit_position", {"item_id": i, "support": 1 + _h(key, i) % 5, "summary": REMARKS[_h(key, i) % len(REMARKS)],
-                                          "concerns": ["delivery capacity"], "conditions": ["quarterly reporting"]}, (key, i))
-                for i in items] or [{"type": "text", "text": "Done."}]
+        calls = [_tool("submit_position", {"item_id": i, "support": 1 + _h(key, i) % 5, "summary": REMARKS[_h(key, i) % len(REMARKS)],
+                                           "concerns": ["delivery capacity"], "conditions": ["quarterly reporting"]}, (key, i))
+                 for i in items]
+        # a disclosed committee is offered `recommend`; the scripted seat uses it on the first item, once per seat
+        if items and any(t["name"] == "recommend" for t in params.get("tools", [])):
+            kind = ["owner", "condition", "document", "follow_up", "policy_wording"][_h(key, "rec") % 5]
+            calls.append(_tool("recommend", {
+                "item_id": items[0], "kind": kind,
+                "title": {"owner": "Name the head of the using team as owner", "condition": "Approve only with vendor retention off",
+                          "document": "Adopt a meeting-recording standard", "follow_up": "Report usage and incidents to the committee",
+                          "policy_wording": "Add a retention clause to Data and confidentiality"}[kind],
+                "body": {"owner": "The person whose team uses it every day should answer for it; a role, not an IT contact.",
+                         "condition": "The vendor must contractually retain nothing beyond the session and never train on our data.",
+                         "document": "Standard: recordings are announced, off when a customer is discussed, retained 30 days, access logged.",
+                         "follow_up": "A one-page report of usage, incidents, and any data concerns.",
+                         "policy_wording": "AI-GOV-NEW Vendors retain prompts and outputs no longer than the service needs, and never for training."}[kind],
+                **({"due": "in 90 days"} if kind == "follow_up" else {}),
+            }, (key, "rec")))
+        return calls or [{"type": "text", "text": "Done."}]
     if "for discussion only" in instruction:
         return [_tool("submit_perspective", {
             "item_id": i, "stance": 1 + _h(key, i, "p") % 5, "position": REMARKS[_h(key, i) % len(REMARKS)],

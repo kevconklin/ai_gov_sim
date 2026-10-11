@@ -19,3 +19,20 @@
     properties:
       item_id: {type: string, description: "The matter's id, such as IT-001."}
     required: [item_id]
+
+- name: recommend
+  description: >-
+    Recommend something a person should do about an agenda item, beyond your vote: who should own it (a role, not
+    a name), a condition an approval should carry, a document the organization lacks (give a usable draft in body),
+    a change of policy wording (section and the exact text), or a follow-up with a date. Use it whenever your
+    position has a "yes, if" or a "no, until": the person deciding needs the "if" and the "until" spelled out.
+    Nothing you recommend applies on its own; a person acts on it.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string, description: "The agenda item, such as IT-001."}
+      kind: {type: string, enum: [owner, condition, document, policy_wording, follow_up]}
+      title: {type: string, description: "One line a person can act on: 'Name the Nursing Director as owner', 'Adopt a meeting-recording standard'."}
+      body: {type: string, description: "The recommendation in full. For a document, the draft itself. For policy wording, the section and the text."}
+      due: {type: string, description: "For a follow-up: when, in plain words."}
+    required: [item_id, kind, title, body]

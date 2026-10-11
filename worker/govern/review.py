@@ -135,6 +135,10 @@ class Review:
 
     # ---- phases ---------------------------------------------------------
 
+    def _phase(self, name: str) -> str:
+        """The phase prompt: a disclosed committee's asks for recommendations as well as a vote; the simulation's does not."""
+        return f"review/{name}" if self.ctx.org.disclosed else f"committee/{name}"
+
     def _scaled_tokens(self, name: str, items: int) -> int:
         return self._tokens(name) + items * self._tokens(f"{name}_per_item")
 
@@ -144,7 +148,7 @@ class Review:
             remaining = list(items)
             for _ in range(2):          # a second pass covers items dropped by a truncated turn
                 listing = "\n".join(f"- {i.item_id}: {i.title}" for i in remaining)
-                instruction = prompts.render("committee/phase_position.md", date=long_date(self.date), items=listing)
+                instruction = prompts.render(self._phase("phase_position.md"), date=long_date(self.date), items=listing)
                 turn = run_turn(self.ctx, session, instruction=instruction, packet=packet, purpose="committee_position",
                                 max_tokens=self._scaled_tokens("position", len(remaining)),
                                 until=lambda: all(i.item_id in session.positions for i in items),
@@ -194,7 +198,7 @@ class Review:
 
         def speak(agent: Agent, cue: str, round_no: int) -> bool:
             agenda = agenda_text(self.full_agenda(self.decision_items()))
-            instruction = prompts.render("committee/phase_debate.md", date=long_date(self.date), agenda=agenda,
+            instruction = prompts.render(self._phase("phase_debate.md"), date=long_date(self.date), agenda=agenda,
                                          transcript="\n\n".join(transcript) or "(The meeting has just opened.)", cue=cue)
             session = self._session(agent, "debate")
             turn = run_turn(self.ctx, session, instruction=instruction, packet=packet, purpose="committee_turn",
@@ -222,7 +226,7 @@ class Review:
             remaining = list(items)
             for _ in range(2):
                 listing = "\n".join(f"- {i.item_id}: {i.title}" for i in remaining)
-                run_turn(self.ctx, session, instruction=prompts.render("committee/phase_vote.md", items=listing),
+                run_turn(self.ctx, session, instruction=prompts.render(self._phase("phase_vote.md"), items=listing),
                          packet=packet, purpose="committee_vote", max_tokens=self._scaled_tokens("vote", len(remaining)),
                          until=lambda: all(i.item_id in session.votes for i in items),
                          required_tool="cast_vote", free_steps=0, max_steps=len(remaining) + 2)

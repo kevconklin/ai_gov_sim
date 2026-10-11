@@ -62,7 +62,7 @@ def _earlier_reviews(db: Any, item_id: str, details: Mapping[str, Any]) -> str:
     The person's note is their direction to the committee, not submitted text, so it sits outside the fence.
     """
     rows = db.fetch_all(
-        """SELECT m.meeting_date, d.outcome, d.yes_votes, d.no_votes, a.actor, a.outcome AS signed, a.rationale
+        """SELECT m.meeting_id, m.meeting_date, d.item_id AS short_id, d.outcome, d.yes_votes, d.no_votes, a.actor, a.outcome AS signed, a.rationale
            FROM decisions d JOIN meetings m ON m.meeting_id = d.meeting_id
            LEFT JOIN attestations a ON a.decision_id = d.decision_id
            WHERE d.ref_id = ? ORDER BY m.meeting_date, d.decision_id""", (item_id,))
@@ -78,6 +78,10 @@ def _earlier_reviews(db: Any, item_id: str, details: Mapping[str, Any]) -> str:
         else:
             line += " No decision was signed."
         lines.append(line)
+        from govern.recommend import summary as recommended
+        earlier = recommended(db, r["meeting_id"], r["short_id"])
+        if earlier:
+            lines.append("  " + earlier.replace("\n", "\n  "))
     notes = details.get("decider_notes") or []
     if notes:
         lines.append("From the person deciding, when they sent it back:")

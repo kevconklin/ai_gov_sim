@@ -33,13 +33,14 @@ def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
 
 
 READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox", "read_document", "read_decision"})
+ADVISE_TOOLS = frozenset({"recommend"})   # a disclosed committee says what a person should do, not only how it votes
 PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_status_change"})
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {
     "circulate": READ_TOOLS | PROPOSE_TOOLS,
-    "position": READ_TOOLS | {"submit_position"},
-    "perspective": READ_TOOLS | {"submit_perspective"},
-    "debate": READ_TOOLS | PROPOSE_TOOLS | {"pass_turn"},
-    "vote": frozenset({"read_policy", "read_use_case", "cast_vote"}),
+    "position": READ_TOOLS | ADVISE_TOOLS | {"submit_position"},
+    "perspective": READ_TOOLS | ADVISE_TOOLS | {"submit_perspective"},
+    "debate": READ_TOOLS | PROPOSE_TOOLS | ADVISE_TOOLS | {"pass_turn"},
+    "vote": frozenset({"read_policy", "read_use_case", "cast_vote"}) | ADVISE_TOOLS,
     "minutes": frozenset({"read_policy", "record_minutes"}),
     "memory": READ_TOOLS,
     "handover": READ_TOOLS,
@@ -185,6 +186,20 @@ def _read_decision(s: ToolSession, args: Mapping[str, Any]) -> str:
     return record(s.ctx.db, s.ctx.run_id, str(args.get("item_id", "")))
 
 
+def _recommend(s: ToolSession, args: Mapping[str, Any]) -> str:
+    from govern.recommend import KINDS, RecommendError, record
+    item_id = str(args.get("item_id", "")).strip().upper()
+    known = {**s.decision_items, **s.advisory_items}
+    if item_id not in known:
+        return f"Unknown item {item_id or '(none)'}. Recommend on one of: {', '.join(known) or 'nothing on this agenda'}."
+    try:
+        record(s.ctx.db, s.ctx.run_id, meeting_id=s.meeting_id, item_id=item_id, agent_id=s.agent.agent_id, kind=str(args.get("kind", "")),
+               title=str(args.get("title", "")), body=str(args.get("body", "")), due=args.get("due"))
+    except RecommendError as error:
+        return str(error)
+    return f"Recorded: {KINDS.get(str(args.get('kind')), 'recommendation')} on {item_id}. The person deciding will see it."
+
+
 def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
     item = str(args.get("item_id", "")).strip().upper()
     if item not in s.decision_items:
@@ -304,6 +319,7 @@ HANDLERS: Mapping[str, Callable[[ToolSession, Mapping[str, Any]], str]] = {
     "submit_perspective": _submit_perspective,
     "read_document": _read_document,
     "read_decision": _read_decision,
+    "recommend": _recommend,
 }
 
 

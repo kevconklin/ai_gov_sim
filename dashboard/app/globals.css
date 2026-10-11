@@ -1271,6 +1271,31 @@ pre.code {
   }
 }
 
+/* Recommendations: grouped by what a person would do with them. */
+.rv-recs {
+  display: grid;
+  gap: 0.9rem;
+}
+.rv-rec-group {
+  display: grid;
+  gap: 0.5rem;
+}
+.rv-rec {
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ai) 5%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--ai) 25%, var(--border));
+}
+.rv-rec-title {
+  font-weight: 600;
+}
+.rv-rec-act {
+  margin-top: 0.45rem;
+}
+.rv-rec-act:empty {
+  display: none;
+}
+
 /* A glossary word: dotted underline, meaning on hover or focus. */
 .rv-term {
   position: relative;

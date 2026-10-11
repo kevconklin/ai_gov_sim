@@ -253,7 +253,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   } else if (what === "submit") {
     drawer = (
       <Drawer closeHref={closeHref} title={key === "question" ? "Ask the committee" : "Submit a matter"} chips={<Chip tone="you">It joins Waiting</Chip>}>
-        <SubmitMatterForm runId={runId} preset={key || undefined} precedents={precedentOptions} />
+        <SubmitMatterForm runId={runId} preset={key || undefined} precedents={precedentOptions}
+          prefill={{ title: first(sp, "title") ?? undefined, text: first(sp, "text") ?? undefined, cite: first(sp, "cite") ?? undefined }} />
       </Drawer>
     );
   } else if (what === "customer" && operatorAccount) {

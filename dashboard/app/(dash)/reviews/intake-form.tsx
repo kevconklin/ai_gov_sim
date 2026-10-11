@@ -41,7 +41,7 @@ export interface PrecedentOption {
   when: string;
 }
 
-export function SubmitMatterForm({ runId, preset, precedents = [] }: { runId: string; preset?: string; precedents?: PrecedentOption[] }) {
+export function SubmitMatterForm({ runId, preset, precedents = [], prefill }: { runId: string; preset?: string; precedents?: PrecedentOption[]; prefill?: { title?: string; text?: string; cite?: string } }) {
   const [state, action, pending] = useActionState<ControlResult | null, FormData>(submitItemAction, null);
   const [need, setNeed] = useState<Need>(PRESET_NEED[preset ?? ""] ?? "use_tool");
   const [who, setWho] = useState<Who>("staff");
@@ -51,7 +51,7 @@ export function SubmitMatterForm({ runId, preset, precedents = [] }: { runId: st
   const [connected, setConnected] = useState(false);
   const [policyKind, setPolicyKind] = useState<"change" | "exception">(preset === "exception" ? "exception" : "change");
   const [kindOverride, setKindOverride] = useState<Kind | null>(null);
-  const [cited, setCited] = useState<string[]>([]);
+  const [cited, setCited] = useState<string[]>(prefill?.cite ? [prefill.cite] : []);
   const [tierOverride, setTierOverride] = useState<string | null>(null);
 
   const answers: TriageAnswers = useMemo(() => ({ need, who, data: data.length ? data : ["none"], decides, source, connected, policy_kind: policyKind }),
@@ -92,12 +92,12 @@ export function SubmitMatterForm({ runId, preset, precedents = [] }: { runId: st
 
       <label>
         <span className="rv-label">{question ? "Your question" : need === "problem" ? "What happened, in a line" : need === "policy" ? "Which rule, in a line" : "What is it called?"}</span>
-        <input className="rv-field" name="title" required minLength={3} maxLength={200}
+        <input className="rv-field" name="title" required minLength={3} maxLength={200} defaultValue={prefill?.title ?? ""}
           placeholder={question ? "May staff use public chat assistants?" : need === "problem" ? "Copilot summarized a client email to the wrong client" : need === "policy" ? "AI-GOV-010, data entered into AI tools" : "Otter.ai for meeting notes"} />
       </label>
       <label>
         <span className="rv-label">{question ? "Why you are asking, and what you already know" : "Tell the committee about it in your own words"}</span>
-        <textarea className="rv-field" name="description" rows={4} required minLength={10}
+        <textarea className="rv-field" name="description" rows={prefill?.text ? 8 : 4} required minLength={10} defaultValue={prefill?.text ?? ""}
           placeholder={question ? "What decision this informs, and the options you are weighing." : need === "problem" ? "When, who was affected, what has been done so far." : need === "policy" ? "What should change and why now, or what you need excepted and for how long." : "What it does, who wants it and why, and how you would use it."} />
       </label>
 

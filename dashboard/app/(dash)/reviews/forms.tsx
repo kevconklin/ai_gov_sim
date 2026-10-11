@@ -167,6 +167,12 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
   const [state, action, pending] = useActionState(attestAction, null);
   const [outcome, setOutcome] = useState("");
   const [rationale, setRationale] = useState("");
+  // the recommendations block can hand over the committee's conditions as a starting point for the reasoning
+  useEffect(() => {
+    const onFill = (e: Event) => { const text = (e as CustomEvent<string>).detail; if (typeof text === "string") { setRationale(text); setOutcome("approved"); } };
+    window.addEventListener("rv:fill-reasoning", onFill);
+    return () => window.removeEventListener("rv:fill-reasoning", onFill);
+  }, []);
   const [open, setOpen] = useState<Set<string>>(new Set(mustWeighAll ? dissents.map((d) => d.agent_id) : []));
   const left = reviewTotal - reviewSigned - 1;
   const choices: [string, string, string][] = [["approved", "Approve", "ok"], ["rejected", "Reject", "no"], ["deferred", "Send back", "wait"]];

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { atLeast, orgRole, visibleRuns } from "@/lib/auth/access";
 import { currentOperator } from "@/lib/auth/session";
 import { first, type SearchParams } from "@/lib/params";
-import { ballotsToSign, committeeSeats, decisionsToSign, orgProfile, recentAttestations } from "@/lib/queries/governance";
+import { ballotsToSign, committeeSeats, decisionsToSign, orgProfile, recentAttestations, recommendationsFor } from "@/lib/queries/governance";
+import { Recommendations } from "./recommendations";
 import { meetingDetail } from "@/lib/queries/meetings";
 import { currentScope } from "@/lib/queries/product";
 import { decisionBrief, plain, structured } from "@/lib/reviews/brief";
@@ -56,8 +57,7 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
   const bench = benchFor(committee, mine, d.recommended);
   const t = tally(bench);
   const brief = decisionBrief({ recommended: d.recommended, bench, chairSeat: org?.chair_seat ?? null, riskTier: d.risk_tier, reviewTotal: Number(d.review_total), reviewSigned: Number(d.review_signed) });
-  const detail = await meetingDetail(d.meeting_id);
-  const convener = await convenerOf(runId, d.meeting_id);
+  const [detail, convener, recs] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id)]);
   const positions = (detail?.positions ?? []).filter((p) => p.item_id === d.item_id);
   const votes = (detail?.votes ?? []).filter((v) => v.item_id === d.item_id);
   const debate = (detail?.messages ?? []).filter((m) => m.phase === "debate").sort((a, b) => a.seq - b.seq);
@@ -104,6 +104,8 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
             {flagged.length ? <div className="rv-brief-row" data-tone="objection"><span>Flagged</span><span>The submission contained text addressed to the advisers, which they were told to ignore: {flagged.join("; ")}.</span></div> : null}
             {cited.length ? <div className="rv-brief-row"><span>Cites</span><span className="flex flex-wrap gap-1.5">{cited.map((id) => { const r = signedById.get(id); return r ? <Link key={id} href={`/reviews?run=${run}&tab=decided&open=record:${encodeURIComponent(r.attestation_id)}`} className="rv-chip" data-tone={r.outcome === "approved" ? "ok" : "no"}>{id} {r.title}</Link> : <Chip key={id} plain>{id}</Chip>; })}</span></div> : null}
           </section>
+
+          <Recommendations runId={runId} itemId={d.item_id} rows={recs} canRun={atLeast(role, "runs")} canDecide={canDecide} />
 
           {d.description ? <section className="rv-card"><div className="rv-card-h">What was submitted{d.submitted_by ? <span className="muted font-normal">by {who(d.submitted_by)}</span> : null}</div><p className="rv-prose">{d.description}</p></section> : null}
 
