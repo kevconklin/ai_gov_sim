@@ -71,3 +71,13 @@ def test_the_tool_refuses_an_unknown_item_and_an_empty_body(reviewed):
 def test_recommendations_travel_with_the_workspace():
     from sim.checkpoint import RUN_TABLES
     assert "recommendations" in RUN_TABLES
+
+
+def test_a_recommendation_made_during_the_debate_lands_on_the_record(reviewed):
+    """The debate prompt asks for recommend; the debate session must therefore know the agenda."""
+    db, _, _, result = reviewed
+    titles = {r["title"] for r in recommend.for_item(db, result.meeting_id, "IT-001")}
+    assert "Name an owner before anything goes live" in titles, titles
+    # and the speakers saw the agenda they were debating, not a blank one
+    turns = db.fetch_all("SELECT request FROM llm_calls WHERE purpose = 'committee_turn'")
+    assert turns and all("IT-001: AI tool: Otter.ai" in str(r["request"]) for r in turns)

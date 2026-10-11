@@ -43,12 +43,15 @@ def next_meeting_id(db, run_id: str, month: str) -> str:
     return ids.scoped(run_id, "meeting", month) if not held else ids.scoped(run_id, "meeting", month, held + 1)
 
 
-def open_items(db, run_id: str) -> list[AgendaItem]:
-    """Everything undecided, as agenda items: what came through intake, and what members proposed."""
+def open_items(db, run_id: str, *, statuses: Sequence[str] = ("submitted",)) -> list[AgendaItem]:
+    """Everything undecided, as agenda items: what came through intake, and what members proposed.
+
+    A review under way asks for `in_review` too: the items it marked are still its agenda."""
+    marks = ", ".join("?" for _ in statuses)
     items = [AgendaItem(display_id(r["item_id"]), ADVISORY if r["kind"] == "question" else "item",
                         r["title"] if r["kind"] == "question" else f"{KIND_LABELS[r['kind']]}: {r['title']}", r["item_id"])
-             for r in db.fetch_all("SELECT item_id, kind, title FROM items WHERE run_id = ? AND status = 'submitted' "
-                                   "ORDER BY item_id", (run_id,))]
+             for r in db.fetch_all(f"SELECT item_id, kind, title FROM items WHERE run_id = ? AND status IN ({marks}) "
+                                   "ORDER BY item_id", (run_id, *statuses))]
     items += [AgendaItem(display_id(r["use_case_id"]), "use_case", f"New AI initiative: {r['title']}", r["use_case_id"])
               for r in db.fetch_all("SELECT use_case_id, title FROM use_cases WHERE run_id = ? AND status = 'proposed' "
                                     "ORDER BY use_case_id", (run_id,))]
@@ -113,8 +116,11 @@ class Review:
     # ---- what this review takes ------------------------------------------
 
     def decision_items(self) -> list[AgendaItem]:
-        """The given items still open, in the order given. One decided since the agenda was built drops out."""
-        open_now = {i.ref_id: i for i in self._pending_items()}
+        """The given items still open, in the order given. One decided since the agenda was built drops out.
+
+        Items this review has marked in_review are still open to it: the debate and the minutes
+        read the agenda from here, and so does the tool session that takes recommendations."""
+        open_now = {i.ref_id: i for i in open_items(self.ctx.db, self.ctx.run_id, statuses=("submitted", "in_review"))}
         return [open_now[i.ref_id] for i in self.given if i.kind in DECISION_KINDS and i.ref_id in open_now]
 
     def advisory_items(self) -> list[AgendaItem]:
@@ -201,7 +207,9 @@ class Review:
             agenda = agenda_text(self.full_agenda(self.decision_items()))
             instruction = prompts.render(self._phase("phase_debate.md"), date=long_date(self.date), agenda=agenda,
                                          transcript="\n\n".join(transcript) or "(The meeting has just opened.)", cue=cue)
-            session = self._session(agent, "debate")
+            # the debate is where the phase prompt asks for recommendations and drafts, so the
+            # session must know the agenda, or every recommend lands on "nothing on this agenda"
+            session = self._session(agent, "debate", self.decision_items(), self.advisory_items())
             turn = run_turn(self.ctx, session, instruction=instruction, packet=packet, purpose="committee_turn",
                             max_tokens=self._tokens("committee_turn"))
             spoke = bool(turn.text) and not (session.passed and len(turn.text) < 40)
@@ -244,7 +252,7 @@ class Review:
         transcript = "\n\n".join(f"{r['name']} ({r['title']}): {r['text']}" for r in rows)
         instruction = prompts.render("committee/phase_minutes.md", results=results_text(decisions),
                                      transcript=transcript or "(No discussion was recorded.)")
-        session = self._session(self.chair, "minutes")
+        session = self._session(self.chair, "minutes", [d.item for d in decisions], self.advisory_items())
         run_turn(self.ctx, session, instruction=instruction, packet=packet, purpose="committee_minutes",
                  max_tokens=self._tokens("minutes"), until=lambda: session.minutes is not None,
                  required_tool="record_minutes", free_steps=1, max_steps=3)

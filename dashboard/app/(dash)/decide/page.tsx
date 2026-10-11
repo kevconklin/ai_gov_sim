@@ -2,7 +2,7 @@ import Link from "next/link";
 import { atLeast, orgRole, visibleRuns } from "@/lib/auth/access";
 import { currentOperator } from "@/lib/auth/session";
 import { first, type SearchParams } from "@/lib/params";
-import { ballotsToSign, committeeSeats, decisionsToSign, orgProfile, recentAttestations, recommendationsFor, revisionsFor } from "@/lib/queries/governance";
+import { ballotsToSign, committeeSeats, decisionsToSign, documentsInForce, orgProfile, recentAttestations, recommendationsFor, revisionsFor } from "@/lib/queries/governance";
 import { policyHistory } from "@/lib/queries/product";
 import { readSection } from "@/lib/policy-text";
 import { PolicyDiff } from "@/components/policy-diff";
@@ -74,7 +74,9 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
   const bench = benchFor(committee, mine, d.recommended);
   const t = tally(bench);
   const brief = decisionBrief({ recommended: d.recommended, bench, chairSeat: org?.chair_seat ?? null, riskTier: d.risk_tier, reviewTotal: Number(d.review_total), reviewSigned: Number(d.review_signed) });
-  const [detail, convener, recs, revisions, history] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id), revisionsFor(d.meeting_id, d.item_id), policyHistory(runId)]);
+  const [detail, convener, recs, revisions, history, docs] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id), revisionsFor(d.meeting_id, d.item_id), policyHistory(runId), documentsInForce(runId)]);
+  const isPolicyChange = (d.item_kind ?? d.kind) === "policy_change";
+  const wording = recs.filter((r) => r.kind === "policy_wording");
   const policyNow = history[0]?.policy_text ?? "";
   const pending = revisions.filter((r) => r.status === "proposed");
   const positions = (detail?.positions ?? []).filter((p) => p.item_id === d.item_id);
@@ -145,11 +147,33 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
                 })}
               </div>
             </section>
-          ) : null}
+          ) : (
+            <section className="rv-card" data-tone={isPolicyChange ? "wait" : undefined}>
+              <div className="rv-card-h"><span>What changes if you sign approved</span><span className="muted font-normal">no drafts from the committee</span></div>
+              {isPolicyChange ? (
+                <>
+                  <p className="rv-prose">This is a policy change, but the committee drafted no wording for it. Signing approved records your decision; the policy text stays as it is.</p>
+                  {wording.length ? <p className="rv-hint">The committee did recommend wording in prose ({wording.length} {wording.length === 1 ? "recommendation" : "recommendations"} below). Use “Propose this wording” on one to put it through intake as its own matter, with the exact text.</p>
+                    : <p className="rv-hint">To get the exact text, send this back with what you want drafted: the committee answers with a draft you can read as a diff before you sign.</p>}
+                </>
+              ) : <p className="rv-prose">Signing approved records the decision and the committee's conditions. No document or policy text changes.</p>}
+            </section>
+          )}
 
           <Recommendations runId={runId} itemId={d.item_id} rows={recs} canRun={atLeast(role, "runs")} canDecide={canDecide} />
 
           {d.description ? <section className="rv-card"><div className="rv-card-h">What was submitted{d.submitted_by ? <span className="muted font-normal">by {who(d.submitted_by)}</span> : null}</div><p className="rv-prose">{d.description}</p></section> : null}
+
+          <section className="rv-card">
+            <div className="rv-card-h"><span>What the committee had in front of it</span><span className="muted font-normal">{docs.length + 1} {docs.length ? "documents" : "document"}</span></div>
+            <div className="rv-brief">
+              <div className="rv-brief-row"><span>Policy</span><span>{policyNow ? <Link href={`/policy-record?run=${run}`}>The AI policy in force{history[0]?.sim_month ? `, as of ${history[0].sim_month}` : ""}</Link> : "No policy text yet"}</span></div>
+              {docs.map((doc) => (
+                <div key={doc.document_id} className="rv-brief-row"><span>{doc.kind.replace(/_/g, " ")}</span><span><Link href={`/reviews?run=${run}&tab=settings&open=document:${encodeURIComponent(doc.document_id)}`}>{doc.title}</Link><span className="rv-brief-who">version {doc.version ?? 1}, added by {who(doc.added_by)}</span></span></div>
+              ))}
+              {docs.length === 0 ? <p className="rv-hint">No governing documents yet. The committee can propose one, or <Link href={`/reviews?run=${run}&tab=settings&open=document:new`}>add your acceptable use policy or charter</Link> so it can cite them.</p> : null}
+            </div>
+          </section>
 
           <section className="rv-card">
             <div className="rv-card-h"><span>Each seat, in full</span><span className="muted font-normal">{t.yes} for, {t.no} against{t.abstain ? `, ${t.abstain} abstained` : ""}</span></div>

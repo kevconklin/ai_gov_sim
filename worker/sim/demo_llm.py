@@ -219,6 +219,12 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
         return [{"type": "text", "text": "Welcome to the committee. Here is where things stand and what I expect from the role."}]
     if "has recognized you" in instruction and _h(key) % 3 == 0:
         return [_tool("pass_turn", {}, key)]
+    # a disclosed committee's debate asks for recommend too; the scripted speaker uses it on the first agenda item
+    debate_items = re.findall(r"\d+\. ((?:UC|PE|SC|ADV|IT)-\d{3}):", instruction)
+    if "Discussion so far" in instruction and debate_items and any(t["name"] == "recommend" for t in params.get("tools", [])):
+        return [_tool("recommend", {"item_id": debate_items[0], "kind": "owner", "title": "Name an owner before anything goes live",
+                                    "body": "The discussion kept returning to who answers for this; name the role before approval takes effect."}, (key, "debate-rec")),
+                {"type": "text", "text": REMARKS[_h(key, "remark") % len(REMARKS)]}]
     return [{"type": "text", "text": REMARKS[_h(key, "remark") % len(REMARKS)]}]
 
 
