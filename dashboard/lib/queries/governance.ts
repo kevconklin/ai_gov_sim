@@ -405,6 +405,7 @@ export async function reviewScopes(allowed: Visible): Promise<ScopeRow[]> {
 
 export interface DocumentRow {
   document_id: string;
+  version?: number;
   kind: string;
   title: string;
   body: string;
@@ -416,7 +417,7 @@ export interface DocumentRow {
 export async function documentsInForce(runId: string): Promise<DocumentRow[]> {
   const db = await readDb();
   return db.all<DocumentRow>(
-    `SELECT document_id, kind, title, body, added_by, added_at FROM documents
+    `SELECT document_id, kind, title, body, added_by, added_at, version FROM documents
      WHERE run_id = ? AND retired_at IS NULL ORDER BY added_at, document_id`,
     [runId],
   );
@@ -534,4 +535,16 @@ export async function recommendationsFor(meetingId: string, itemId: string): Pro
     `SELECT r.rec_id, r.item_id, r.agent_id, a.seat, a.title AS seat_title, r.kind, r.title, r.body, r.due
      FROM recommendations r JOIN agents a ON a.agent_id = r.agent_id WHERE r.meeting_id = ? AND r.item_id = ? ORDER BY r.kind, r.created_at`,
     [meetingId, itemId.toUpperCase()]);
+}
+
+export interface RevisionRow { rev_id: string; item_id: string; seat_title: string; target: string; document_id: string | null; kind: string | null; title: string; body: string; rationale: string; mode: string | null; status: string; current_body: string | null; current_version: number | null }
+
+/** The drafts the committee attached to one matter: what changes if it is signed approved, with the current text to diff against. */
+export async function revisionsFor(meetingId: string, itemId: string): Promise<RevisionRow[]> {
+  const db = await readDb();
+  return db.all<RevisionRow>(
+    `SELECT r.rev_id, r.item_id, a.title AS seat_title, r.target, r.document_id, r.kind, r.title, r.body, r.rationale, r.mode, r.status,
+            d.body AS current_body, d.version AS current_version
+     FROM document_revisions r JOIN agents a ON a.agent_id = r.agent_id LEFT JOIN documents d ON d.document_id = r.document_id
+     WHERE r.meeting_id = ? AND r.item_id = ? ORDER BY r.target, r.created_at`, [meetingId, itemId.toUpperCase()]);
 }

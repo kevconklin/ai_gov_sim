@@ -33,7 +33,7 @@ def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
 
 
 READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox", "read_document", "read_decision"})
-ADVISE_TOOLS = frozenset({"recommend"})   # a disclosed committee says what a person should do, not only how it votes
+ADVISE_TOOLS = frozenset({"recommend", "propose_revision"})   # a disclosed committee says what a person should do, not only how it votes
 PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_status_change"})
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {
     "circulate": READ_TOOLS | PROPOSE_TOOLS,
@@ -200,6 +200,21 @@ def _recommend(s: ToolSession, args: Mapping[str, Any]) -> str:
     return f"Recorded: {KINDS.get(str(args.get('kind')), 'recommendation')} on {item_id}. The person deciding will see it."
 
 
+def _propose_revision(s: ToolSession, args: Mapping[str, Any]) -> str:
+    from govern.corpus import CorpusError, propose
+    item_id = str(args.get("item_id", "")).strip().upper()
+    known = {**s.decision_items, **s.advisory_items}
+    if item_id not in known:
+        return f"Unknown item {item_id or '(none)'}. A revision rides on one of: {', '.join(known) or 'nothing on this agenda'}."
+    try:
+        propose(s.ctx.db, s.ctx.run_id, meeting_id=s.meeting_id, item_id=item_id, agent_id=s.agent.agent_id,
+                target=str(args.get("target", "")), title=str(args.get("title", "")), body=str(args.get("body", "")),
+                rationale=str(args.get("rationale", "")), kind=args.get("kind"), mode=str(args.get("mode") or "add"))
+    except CorpusError as error:
+        return str(error)
+    return f"Draft recorded on {item_id}. It applies only if the person signs {item_id} approved; they will see the exact change."
+
+
 def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
     item = str(args.get("item_id", "")).strip().upper()
     if item not in s.decision_items:
@@ -320,6 +335,7 @@ HANDLERS: Mapping[str, Callable[[ToolSession, Mapping[str, Any]], str]] = {
     "read_document": _read_document,
     "read_decision": _read_decision,
     "recommend": _recommend,
+    "propose_revision": _propose_revision,
 }
 
 

@@ -85,7 +85,7 @@ def update_profile(db: Database, run_id: str, changes: Mapping[str, Any], *, act
 
 def documents(db: Database, run_id: str) -> list[Any]:
     """Documents in force. Retired ones stay in the table and out of this list."""
-    return db.fetch_all("SELECT document_id, kind, title, body, added_by, added_at FROM documents "
+    return db.fetch_all("SELECT document_id, kind, title, body, added_by, added_at, version, supersedes FROM documents "
                         "WHERE run_id = ? AND retired_at IS NULL ORDER BY added_at, document_id", (run_id,))
 
 

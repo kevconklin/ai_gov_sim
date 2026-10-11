@@ -198,9 +198,12 @@ def _review_packet(ctx: ReviewContext, *, meeting_date: date, agenda: Sequence[A
         agenda_block += "\n\nItems for decision\n" + decision_details(ctx, decisions)
     if questions and decision_details(ctx, questions):
         agenda_block += "\n\nItems for advice, with no vote\n" + decision_details(ctx, questions)
+    from govern.corpus import register_text
     in_force = documents(ctx.db, ctx.run_id)
-    library = "\n".join(f"- {d['title']} ({d['kind'].replace('_', ' ')})" for d in in_force) + \
-        "\nUse read_document to read one in full." if in_force else "None have been provided."
+    library = ("\n".join(f"- {d['title']} ({d['kind'].replace('_', ' ')}, version {d['version']})" for d in in_force)
+               + "\nUse read_document to read one in full. Propose a change to any of them, or a new one, with propose_revision."
+               if in_force else "None have been provided. Propose one with propose_revision if the organization needs it.")
+    library += "\n\nRegister of AI decided on, with owners and conditions (written from the record):\n" + register_text(ctx.db, ctx.run_id)
     text = ctx.policy_repo.read()
     heads = list(sections(text))
     policy = (f"{len(heads)} sections, {len(stats(text).controls)} numbered requirements. Sections: "

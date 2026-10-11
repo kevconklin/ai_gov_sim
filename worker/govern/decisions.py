@@ -119,9 +119,18 @@ def apply_decisions(ctx: ReviewContext, decisions: Sequence[Decision], *, month:
         elif d.item.kind == "item":
             from govern.intake import mark_items
             from govern.lifecycle import after_decision, load_lifecycle
+            from govern.corpus import apply_revisions
             mark_items(ctx.db, [d.item.ref_id], d.outcome, decided_on=meeting_date)
             after_decision(ctx.db, ctx.run_id, item_id=d.item.ref_id, outcome=d.outcome, by=d.attested_by or "the committee",
                            on=meeting_date, config=load_lifecycle(_config_dir()))
+            meeting_id = ctx.db.fetch_one("SELECT meeting_id FROM decisions WHERE decision_id = ?", (d.decision_id,))["meeting_id"]
+            policy_text, notes = apply_revisions(ctx.db, ctx.run_id, meeting_id=meeting_id, item_id=d.item.item_id, outcome=d.outcome,
+                                                 actor=d.attested_by or "the committee", on=meeting_date, policy_text=policy_text)
+            if notes:
+                problems += [f"{d.item.item_id}: {n}" for n in notes]
+            if d.outcome == "approved" and any(r["status"] == "applied" and r["target"] == "policy" for r in
+                                               ctx.db.fetch_all("SELECT status, target FROM document_revisions WHERE meeting_id = ? AND item_id = ?", (meeting_id, d.item.item_id))):
+                adopted.append(d.item.item_id)
         elif d.item.kind == "policy_edit":
             edit = ctx.db.fetch_one("SELECT section, text FROM policy_edits WHERE edit_id = ?", (d.item.ref_id,))
             status = d.outcome

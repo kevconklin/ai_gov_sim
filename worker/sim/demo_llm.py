@@ -190,6 +190,14 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
                          "policy_wording": "AI-GOV-NEW Vendors retain prompts and outputs no longer than the service needs, and never for training."}[kind],
                 **({"due": "in 90 days"} if kind == "follow_up" else {}),
             }, (key, "rec")))
+            if kind == "policy_wording":
+                calls.append(_tool("propose_revision", {"item_id": items[0], "target": "policy", "title": "Data and confidentiality",
+                                                        "body": "AI-GOV-NEW Vendors retain prompts and outputs no longer than the service needs, and never for training.",
+                                                        "rationale": "The retention gap is the one an examiner will find first."}, (key, "rev")))
+            elif kind == "document":
+                calls.append(_tool("propose_revision", {"item_id": items[0], "target": "document", "title": "Meeting recording standard", "kind": "standard",
+                                                        "body": "Recordings are announced at the start. They are off when a customer or patient is discussed. Kept 30 days. Access is logged.",
+                                                        "rationale": "Nothing in force says how recordings are handled."}, (key, "rev")))
         return calls or [{"type": "text", "text": "Done."}]
     if "for discussion only" in instruction:
         return [_tool("submit_perspective", {

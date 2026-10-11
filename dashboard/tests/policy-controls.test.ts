@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { listControls, splitClause } from "@/lib/policy-text";
+import { listControls, readSection, splitClause } from "@/lib/policy-text";
 
 describe("listing a policy's controls", () => {
   const policy = `# Northwind AI Policy
@@ -34,5 +34,14 @@ describe("splitClause", () => {
   });
   it("leaves an ordinary parenthesis alone", () => {
     expect(splitClause("Tools (including chat assistants) are approved first.")).toEqual({ text: "Tools (including chat assistants) are approved first.", clause: null });
+  });
+});
+
+describe("readSection", () => {
+  it("returns one section by heading, case-insensitively, or null", () => {
+    const policy = "# P\n\nintro\n\n## Scope\n\nAI-GOV-001 a.\n\n## Data and confidentiality\n\nAI-GOV-002 b.\n\nAI-GOV-003 c.\n";
+    expect(readSection(policy, "data and confidentiality")).toBe("AI-GOV-002 b.\n\nAI-GOV-003 c.");
+    expect(readSection(policy, "Scope")).toBe("AI-GOV-001 a.");
+    expect(readSection(policy, "Vendors")).toBeNull();
   });
 });

@@ -134,7 +134,7 @@ def test_the_pre_read_lists_documents_and_carries_a_questions_context(ws, tmp_pa
                        details={"decision_this_informs": "Staff guidance due in October", "data_involved": ["member data"]})
     packet = build_packet(_ctx(db, run_id, tmp_path), month="2026-09", meeting_date=date(2026, 9, 20),
                           agenda=[AgendaItem("IT-001", "advisory", "May staff use public chat assistants?", item)])
-    assert "Acceptable use of AI tools (acceptable use)" in packet
+    assert "Acceptable use of AI tools (acceptable use, version 1)" in packet
     assert "Items for advice, with no vote" in packet
     assert "HR is drafting guidance" in packet and "decision this informs: Staff guidance due in October" in packet
     assert "data involved: member data" in packet

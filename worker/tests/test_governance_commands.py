@@ -213,9 +213,10 @@ def test_configuration_changes_through_the_queue_carry_the_session_name(workspac
     out = run_command(workspace, "set_panel", {**who, "why": "Tools always need legal review here.",
                                                "kind": "tool", "seats": ["technology", "security", "legal"]})
     assert out["status"] == "done"
-    rows = db.fetch_all("SELECT actor, area FROM config_changes WHERE run_id = ? AND area IN ('profile', 'document', 'panel')", (run_id,))
+    rows = db.fetch_all("SELECT actor, area, reason FROM config_changes WHERE run_id = ? AND area IN ('profile', 'document', 'panel')", (run_id,))
     assert {r["area"] for r in rows} == {"profile", "document", "panel"}
-    assert {r["actor"] for r in rows} == {"kevin@example.invalid"}
+    # the committee's drafts, applied when an earlier review was signed, carry the signer's name; everything else here is the session's
+    assert {r["actor"] for r in rows if not r["reason"].startswith("Signed approved on")} == {"kevin@example.invalid"}
 
 
 def test_a_submission_keeps_the_extra_facts_it_was_given(workspace):

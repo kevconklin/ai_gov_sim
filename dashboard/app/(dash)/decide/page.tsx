@@ -2,7 +2,10 @@ import Link from "next/link";
 import { atLeast, orgRole, visibleRuns } from "@/lib/auth/access";
 import { currentOperator } from "@/lib/auth/session";
 import { first, type SearchParams } from "@/lib/params";
-import { ballotsToSign, committeeSeats, decisionsToSign, orgProfile, recentAttestations, recommendationsFor } from "@/lib/queries/governance";
+import { ballotsToSign, committeeSeats, decisionsToSign, orgProfile, recentAttestations, recommendationsFor, revisionsFor } from "@/lib/queries/governance";
+import { policyHistory } from "@/lib/queries/product";
+import { readSection } from "@/lib/policy-text";
+import { PolicyDiff } from "@/components/policy-diff";
 import { Recommendations } from "./recommendations";
 import { meetingDetail } from "@/lib/queries/meetings";
 import { currentScope } from "@/lib/queries/product";
@@ -57,7 +60,9 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
   const bench = benchFor(committee, mine, d.recommended);
   const t = tally(bench);
   const brief = decisionBrief({ recommended: d.recommended, bench, chairSeat: org?.chair_seat ?? null, riskTier: d.risk_tier, reviewTotal: Number(d.review_total), reviewSigned: Number(d.review_signed) });
-  const [detail, convener, recs] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id)]);
+  const [detail, convener, recs, revisions, history] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id), revisionsFor(d.meeting_id, d.item_id), policyHistory(runId)]);
+  const policyNow = history[0]?.policy_text ?? "";
+  const pending = revisions.filter((r) => r.status === "proposed");
   const positions = (detail?.positions ?? []).filter((p) => p.item_id === d.item_id);
   const votes = (detail?.votes ?? []).filter((v) => v.item_id === d.item_id);
   const debate = (detail?.messages ?? []).filter((m) => m.phase === "debate").sort((a, b) => a.seq - b.seq);
@@ -104,6 +109,28 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
             {flagged.length ? <div className="rv-brief-row" data-tone="objection"><span>Flagged</span><span>The submission contained text addressed to the advisers, which they were told to ignore: {flagged.join("; ")}.</span></div> : null}
             {cited.length ? <div className="rv-brief-row"><span>Cites</span><span className="flex flex-wrap gap-1.5">{cited.map((id) => { const r = signedById.get(id); return r ? <Link key={id} href={`/reviews?run=${run}&tab=decided&open=record:${encodeURIComponent(r.attestation_id)}`} className="rv-chip" data-tone={r.outcome === "approved" ? "ok" : "no"}>{id} {r.title}</Link> : <Chip key={id} plain>{id}</Chip>; })}</span></div> : null}
           </section>
+
+          {pending.length ? (
+            <section className="rv-card" data-tone="you">
+              <div className="rv-card-h"><span>What changes if you sign approved</span><span className="muted font-normal">{pending.length} {pending.length === 1 ? "draft" : "drafts"} from the committee</span></div>
+              <p className="rv-hint" style={{ marginTop: 0 }}>These are the committee's drafts. Signing approved applies them as new versions, under your name; rejecting or sending back drops them. To change a draft, send the matter back with what you want different.</p>
+              <div className="rv-recs">
+                {pending.map((r) => {
+                  const before = r.target === "policy" ? (readSection(policyNow, r.title) ?? "") : (r.current_body ?? "");
+                  const after = r.target === "policy" && (r.mode ?? "add") === "add" && before ? `${before}\n\n${r.body}` : r.body;
+                  const what = r.target === "policy" ? `Policy, section “${r.title}”: ${(r.mode ?? "add") === "add" ? "text added" : "section replaced"}`
+                    : r.document_id ? `${r.title}: version ${r.current_version} becomes ${Number(r.current_version) + 1}` : `New document: ${r.title} (${r.kind})`;
+                  return (
+                    <article key={r.rev_id} className="rv-rec">
+                      <div className="rv-rec-title">{what}<span className="rv-brief-who">{r.seat_title}: {r.rationale}</span></div>
+                      {before ? <Fold title="See the change"><div className="rv-prose"><PolicyDiff before={before} after={after} mode="lines" /></div></Fold>
+                        : <Fold title="Read the draft"><p className="rv-prose">{r.body}</p></Fold>}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
 
           <Recommendations runId={runId} itemId={d.item_id} rows={recs} canRun={atLeast(role, "runs")} canDecide={canDecide} />
 

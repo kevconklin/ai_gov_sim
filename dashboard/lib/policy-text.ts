@@ -46,3 +46,18 @@ export function listControls(policy: string): Control[] {
   }
   return out;
 }
+
+/** One section's text out of the policy, by heading, or null. Mirrors govern/policy.read_section. */
+export function readSection(policy: string, heading: string): string | null {
+  const re = /^## +(.+?)\s*$/gm;
+  const marks: { h: string; start: number; end: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(policy))) marks.push({ h: m[1]!, start: m.index, end: m.index + m[0].length });
+  for (let i = 0; i < marks.length; i++) {
+    if (marks[i]!.h.toLowerCase() === heading.trim().toLowerCase()) {
+      const bodyEnd = i + 1 < marks.length ? marks[i + 1]!.start : policy.length;
+      return policy.slice(marks[i]!.end, bodyEnd).trim();
+    }
+  }
+  return null;
+}
