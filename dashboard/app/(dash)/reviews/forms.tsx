@@ -142,6 +142,9 @@ export function WaitingRows({ runId, entries, openHrefs, askHref, canConvene = t
   );
 }
 
+// mirrors config/attestation.yaml min_rationale_chars; the worker enforces it, this only says so before the press
+export const MIN_RATIONALE = 20;
+
 export interface DissentView {
   agent_id: string;
   seat: string;
@@ -163,6 +166,7 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
 }) {
   const [state, action, pending] = useActionState(attestAction, null);
   const [outcome, setOutcome] = useState("");
+  const [rationale, setRationale] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set(mustWeighAll ? dissents.map((d) => d.agent_id) : []));
   const left = reviewTotal - reviewSigned - 1;
   const choices: [string, string, string][] = [["approved", "Approve", "ok"], ["rejected", "Reject", "no"], ["deferred", "Send back", "wait"]];
@@ -223,8 +227,9 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
 
       <label>
         <span className="rv-label">{sendingBack ? "What should the committee look at, or know, next time?" : "Your reasoning"}</span>
-        <textarea className="rv-field" name="rationale" rows={sendingBack ? 4 : 3} required
+        <textarea className="rv-field" name="rationale" rows={sendingBack ? 4 : 3} required minLength={MIN_RATIONALE} value={rationale} onChange={(e) => setRationale(e.currentTarget.value)}
           placeholder={sendingBack ? "The context they were missing, the question to answer, the condition you would need to see." : "In your own words. Nothing drafts this for you."} />
+        <span className="rv-hint block">{rationale.trim().length < MIN_RATIONALE ? `At least ${MIN_RATIONALE} characters; ${Math.max(0, MIN_RATIONALE - rationale.trim().length)} to go.` : "On the record under your name."}</span>
       </label>
       {sendingBack ? (
         <label className={`rv-tick is-wide${!canConveneNow ? " is-off" : ""}`} title={canConveneNow ? undefined : "The rest of this review has to be signed first; convene it from Waiting after."}>
@@ -238,7 +243,7 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
           <span className="rv-avatar is-you">{initials(operator)}</span>
           <span className="rv-signer-name">{operator}</span>
         </span>
-        <button className="rv-btn rv-btn-you" type="submit" disabled={pending || Boolean(state?.success)}>{state?.success ? "Signed" : pending ? "Signing…" : sendingBack ? "Sign and send back" : "Sign decision"}</button>
+        <button className="rv-btn rv-btn-you" type="submit" disabled={pending || Boolean(state?.success) || rationale.trim().length < MIN_RATIONALE || !outcome}>{state?.success ? "Signed" : pending ? "Signing…" : sendingBack ? "Sign and send back" : "Sign decision"}</button>
       </div>
       {left > 0 ? <p className="rv-hint" style={{ marginTop: "-0.5rem" }}>Takes effect once the other {plural(left, "matter")} from this review {left === 1 ? "is" : "are"} signed.</p> : null}
       <Said state={state} ok="Signed. The worker is recording it; this closes on its own in a moment." />

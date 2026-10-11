@@ -92,6 +92,7 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
   const f = fieldsOf(formData);
   const denied = await allowed(f.run_id ?? "", "decides");
   if (denied) return denied;
+  if ((f.rationale ?? "").trim().length < 20) return { success: false, data: null, error: "Write at least 20 characters of your own reasoning; it goes on the record." };
   const respondedTo = formData
     .getAll("responded_to")
     .filter((v): v is string => typeof v === "string" && v.length > 0);
