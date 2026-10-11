@@ -381,3 +381,15 @@ export async function dismissFailureAction(_prev: ControlResult | null, formData
   revalidatePath("/reviews");
   return ok ? { success: true, data: { intervention_id: "" }, error: null } : { success: false, data: null, error: "That failure is already gone." };
 }
+
+/** An operator has read an alert. It stays on the record; it stops showing. */
+export async function acknowledgeAlertAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  if (!(await isOperator())) return { success: false, data: null, error: "Only an operator can acknowledge an alert." };
+  const f = fieldsOf(formData);
+  const { acknowledgeAlert } = await import("@/lib/queries/governance");
+  await acknowledgeAlert(f.alert_id ?? "");
+  revalidatePath("/organizations");
+  return { success: true, data: { intervention_id: "" }, error: null };
+}

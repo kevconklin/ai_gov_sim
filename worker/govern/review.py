@@ -20,6 +20,7 @@ from datetime import date
 from typing import Sequence
 
 from govern import ids, prompts
+from govern.db import utc_now_iso
 from govern.advisory import perspectives_for, synthesize
 from govern.agents.memory import save_memory
 from govern.agents.runner import run_turn
@@ -215,6 +216,7 @@ class Review:
         speak(self.chair, cues["chair_open"], 1)
         for round_no in range(1, max_rounds + 1):
             active = [speak(agent, cues["member"], round_no) for agent in others]
+            self._ceiling(f"debate, round {round_no}")
             if not any(active):
                 break
         speak(self.chair, cues["chair_close"], max_rounds + 1)
@@ -278,10 +280,12 @@ class Review:
         circulated, advisory = self.decision_items(), self.advisory_items()
         mark_items(self.ctx.db, [i.ref_id for i in (*circulated, *advisory)], "in_review")
         packet = build_packet(self.ctx, month=self.month, meeting_date=self.date, agenda=self.full_agenda(circulated))
+        self.started_at = utc_now_iso()
         if circulated:
             self._positions(circulated, packet)
         if advisory:
             self._perspectives(advisory, packet)
+        self._ceiling("sealed positions")
         if self._skip_debate(circulated):
             to_decide = list(circulated)
         else:
@@ -306,6 +310,17 @@ class Review:
         self._memories(decisions, final_packet)
         self.ctx.db.update("meetings", {"status": "closed"}, where={"meeting_id": self.meeting_id})
         return MeetingResult(self.meeting_id, self.date, tuple(decisions), text)
+
+    def _ceiling(self, phase: str) -> None:
+        """Stop a review that has cost more than one review may. The caller unwinds; the alert names the phase."""
+        from govern.budget import ReviewOverBudget, require_review_ceiling
+        try:
+            require_review_ceiling(self.ctx.db, dict(self.ctx.run), self.ctx.config, since_iso=self.started_at, phase=phase)
+        except ReviewOverBudget as error:
+            from govern.alerts import raise_alert
+            raise_alert(self.ctx.db, "review_over_budget", "critical", f"{self.meeting_id}: {error}", run_id=self.ctx.run_id,
+                        dedupe_key=self.meeting_id)
+            raise
 
     def _skip_debate(self, circulated: Sequence[AgendaItem]) -> bool:
         """The debate gate, for an organization's review only: the simulation always debates, as registered.

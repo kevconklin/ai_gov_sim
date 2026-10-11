@@ -157,6 +157,9 @@ def apply_attested(ctx: ReviewContext, decisions: Sequence[Decision], *, month: 
     Raises `AttestationRequired` before touching anything if any decision is unattested, so a
     partial apply cannot leave some items live and others waiting on oversight.
     """
+    # a matter withdrawn after its review needs no signature and applies nothing; it must not hold the others
+    withdrawn = {r["item_id"] for r in ctx.db.fetch_all("SELECT item_id FROM items WHERE run_id = ? AND status = 'withdrawn'", (ctx.run_id,))}
+    decisions = [d for d in decisions if d.item.ref_id not in withdrawn]
     attestations = {d.decision_id: attestation_for(ctx.db, d.decision_id) for d in decisions}
     missing = [d.item.item_id for d in decisions if attestations[d.decision_id] is None]
     if missing:

@@ -31,6 +31,10 @@ spend_caps_usd:
   # changes its own under Settings, and the change is recorded. Set from observed cost per review
   # once real reviews have run; the pilot's simulated months are not a basis for it.
   per_workspace_per_month: 50.00
+  # PLACEHOLDER: the most one review may cost. Checked between phases (after the positions, after
+  # each debate round); a review that passes it stops, its matters go back to Waiting, and an
+  # alert says so. A live review of three matters has cost about $1.
+  per_review: 3.00
   hard_monthly: 200.00
 retries:
   max_attempts: 5

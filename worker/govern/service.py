@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from govern.budget import require_review_budget
+from govern.budget import BudgetExceeded, require_review_budget
 from govern.config import Config
 from govern.context import ReviewContext
 from govern.db import Database
@@ -74,7 +74,13 @@ class ReviewService:
         with run_lock(self.data_dir, run_id, db=self.db):
             ctx = self.context(run_id)
             if is_workspace(ctx.run):
-                require_review_budget(self.db, dict(ctx.run), self.config)
+                try:
+                    require_review_budget(self.db, dict(ctx.run), self.config)
+                except BudgetExceeded as error:
+                    from govern.alerts import raise_alert
+                    raise_alert(self.db, "budget_spent", "warning", f"{ctx.org.name}: {error}", run_id=run_id,
+                                dedupe_key=f"{run_id}:{date.today().isoformat()[:7]}")
+                    raise
             recover_interrupted_reviews(self.db, run_id)
             seats = set(self.panel(ctx, agenda))
             members = [a for a in ctx.active_agents() if a.seat in seats]

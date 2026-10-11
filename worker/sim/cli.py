@@ -160,6 +160,18 @@ def cmd_advance(args: argparse.Namespace) -> None:
 _last_redaction: list[float] = []
 
 
+def _stuck_check(db: Database) -> None:
+    """A command 'processing' for over an hour was claimed by a worker that died. Say so once, so a person looks."""
+    from datetime import datetime, timedelta, timezone
+
+    from govern.alerts import raise_alert
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    for row in db.fetch_all("SELECT command_id, kind, run_id, created_at FROM commands WHERE status = 'processing' AND created_at < ?", (cutoff,)):
+        raise_alert(db, "command_stuck", "warning", f"{row['kind']} queued {row['created_at'][:16]} has been processing for over an hour; "
+                    "a worker may have died mid-run. Restart the worker; a dead review is unwound at the next convene.",
+                    run_id=row["run_id"], dedupe_key=row["command_id"])
+
+
 def _redact_if_due(db: Database) -> None:
     """Once an hour, drop model-call text past the retention window. Cheap when nothing qualifies."""
     from govern.retention import load_retention, redact_expired
@@ -194,6 +206,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
             return
         commands.process_pending(db, orch, data_dir)
         _redact_if_due(db)
+        _stuck_check(db)
         running = db.fetch_all("SELECT run_id, current_month FROM runs WHERE status = 'running' "
                                "ORDER BY COALESCE(current_month, ''), replicate, bank_id")
         if not running:

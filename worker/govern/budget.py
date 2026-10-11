@@ -63,3 +63,27 @@ def require_review_budget(db: Database, run: dict, config: Config, now: datetime
     if spent >= float(cap):
         raise BudgetExceeded(f"this month's review budget is spent (${spent:,.2f} of ${float(cap):,.2f}); "
                              "raise it under Settings, or wait for next month")
+
+
+class ReviewOverBudget(RuntimeError):
+    """A review in flight has cost more than one review may. It stops here."""
+
+
+def per_review_cap(config: Config) -> float | None:
+    cap = (config.budget.raw.get("spend_caps_usd") or {}).get("per_review")
+    return float(cap) if cap is not None else None
+
+
+def spend_since(db: Database, run_id: str, since_iso: str) -> float:
+    row = db.fetch_one("SELECT COALESCE(SUM(cost_usd), 0) AS total FROM llm_calls WHERE run_id = ? AND created_at >= ?", (run_id, since_iso))
+    return float(row["total"] or 0)
+
+
+def require_review_ceiling(db: Database, run: dict, config: Config, *, since_iso: str, phase: str) -> float:
+    """Between phases of one review: stop if it has already cost more than a review may. Returns the spend so far."""
+    spent = spend_since(db, run["run_id"], since_iso)
+    cap = per_review_cap(config)
+    if run.get("condition") == "workspace" and cap is not None and spent >= cap:
+        raise ReviewOverBudget(f"this review has cost ${spent:,.2f} by the {phase}, over the ${cap:,.2f} a review may cost; "
+                               "it stops here and its matters go back to Waiting")
+    return spent

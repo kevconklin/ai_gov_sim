@@ -244,7 +244,16 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
                   for n, q in enumerate(payload.get("advisory", []), start=len(items) + 1)]
         if not items:
             raise ValueError("convene needs an agenda: pass 'agenda' items, 'advisory' questions, or both")
-        result = orchestrator.convene(run_id, agenda=items, month=payload.get("month"))
+        try:
+            result = orchestrator.convene(run_id, agenda=items, month=payload.get("month"))
+        except Exception as error:  # noqa: BLE001 - a review that dies is unwound now, not at the next convene
+            from govern.alerts import raise_alert
+            from govern.service import recover_interrupted_reviews
+            dead = recover_interrupted_reviews(db, run_id)
+            raise_alert(db, "review_failed", "critical", f"a review of {len(items)} matter(s) stopped: {type(error).__name__}: {str(error)[:300]}; "
+                        "its matters are back in Waiting", run_id=run_id, dedupe_key=command["command_id"])
+            log.warning("review failed on %s, unwound %s", run_id, dead)
+            raise
         return {"meeting_id": result.meeting_id, "date": result.meeting_date.isoformat(),
                 "recommendations": [{"decision_id": d.decision_id, "item_id": d.item.item_id,
                                      "recommended": d.outcome, "yes": d.tally.yes, "no": d.tally.no,

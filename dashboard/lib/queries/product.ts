@@ -148,7 +148,8 @@ export async function organizations(month: string, allowed: Visible): Promise<Or
             (SELECT COUNT(*) FROM items i WHERE i.run_id = r.run_id AND i.status = 'submitted') AS waiting,
             (SELECT COUNT(*) FROM decisions d JOIN meetings m ON m.meeting_id = d.meeting_id
               LEFT JOIN attestations a ON a.decision_id = d.decision_id
-              WHERE d.run_id = r.run_id AND m.convened AND m.status = 'closed' AND a.attestation_id IS NULL) AS needs_you,
+              LEFT JOIN items i ON i.item_id = d.ref_id
+              WHERE d.run_id = r.run_id AND m.convened AND m.status = 'closed' AND a.attestation_id IS NULL AND COALESCE(i.status, '') <> 'withdrawn') AS needs_you,
             (SELECT COUNT(*) FROM attestations a WHERE a.run_id = r.run_id AND a.outcome <> 'deferred') AS signed,
             (SELECT COUNT(*) FROM meetings m WHERE m.run_id = r.run_id AND m.convened) AS reviews,
             (SELECT MAX(m.meeting_date) FROM meetings m WHERE m.run_id = r.run_id AND m.convened) AS last_review,
@@ -358,4 +359,25 @@ export async function organizationRecord(runId: string, limit = 300): Promise<Re
   }
   out.sort((a, b) => b.at.localeCompare(a.at));
   return out.slice(0, limit);
+}
+
+export interface AlertRow { alert_id: string; run_id: string | null; kind: string; severity: string; message: string; created_at: string; org_name: string | null }
+
+/** Unacknowledged alerts on organizations the person may see. */
+export async function openAlerts(allowed: Visible): Promise<AlertRow[]> {
+  const db = await readDb();
+  if (allowed !== "all" && !allowed.length) return [];
+  const fence = allowed === "all" ? "" : ` AND (a.run_id IS NULL OR a.run_id IN (${allowed.map(() => "?").join(", ")}))`;
+  return db.all<AlertRow>(
+    `SELECT a.alert_id, a.run_id, a.kind, a.severity, a.message, a.created_at, o.name AS org_name
+     FROM alerts a LEFT JOIN org_profiles o ON o.run_id = a.run_id WHERE NOT a.acknowledged${fence} ORDER BY a.created_at DESC LIMIT 20`,
+    allowed === "all" ? [] : allowed);
+}
+
+/** How long the oldest pending command has waited: a worker that is not running shows up here. */
+export async function queueWait(): Promise<{ minutes: number; kind: string } | null> {
+  const db = await readDb();
+  const row = await db.get<{ created_at: string; kind: string }>("SELECT created_at, kind FROM commands WHERE status = 'pending' ORDER BY created_at LIMIT 1");
+  if (!row) return null;
+  return { minutes: Math.floor((Date.now() - new Date(row.created_at).getTime()) / 60_000), kind: row.kind };
 }

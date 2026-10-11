@@ -256,7 +256,7 @@ export async function decisionsToSign(runId: string): Promise<DecisionRow[]> {
             COALESCE(i.title, u.title, d.item_id) AS title, COALESCE(i.description, u.description) AS description,
             d.outcome AS recommended, COALESCE(i.risk_tier, u.risk_tier) AS risk_tier, i.submitted_by, i.details,
             d.yes_votes, d.no_votes, d.abstentions,
-            (SELECT COUNT(*) FROM decisions d2 WHERE d2.meeting_id = d.meeting_id) AS review_total,
+            (SELECT COUNT(*) FROM decisions d2 LEFT JOIN items i2 ON i2.item_id = d2.ref_id WHERE d2.meeting_id = d.meeting_id AND COALESCE(i2.status, '') <> 'withdrawn') AS review_total,
             (SELECT COUNT(*) FROM decisions d3 JOIN attestations a3 ON a3.decision_id = d3.decision_id
               WHERE d3.meeting_id = d.meeting_id) AS review_signed
      FROM decisions d
@@ -264,7 +264,7 @@ export async function decisionsToSign(runId: string): Promise<DecisionRow[]> {
      LEFT JOIN attestations a ON a.decision_id = d.decision_id
      LEFT JOIN items i ON i.item_id = d.ref_id
      LEFT JOIN use_cases u ON u.use_case_id = d.ref_id
-     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed'
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed' AND COALESCE(i.status, '') <> 'withdrawn'
      ORDER BY m.meeting_date DESC, d.item_id`,
     [runId],
   );
@@ -291,7 +291,8 @@ export async function ballotsToSign(runId: string): Promise<BallotRow[]> {
      JOIN votes v ON v.meeting_id = d.meeting_id AND v.item_id = d.item_id
      JOIN agents ag ON ag.agent_id = v.agent_id
      LEFT JOIN positions p ON p.meeting_id = v.meeting_id AND p.item_id = v.item_id AND p.agent_id = v.agent_id
-     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed'`,
+     LEFT JOIN items i ON i.item_id = d.ref_id
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed' AND COALESCE(i.status, '') <> 'withdrawn'`,
     [runId],
   );
 }
@@ -582,4 +583,9 @@ export async function pendingCommandLike(runId: string, kind: string, payloadLik
     "SELECT command_id FROM commands WHERE run_id = ? AND kind = ? AND created_at > ? AND payload LIKE ? ORDER BY created_at DESC LIMIT 1",
     [runId, kind, new Date(Date.now() - 2 * 60_000).toISOString(), payloadLike]);
   return row?.command_id ?? null;
+}
+
+export async function acknowledgeAlert(alertId: string): Promise<void> {
+  const db = await controlDb();
+  await db.transaction([{ sql: "UPDATE alerts SET acknowledged = (1 = 1) WHERE alert_id = ?", params: [alertId] }]);
 }

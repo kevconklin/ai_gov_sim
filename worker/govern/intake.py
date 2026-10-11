@@ -11,7 +11,7 @@ from datetime import date
 from typing import Any, Mapping, Sequence
 
 from govern import ids
-from govern.context import next_display_id
+from govern.context import display_id, next_display_id
 from govern.db import Database
 
 KIND_LABELS: Mapping[str, str] = {
@@ -56,10 +56,18 @@ def submit_item(db: Database, run_id: str, *, kind: str, title: str, description
     return item_id
 
 
-def withdraw_item(db: Database, item_id: str) -> None:
-    """Only something not yet in front of the committee can be pulled back."""
-    if not db.update("items", {"status": WITHDRAWN}, where={"item_id": item_id, "status": OPEN}):
-        raise IntakeError(f"{item_id} is not open, so it cannot be withdrawn")
+def withdraw_item(db: Database, item_id: str, *, by: str | None = None, reason: str | None = None) -> None:
+    """Pull a matter back. Before its review, it simply leaves the queue; after a review and before a signature, its
+    recommendation is left unsigned and the rest of that review can still apply. A signed matter cannot be withdrawn."""
+    row = db.fetch_one("SELECT status FROM items WHERE item_id = ?", (item_id,))
+    if row is None or row["status"] not in (OPEN, IN_REVIEW, RECOMMENDED):
+        raise IntakeError(f"{item_id} is not open or awaiting a decision, so it cannot be withdrawn")
+    db.update("items", {"status": WITHDRAWN}, where={"item_id": item_id})
+    if by:
+        from govern.settings import record_change
+        run_id = item_id.split("/item/")[0]
+        record_change(db, run_id, actor=by, source="dashboard_session", area="intake", target=display_id(item_id), before=row["status"],
+                      after=WITHDRAWN, reason=reason or "Withdrawn")
 
 
 def mark_items(db: Database, item_ids: Sequence[str | None], status: str, *, decided_on: date | None = None) -> None:

@@ -626,24 +626,27 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
 
         {tab === "decided" ? (
           record.length === 0 ? <EmptyState icon="pen" tone="you">Nothing has been signed yet.</EmptyState> : (
-            <div className="rv-rows">
-              {record.map((r) => {
-                const [label, tone] = OUTCOME[r.outcome] ?? [r.outcome, undefined];
-                return (
-                  <Link key={r.attestation_id} href={to({ open: `record:${r.attestation_id}` })} scroll={false} className="rv-rowline">
-                    <span className="rv-riskmark" data-tone={r.risk_tier ?? undefined} />
-                    <span className="min-w-0">
-                      <span className="rv-rowtitle">{r.title}</span>
-                      <span className="rv-rowmeta">
-                        {tone ? <Chip tone={tone} dot>{label}</Chip> : <Chip plain>{label}</Chip>}
-                        {r.outcome !== "deferred" && r.outcome !== r.recommended ? <Chip tone="objection">Overruled</Chip> : null}
-                        <KindChip kind={r.item_kind ?? r.kind} />
-                      </span>
-                    </span>
-                    <span className="rv-rowend"><span className="is-wide inline-flex items-center gap-2"><Avatar name={r.actor} you />{r.actor}</span><span className="is-wide">{when(r.created_at)}</span><Icon name="chevron" className="rv-chev" /></span>
-                  </Link>
-                );
-              })}
+            <div className="rv-table-wrap">
+              <table className="rv-table">
+                <thead><tr><th>Matter</th><th>Decision</th><th>Kind</th><th>Risk</th><th>Signed by</th><th>When</th><th /></tr></thead>
+                <tbody>
+                  {record.map((r) => {
+                    const [label, tone] = OUTCOME[r.outcome] ?? [r.outcome, undefined];
+                    const overruled = r.outcome !== "deferred" && r.outcome !== r.recommended;
+                    return (
+                      <tr key={r.attestation_id}>
+                        <td><Link href={to({ open: `record:${r.attestation_id}` })} scroll={false} className="rv-cell">{r.title}</Link>{r.rationale ? <span className="rv-sub">{firstSentence(r.rationale, 120)}</span> : null}</td>
+                        <td>{tone ? <Chip tone={tone} dot>{label}</Chip> : <Chip plain>{label}</Chip>}{overruled ? <> <Chip tone="objection">Overruled</Chip></> : null}</td>
+                        <td className="muted">{KIND_LABELS[r.item_kind ?? r.kind] ?? r.kind}</td>
+                        <td><RiskChip tier={r.risk_tier} /></td>
+                        <td>{r.actor.replace(/ <.*>$/, "")}</td>
+                        <td className="muted" style={{ whiteSpace: "nowrap" }}>{when(r.created_at)}</td>
+                        <td><Link href={`/matter?run=${encodeURIComponent(runId)}&id=${encodeURIComponent(r.item_id)}`} className="rv-btn rv-btn-sm">Story</Link></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )
         ) : null}
@@ -673,26 +676,26 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
 
         {tab === "reviews" ? (
           held.length === 0 ? <EmptyState icon="users" tone="ai">No reviews yet. Convene one from Waiting.</EmptyState> : (
-            <div className="rv-rows">
-              {held.map((m) => {
-                const matters = parse<{ title: string }[]>(m.agenda, []);
-                const unsigned = Number(m.decisions) - Number(m.signed);
-                return (
-                  <Link key={m.meeting_id} href={trailHref(m.meeting_id)} scroll={false} className="rv-rowline">
-                    <span className="rv-riskmark" data-tone="ai" />
-                    <span className="min-w-0">
-                      <span className="rv-rowtitle">{matters.map((x) => x.title).join(" · ") || "Review"}</span>
-                      <span className="rv-rowmeta">
-                        {m.status === "closed" ? <Chip tone="ok" dot>Complete</Chip> : m.status === "failed" ? <Chip tone="no" dot>Did not finish</Chip> : <Chip tone="ai" dot>In progress</Chip>}
-                        <Chip plain>{plural(matters.length, "matter")}</Chip>
-                        {Number(m.seats) ? <Chip plain>{plural(Number(m.seats), "adviser")}</Chip> : null}
-                        {unsigned > 0 && m.status === "closed" ? <Chip tone="you">{unsigned} to sign</Chip> : null}
-                      </span>
-                    </span>
-                    <span className="rv-rowend"><span className="is-wide">{m.meeting_date}</span><Icon name="chevron" className="rv-chev" /></span>
-                  </Link>
-                );
-              })}
+            <div className="rv-table-wrap">
+              <table className="rv-table">
+                <thead><tr><th>Review</th><th>State</th><th className="num">Matters</th><th className="num">Advisers</th><th>Date</th><th /></tr></thead>
+                <tbody>
+                  {held.map((m) => {
+                    const matters = parse<{ title: string }[]>(m.agenda, []);
+                    const unsigned = Number(m.decisions) - Number(m.signed);
+                    return (
+                      <tr key={m.meeting_id}>
+                        <td><Link href={trailHref(m.meeting_id)} scroll={false} className="rv-cell">{matters.map((x) => x.title).join(", ") || "Review"}</Link></td>
+                        <td>{m.status === "closed" ? (unsigned > 0 ? <Chip tone="you" dot>{unsigned} to sign</Chip> : <Chip tone="ok" dot>Complete</Chip>) : m.status === "failed" ? <Chip tone="no" dot>Did not finish</Chip> : <Chip tone="ai" dot>In progress</Chip>}</td>
+                        <td className="num">{matters.length}</td>
+                        <td className="num">{Number(m.seats) || "—"}</td>
+                        <td className="muted" style={{ whiteSpace: "nowrap" }}>{m.meeting_date}</td>
+                        <td><Link href={trailHref(m.meeting_id)} scroll={false} className="rv-btn rv-btn-sm">Trail</Link></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )
         ) : null}

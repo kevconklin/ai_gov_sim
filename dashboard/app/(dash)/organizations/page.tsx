@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { isOperator, visibleRuns } from "@/lib/auth/access";
-import { organizations } from "@/lib/queries/product";
+import { openAlerts, organizations, queueWait } from "@/lib/queries/product";
+import { Acknowledge } from "./alerts";
 import { allUsers } from "@/lib/auth/users";
 import { currentUser } from "@/lib/auth/session";
 import { AccountAdmin, InviteOperatorForm } from "../reviews/people-forms";
@@ -18,7 +19,9 @@ function since(iso: string): string {
 /** Every organization with a committee, and what each needs from a person right now. */
 export default async function OrganizationsPage() {
   const month = new Date().toISOString().slice(0, 7);
-  const [rows, operator] = await Promise.all([organizations(month, await visibleRuns()), isOperator()]);
+  const allowed = await visibleRuns();
+  const [rows, operator, alerts, wait] = await Promise.all([organizations(month, allowed), isOperator(), openAlerts(allowed), queueWait()]);
+  const workerDown = wait && wait.minutes >= 5;
   const [accounts, me] = operator ? await Promise.all([allUsers(), currentUser()]) : [[], null];
   const ops = accounts.filter((a) => a.role === "operator" && !a.disabled_at);
   const active = rows.filter((r) => r.status !== "archived");
@@ -57,6 +60,16 @@ export default async function OrganizationsPage() {
         <div className="flex flex-wrap items-center gap-2.5"><h1 className="rv-org">Organizations</h1><Chip plain>{active.length} active</Chip></div>
         {operator ? <Link href="/reviews?open=customer" className="rv-btn rv-btn-you"><Icon name="plus" /> New organization</Link> : null}
       </header>
+
+      {workerDown ? (
+        <div className="rv-banner" data-tone="no"><Icon name="alert" /><span className="flex-1">Nothing has picked up work for {wait.minutes} minutes (a {wait.kind.replace(/_/g, " ")} is waiting). The worker is not running. <code>scripts/run-local.sh status</code></span></div>
+      ) : null}
+      {alerts.map((a) => (
+        <div key={a.alert_id} className="rv-banner" data-tone={a.severity === "critical" ? "no" : "wait"}>
+          <Icon name="alert" /><span className="flex-1">{a.org_name ? <strong>{a.org_name}: </strong> : null}{a.message}<span className="muted text-xs"> {a.created_at.slice(0, 16).replace("T", " ")}</span></span>
+          {operator ? <Acknowledge alertId={a.alert_id} /> : null}
+        </div>
+      ))}
 
       <div className="rv-tiles">
         <span className={`rv-tile${needing ? " is-hot" : ""}`} data-tone="you"><span className="rv-tile-icon"><Icon name="pen" /></span><span><span className="rv-tile-count">{totals.needs}</span><span className="rv-tile-label">{totals.needs === 1 ? "Decision to sign" : "Decisions to sign"}</span></span></span>

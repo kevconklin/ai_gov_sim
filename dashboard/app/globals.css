@@ -2183,3 +2183,12 @@ pre.code {
 .dash-main { padding: 0; }
 .dash-body { padding: 1.25rem 1.5rem 3rem; }
 @media (max-width: 767.98px) { .topbar { display: none; } .dash-body { padding: 1rem; } }
+
+/* the decision page's seats as a quiet list; the drawer's facts as a definition table */
+.rv-seat { box-shadow: var(--shadow-sm); border-left-width: 3px; }
+.rv-seat-h .rv-rowmeta { margin-top: 0.1rem; }
+.rv-facts { font-size: 13px; }
+.rv-facts dt { color: var(--muted); font-weight: 500; }
+.rv-drawer { box-shadow: -8px 0 32px rgba(16, 24, 40, 0.12); }
+.rv-drawer-title { font-size: 17px; font-weight: 600; }
+.rv-filed { border-radius: var(--radius); }
