@@ -70,12 +70,15 @@ def run_turn(ctx: ReviewContext, session: ToolSession, *, instruction: str, pack
     calls: list[dict[str, Any]] = []
     max_steps = max_steps or int(ctx.budget("agent", "max_tool_steps"))
     truncations = 0
+    # a research seat is offered its web tools only while a search has a price (govern.research.enabled)
+    from govern.research import enabled as research_enabled
+    tools = tools_for(ctx.org.disclosed, agent.capabilities if research_enabled(ctx.config) else ()) if tools_enabled else ()
     for step in range(1, max_steps + 1):
         forced = required_tool is not None and step > free_steps
         result = ctx.llm.call(LLMRequest(model=session.agent.model, 
             role="committee", purpose=purpose, run_id=ctx.run_id, agent_id=agent.agent_id, sim_month=session.month,
             system_fixed=(fixed_block(ctx, agent),), system_dynamic=(notes, packet),
-            messages=tuple(messages), tools=tools_for(ctx.org.disclosed) if tools_enabled else (), max_tokens=max_tokens,
+            messages=tuple(messages), tools=tools, max_tokens=max_tokens,
             tool_choice={"type": "tool", "name": required_tool} if forced else None,
         ))
         if result.text.strip():

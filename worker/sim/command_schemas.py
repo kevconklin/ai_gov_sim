@@ -133,6 +133,7 @@ class AddSeat(Attributed):
     brief: str = Field(min_length=40, max_length=4000)
     stance_baseline: float = Field(default=3.0, ge=1, le=5)
     model: str | None = Field(default=None, max_length=200)
+    capabilities: list[str] = Field(default_factory=list, max_length=4)
 
 
 class RemoveSeat(Attributed):

@@ -16,14 +16,17 @@ class TokenUsage:
     output_tokens: int
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
+    web_searches: int = 0            # server-side web searches the call made (the librarian's)
 
     @classmethod
     def from_api(cls, usage: Any) -> "TokenUsage":
+        server = getattr(usage, "server_tool_use", None)
         return cls(
             input_tokens=usage.input_tokens or 0,
             output_tokens=usage.output_tokens or 0,
             cache_read_tokens=usage.cache_read_input_tokens or 0,
             cache_write_tokens=usage.cache_creation_input_tokens or 0,
+            web_searches=int(getattr(server, "web_search_requests", 0) or 0) if server is not None else 0,
         )
 
 
@@ -38,4 +41,9 @@ def compute_cost(models: ModelsConfig, model: str, usage: TokenUsage, *, batch: 
         + usage.cache_write_tokens * models.cache_write_multiplier
     )
     total = (input_cost + price.output * usage.output_tokens) / _PER_MILLION
-    return total * models.batch_multiplier if batch else total
+    total = total * models.batch_multiplier if batch else total
+    if usage.web_searches:
+        if not models.web_search_per_1000:
+            raise KeyError("a web search was made but models.yaml prices none (server_tools.web_search_per_1000)")
+        total += usage.web_searches * models.web_search_per_1000 / 1000      # searches are never discounted
+    return total

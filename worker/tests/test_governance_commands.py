@@ -130,7 +130,7 @@ def test_a_workspace_is_reviewed_on_todays_date_by_its_panel(workspace):
     assert out["result"]["date"] == date.today().isoformat()
     sat = db.fetch_one("SELECT COUNT(DISTINCT agent_id) AS n FROM votes WHERE meeting_id = ?",
                        (out["result"]["meeting_id"],))["n"]
-    assert sat == 5          # chair, security, legal, risk, finance: not the whole committee
+    assert sat == 6          # chair, security, legal, risk, finance, research: not the whole committee
 
 
 def test_the_clock_refuses_a_workspace(workspace):

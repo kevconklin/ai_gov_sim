@@ -48,7 +48,7 @@ def test_a_workspace_has_a_profile_and_a_committee_of_stored_briefs(product):
     assert isinstance(ctx, ReviewContext) and type(ctx) is ReviewContext     # no simulation subclass involved
     assert ctx.org.name == "Northwind Credit Union"
     assert ctx.org.disclosed is True
-    assert len(ctx.active_agents()) == 8
+    assert len(ctx.active_agents()) == 9
     assert all(a.persona_text for a in ctx.active_agents())
     assert ctx.chair().seat == "chair"
 
@@ -107,7 +107,7 @@ def test_a_vendor_review_seats_the_lenses_it_needs_and_the_chair(product):
     db, service, run_id = product
     org = service.context(run_id).org
     seats_ = panel_for(db, run_id, [("vendor", "medium")], org=org, rules=load_panels(CONFIG))
-    assert seats_ == ("chair", "security", "legal", "risk", "finance")
+    assert seats_ == ("chair", "security", "legal", "risk", "finance", "research")
 
 
 def test_anything_high_tier_gets_the_whole_committee(product):
@@ -154,7 +154,7 @@ def test_only_the_panel_sat(reviewed):
         "SELECT DISTINCT a.seat FROM positions p JOIN agents a ON a.agent_id = p.agent_id WHERE p.meeting_id = ?",
         (result.meeting_id,))}
     # a vendor item and a question together: the question brings the whole committee
-    assert len(sat) == 8
+    assert len(sat) == 9
 
 
 def test_the_review_recommends_and_applies_nothing(reviewed):

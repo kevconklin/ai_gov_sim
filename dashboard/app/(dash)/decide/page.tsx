@@ -2,7 +2,7 @@ import Link from "next/link";
 import { atLeast, orgRole, visibleRuns } from "@/lib/auth/access";
 import { currentOperator } from "@/lib/auth/session";
 import { first, type SearchParams } from "@/lib/params";
-import { ballotsToSign, committeeSeats, decisionsToSign, documentsInForce, orgProfile, recentAttestations, recommendationsFor, revisionsFor } from "@/lib/queries/governance";
+import { ballotsToSign, committeeSeats, decisionsToSign, documentsInForce, orgProfile, recentAttestations, recommendationsFor, revisionsFor, sourcesFor } from "@/lib/queries/governance";
 import { policyHistory } from "@/lib/queries/product";
 import { readSection } from "@/lib/policy-text";
 import { PolicyDiff } from "@/components/policy-diff";
@@ -74,7 +74,8 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
   const bench = benchFor(committee, mine, d.recommended);
   const t = tally(bench);
   const brief = decisionBrief({ recommended: d.recommended, bench, chairSeat: org?.chair_seat ?? null, riskTier: d.risk_tier, reviewTotal: Number(d.review_total), reviewSigned: Number(d.review_signed) });
-  const [detail, convener, recs, revisions, history, docs] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id), revisionsFor(d.meeting_id, d.item_id), policyHistory(runId), documentsInForce(runId)]);
+  const [detail, convener, recs, revisions, history, docs, sources] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id), revisionsFor(d.meeting_id, d.item_id), policyHistory(runId), documentsInForce(runId), sourcesFor(d.meeting_id, d.item_id)]);
+  const looked = sources.filter((x) => x.status === "ok");
   const isPolicyChange = (d.item_kind ?? d.kind) === "policy_change";
   const wording = recs.filter((r) => r.kind === "policy_wording");
   const policyNow = history[0]?.policy_text ?? "";
@@ -174,6 +175,31 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
               {docs.length === 0 ? <p className="rv-hint">No governing documents yet. The committee can propose one, or <Link href={`/reviews?run=${run}&tab=settings&open=document:new`}>add your acceptable use policy or charter</Link> so it can cite them.</p> : null}
             </div>
           </section>
+
+          {looked.length ? (
+            <section className="rv-card">
+              <div className="rv-card-h"><span>Sources consulted</span><span className="muted font-normal">{looked.filter((x) => x.kind === "search").length} searches, {looked.filter((x) => x.kind === "page").length} pages read, ${looked.reduce((t, x) => t + Number(x.cost_usd ?? 0), 0).toFixed(2)}</span></div>
+              <p className="rv-hint" style={{ marginTop: 0 }}>What the research seat looked up outside the room. Everything it read reached the committee marked as evidence, not instruction.</p>
+              <div className="rv-brief">
+                {looked.map((x) => {
+                  const found = (() => { try { return JSON.parse(x.results ?? "null") as unknown; } catch { return null; } })();
+                  const list = Array.isArray(found) ? (found as { title?: string; url?: string; age?: string | null }[]) : [];
+                  const page = !Array.isArray(found) && found && typeof found === "object" ? (found as { title?: string; chars?: number }) : null;
+                  return (
+                    <div key={x.research_id} className="rv-brief-row">
+                      <span>{x.kind === "search" ? "Searched" : "Read"}</span>
+                      <span>
+                        {x.kind === "search" ? <>“{x.query}”</> : <a href={x.url ?? "#"} target="_blank" rel="noreferrer noopener">{page?.title || x.url}</a>}
+                        <span className="rv-brief-who">{x.seat_title}{x.item_id ? `, for ${x.item_id}` : ""}{page?.chars ? `, ${page.chars.toLocaleString()} characters` : ""}</span>
+                        {list.length ? <span className="block" style={{ marginTop: "0.25rem" }}>{list.map((r) => <a key={r.url} href={r.url} target="_blank" rel="noreferrer noopener" className="rv-chip" style={{ marginRight: "0.35rem" }}>{r.title || r.url}</a>)}</span> : null}
+                        {x.kind === "search" && x.summary ? <Fold title="What the librarian reported"><p className="rv-prose">{x.summary}</p></Fold> : null}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
 
           <section className="rv-card">
             <div className="rv-card-h"><span>Each seat, in full</span><span className="muted font-normal">{t.yes} for, {t.no} against{t.abstain ? `, ${t.abstain} abstained` : ""}</span></div>

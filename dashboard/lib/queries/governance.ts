@@ -194,15 +194,32 @@ export interface SeatRow {
   persona_text: string | null;
   model: string | null;
   stance_baseline: number;
+  capabilities: string | null;   // json list, such as ["research"]
 }
 
 /** The committee as it sits now. A null brief means the member is briefed from a persona file (the simulation). */
 export async function committeeSeats(runId: string): Promise<SeatRow[]> {
   const db = await readDb();
   return db.all<SeatRow>(
-    `SELECT seat, name, title, persona_text, model, stance_baseline FROM agents WHERE run_id = ? AND active_to IS NULL ORDER BY seat`,
+    `SELECT seat, name, title, persona_text, model, stance_baseline, capabilities FROM agents WHERE run_id = ? AND active_to IS NULL ORDER BY seat`,
     [runId],
   );
+}
+
+/** Whether a seat holds a capability beyond the shared tools. */
+export function hasCapability(row: { capabilities: string | null }, name: string): boolean {
+  try { return Array.isArray(JSON.parse(row.capabilities ?? "[]")) && (JSON.parse(row.capabilities ?? "[]") as unknown[]).includes(name); } catch { return false; }
+}
+
+export interface SourceRow { research_id: string; item_id: string | null; seat_title: string; kind: string; query: string | null; url: string | null; results: string | null; summary: string | null; status: string; cost_usd: number; created_at: string }
+
+/** What a review looked up on the web, oldest first: for the whole meeting, or one matter (plus lookups tied to none). */
+export async function sourcesFor(meetingId: string, itemId?: string): Promise<SourceRow[]> {
+  const db = await readDb();
+  const rows = await db.all<SourceRow>(
+    `SELECT r.research_id, r.item_id, a.title AS seat_title, r.kind, r.query, r.url, r.results, r.summary, r.status, r.cost_usd, r.created_at
+     FROM research_calls r JOIN agents a ON a.agent_id = r.agent_id WHERE r.meeting_id = ? ORDER BY r.created_at`, [meetingId]);
+  return itemId ? rows.filter((r) => !r.item_id || r.item_id === itemId.toUpperCase()) : rows;
 }
 
 export interface OrgRow {

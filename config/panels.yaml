@@ -10,8 +10,8 @@ full_committee_tiers: [high]
 rules:
   use_case: all
   question: all
-  vendor: [security, legal, risk, finance]
-  tool: [technology, security, risk]
-  policy_change: [legal, risk, security, technology]
+  vendor: [security, legal, risk, finance, research]
+  tool: [technology, security, risk, research]
+  policy_change: [legal, risk, security, technology, research]
   exception: [legal, risk, security]
-  incident: [security, legal, risk, technology, customer]
+  incident: [security, legal, risk, technology, customer, research]

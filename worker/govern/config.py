@@ -35,6 +35,7 @@ class ModelsConfig:
     cache_read_multiplier: float
     batch_multiplier: float
     catalog: tuple[CatalogModel, ...] = ()      # models a customer can give a committee seat
+    web_search_per_1000: float = 0.0            # the librarian's server-side searches; 0 means research is off
 
     def model_for(self, role: str) -> str:
         if role not in self.roles:
@@ -102,6 +103,7 @@ def _load_models(data: Mapping[str, Any]) -> ModelsConfig:
         cache_write_multiplier=float(_require(multipliers, "cache_write", "models.yaml multipliers")),
         cache_read_multiplier=float(_require(multipliers, "cache_read", "models.yaml multipliers")),
         batch_multiplier=float(_require(multipliers, "batch", "models.yaml multipliers")),
+        web_search_per_1000=float((data.get("server_tools") or {}).get("web_search_per_1000", 0.0)),
     )
 
 

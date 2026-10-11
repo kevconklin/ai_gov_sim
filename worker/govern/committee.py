@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import yaml
 
 from govern import ids
 from govern.config import ConfigError
 from govern.db import Database, utc_now_iso
+
+
+CAPABILITIES = frozenset({"research"})   # tools beyond the shared list a seat may hold
 
 
 def load_default_committee(config_dir: Path) -> Mapping[str, Mapping[str, Any]]:
@@ -90,8 +93,10 @@ def _order(db: Database, run_id: str) -> tuple[list[str], str]:
 
 def add_seat(db: Database, run_id: str, *, seat: str, title: str, name: str, brief: str, models: Any, registry: Any,
              reason: str, actor: str, source: str = "cli_asserted", stance_baseline: float = 3.0,
-             model: str | None = None) -> str:
-    """Seat a new adviser. It speaks last; a removed seat can be added back under the same id."""
+             model: str | None = None, capabilities: Sequence[str] = ()) -> str:
+    """Seat a new adviser. It speaks last; a removed seat can be added back under the same id.
+
+    `capabilities` are tools beyond the shared list, such as "research" (web search and page reads)."""
     import re
     from govern.settings import record_change
     why = _why(reason)
@@ -104,6 +109,9 @@ def add_seat(db: Database, run_id: str, *, seat: str, title: str, name: str, bri
         raise ValueError("a seat needs a title and a short name")
     if not 1 <= float(stance_baseline) <= 5:
         raise ValueError("stance runs from 1 (very cautious) to 5 (very keen)")
+    unknown = sorted(set(capabilities) - CAPABILITIES)
+    if unknown:
+        raise ValueError(f"unknown capability {', '.join(unknown)}; a seat can hold: {', '.join(sorted(CAPABILITIES))}")
     order, _ = _order(db, run_id)
     if seat in order:
         raise ValueError(f"there is already a {seat} seat")
@@ -114,10 +122,11 @@ def add_seat(db: Database, run_id: str, *, seat: str, title: str, name: str, bri
     db.insert("agents", {"agent_id": agent_id, "run_id": run_id, "bank_id": run["bank_id"], "seat": seat,
                          "name": name.strip(), "title": title.strip(), "persona_file": "", "persona_text": brief.strip(),
                          "active_from": utc_now_iso()[:7], "active_to": None, "stance_baseline": float(stance_baseline),
-                         "model": chosen})
+                         "model": chosen, "capabilities": sorted(set(capabilities)) or None})
     db.update("org_profiles", {"seats": [*order, seat]}, where={"run_id": run_id})
     record_change(db, run_id, actor=actor, source=source, area="committee", target=f"{seat} added", before=None,
-                  after=f"{title.strip()}" + (f" on {chosen}" if chosen else ""), reason=why)
+                  after=f"{title.strip()}" + (f" on {chosen}" if chosen else "") + (f", with {', '.join(sorted(set(capabilities)))}" if capabilities else ""),
+                  reason=why)
     return agent_id
 
 

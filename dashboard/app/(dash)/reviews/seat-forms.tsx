@@ -70,6 +70,10 @@ export function AddSeatForm({ runId, catalog }: { runId: string; catalog: ModelR
         <span className="rv-hint block">Say what it looks at, what it wants, and the blind spot others should challenge.</span>
       </label>
       <div className="rv-grid2"><StanceSelect /><ModelSelect catalog={catalog} value={null} /></div>
+      <label className="rv-hint flex items-start gap-2" style={{ cursor: "pointer" }}>
+        <input type="checkbox" name="research" value="1" style={{ marginTop: "0.2rem" }} />
+        <span>Can research the web. The seat gets a web search and a page reader, limited per review and priced into it; everything it reads is fenced as evidence and listed on the decision as a source. Usually one seat holds this.</span>
+      </label>
       <Why label="Why is this seat being added?" />
       <div><button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Seating…" : "Add adviser"}</button></div>
       <Said state={state} ok="Seated. They speak last, from the next review." />

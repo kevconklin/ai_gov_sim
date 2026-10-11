@@ -41,7 +41,7 @@ def test_a_seat_is_added_and_sits_last_in_the_speaking_order(ws):
     committee.add_seat(db, run_id, seat="clinical", title="Chief Medical Officer", name="Clinical", brief=BRIEF,
                        models=config.models, registry=registry, reason=WHY, **WHO)
     assert load_org_profile(db, run_id).seats[-1] == "clinical"
-    assert len(committee.seats(db, run_id)) == 9
+    assert len(committee.seats(db, run_id)) == 10      # the nine default seats, research among them, plus clinical
     assert changes(db, run_id)[0]["target"] == "clinical added"
 
 
@@ -49,7 +49,7 @@ def test_a_seat_is_removed_but_its_history_is_kept(ws):
     db, run_id, *_ = ws
     committee.remove_seat(db, run_id, "business", reason="The sponsor now submits matters instead of judging them.", **WHO)
     assert "business" not in load_org_profile(db, run_id).seats
-    assert len(committee.seats(db, run_id)) == 7
+    assert len(committee.seats(db, run_id)) == 8
     assert db.fetch_one("SELECT active_to FROM agents WHERE run_id = ? AND seat = 'business'", (run_id,))["active_to"] is not None
 
 
@@ -57,7 +57,7 @@ def test_the_chair_cannot_be_removed_and_a_committee_cannot_shrink_to_one(ws):
     db, run_id, *_ = ws
     with pytest.raises(ValueError, match="chair"):
         committee.remove_seat(db, run_id, "chair", reason=WHY, **WHO)
-    for seat in ("technology", "security", "legal", "risk", "finance", "business"):
+    for seat in ("technology", "security", "legal", "risk", "finance", "business", "research"):
         committee.remove_seat(db, run_id, seat, reason="Trimming the committee for a pilot.", **WHO)
     with pytest.raises(ValueError, match="at least two"):
         committee.remove_seat(db, run_id, "customer", reason="Trimming the committee for a pilot.", **WHO)

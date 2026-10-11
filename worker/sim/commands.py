@@ -217,7 +217,8 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
             return {"agent_id": committee.add_seat(
                 db, run_id, seat=payload["seat"], title=payload["title"], name=payload.get("name") or payload["title"],
                 brief=payload["brief"], stance_baseline=float(payload.get("stance_baseline", 3.0)),
-                model=payload.get("model") or None, models=models, registry=registry, reason=why, **who)}
+                model=payload.get("model") or None, capabilities=tuple(payload.get("capabilities") or ()),
+                models=models, registry=registry, reason=why, **who)}
         if kind == "remove_seat":
             committee.remove_seat(db, run_id, payload["seat"], reason=why, **who)
             return {"removed": payload["seat"]}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { atLeast, orgRole, visibleRuns } from "@/lib/auth/access";
 import { first, type SearchParams } from "@/lib/params";
-import { committeeSeats, modelCatalog, orgProfile, panelOverrides } from "@/lib/queries/governance";
+import { committeeSeats, modelCatalog, orgProfile, panelOverrides, hasCapability } from "@/lib/queries/governance";
 import { currentScope } from "@/lib/queries/product";
 import { KIND_LABELS, PROVIDER_TONES, STANCE_WORDS, firstSentence, seatColor } from "@/lib/reviews/model";
 import { Avatar, Chip, Help, Icon } from "../reviews/parts";
@@ -52,7 +52,7 @@ export default async function CommitteePage({ searchParams }: { searchParams: Pr
               <Link key={c.seat} href={edit(`seat:${c.seat}`)} className="rv-seatcard" style={{ "--seat": seatColor(i) } as React.CSSProperties}>
                 <div className="rv-seat-h">
                   <Avatar name={c.title} seat={c.seat} index={i} large />
-                  <span className="min-w-0"><span className="rv-seat-title">{c.title}</span><span className="rv-rowmeta">{org?.chair_seat === c.seat ? <Chip tone="ai">Chair</Chip> : null}{c.model ? <Chip tone={PROVIDER_TONES[m?.provider ?? ""] ?? undefined} plain={!m}>{m?.label ?? c.model}</Chip> : <Chip plain>Default model</Chip>}<Chip plain>{STANCE_WORDS[Math.round(Number(c.stance_baseline))] ?? "Balanced"}</Chip></span></span>
+                  <span className="min-w-0"><span className="rv-seat-title">{c.title}</span><span className="rv-rowmeta">{org?.chair_seat === c.seat ? <Chip tone="ai">Chair</Chip> : null}{hasCapability(c, "research") ? <Chip tone="ai">Web research</Chip> : null}{c.model ? <Chip tone={PROVIDER_TONES[m?.provider ?? ""] ?? undefined} plain={!m}>{m?.label ?? c.model}</Chip> : <Chip plain>Default model</Chip>}<Chip plain>{STANCE_WORDS[Math.round(Number(c.stance_baseline))] ?? "Balanced"}</Chip></span></span>
                 </div>
                 <p className="rv-seatcard-brief">{firstSentence(c.persona_text, 220)}</p>
                 <span className="rv-story-link">Brief and settings <Icon name="chevron" className="rv-chev" /></span>

@@ -30,6 +30,7 @@ class Agent:
     active_from: str
     persona_text: str | None = None      # set when the committee is data rather than files
     model: str | None = None             # "<provider>:<model>" for this seat; None means the run's pinned model
+    capabilities: tuple[str, ...] = ()   # tools beyond the shared list this seat may use, such as "research"
 
     @classmethod
     def from_row(cls, row: Mapping[str, Any]) -> "Agent":
@@ -37,7 +38,17 @@ class Agent:
         return cls(row["agent_id"], row["seat"], row["name"], row["title"], row["persona_file"],
                    float(row["stance_baseline"]), row["active_from"],
                    row["persona_text"] if "persona_text" in keys else None,
-                   (row["model"] or None) if "model" in keys else None)
+                   (row["model"] or None) if "model" in keys else None,
+                   parse_capabilities(row["capabilities"]) if "capabilities" in keys else ())
+
+
+def parse_capabilities(raw: Any) -> tuple[str, ...]:
+    """The capabilities column: a JSON list, a list already, or nothing."""
+    import json
+    if not raw:
+        return ()
+    values = json.loads(raw) if isinstance(raw, str) else raw
+    return tuple(str(v) for v in values if v)
 
 
 @dataclass(frozen=True)

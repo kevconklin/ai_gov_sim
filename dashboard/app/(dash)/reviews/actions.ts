@@ -274,6 +274,7 @@ export async function addSeatAction(_prev: ControlResult | null, formData: FormD
     ...(f.name?.trim() ? { name: f.name } : {}),
     ...(f.stance ? { stance_baseline: Number(f.stance) } : {}),
     ...(f.model ? { model: f.model } : {}),
+    ...(f.research ? { capabilities: ["research"] } : {}),
   });
 }
 

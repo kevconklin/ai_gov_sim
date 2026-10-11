@@ -80,7 +80,8 @@ def create_workspace(db: Database, config: Config, *, config_dir: Path, data_dir
         db.insert("agents", {"agent_id": ids.scoped(run_id, "agent", seat_id), "run_id": run_id, "bank_id": slug,
                              "seat": seat_id, "name": seat["name"], "title": seat["title"],
                              "persona_file": "", "persona_text": str(seat["brief"]).strip(),
-                             "active_from": month, "active_to": None, "stance_baseline": float(seat.get("stance", 3.0))})
+                             "active_from": month, "active_to": None, "stance_baseline": float(seat.get("stance", 3.0)),
+                             "capabilities": [str(c) for c in seat.get("capabilities") or ()] or None})
     PolicyRepo(Path(data_dir) / "policies" / run_id / slug).init(name.strip(), "ai-governance@workspace.invalid", today)
     db.insert("interventions", {"intervention_id": ids.global_id(), "run_id": run_id, "sim_month": None,
                                 "real_ts": utc_now_iso(), "kind": "workspace_created",

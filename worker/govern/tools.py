@@ -6,7 +6,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -26,10 +26,16 @@ _WRITES = frozenset({"propose_policy_edit", "propose_use_case", "propose_status_
 REVIEW_TOOLS: tuple[Mapping[str, Any], ...] = tuple(
     {**tool, "description": str(tool["description"]).replace("the bank's", "the organization's")}
     for tool in TOOLS if tool["name"] not in _FEEDS | _WRITES) + tuple(prompts.load_yaml("review/tools.yaml"))
+# Only a seat holding the research capability is offered these, and only on a disclosed committee: the
+# simulation's banks have no web. What they return is fenced like submitted text (govern.research).
+RESEARCH_TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("review/research_tools.yaml"))
+RESEARCH = frozenset(t["name"] for t in RESEARCH_TOOLS)
 
 
-def tools_for(disclosed: bool) -> tuple[Mapping[str, Any], ...]:
-    return REVIEW_TOOLS if disclosed else TOOLS
+def tools_for(disclosed: bool, capabilities: Sequence[str] = ()) -> tuple[Mapping[str, Any], ...]:
+    if not disclosed:
+        return TOOLS
+    return REVIEW_TOOLS + (RESEARCH_TOOLS if "research" in capabilities else ())
 
 
 READ_TOOLS = frozenset({"read_policy", "search_decision_log", "read_use_case", "read_news", "read_inbox", "read_document", "read_decision"})
@@ -37,9 +43,9 @@ ADVISE_TOOLS = frozenset({"recommend", "propose_revision"})   # a disclosed comm
 PROPOSE_TOOLS = frozenset({"propose_use_case", "propose_policy_edit", "propose_status_change"})
 PHASE_TOOLS: Mapping[str, frozenset[str]] = {
     "circulate": READ_TOOLS | PROPOSE_TOOLS,
-    "position": READ_TOOLS | ADVISE_TOOLS | {"submit_position"},
-    "perspective": READ_TOOLS | ADVISE_TOOLS | {"submit_perspective"},
-    "debate": READ_TOOLS | PROPOSE_TOOLS | ADVISE_TOOLS | {"pass_turn"},
+    "position": READ_TOOLS | ADVISE_TOOLS | RESEARCH | {"submit_position"},
+    "perspective": READ_TOOLS | ADVISE_TOOLS | RESEARCH | {"submit_perspective"},
+    "debate": READ_TOOLS | PROPOSE_TOOLS | ADVISE_TOOLS | RESEARCH | {"pass_turn"},
     "vote": frozenset({"read_policy", "read_use_case", "cast_vote"}) | ADVISE_TOOLS,
     "minutes": frozenset({"read_policy", "record_minutes"}),
     "memory": READ_TOOLS,
@@ -215,6 +221,31 @@ def _propose_revision(s: ToolSession, args: Mapping[str, Any]) -> str:
     return f"Draft recorded on {item_id}. It applies only if the person signs {item_id} approved; they will see the exact change."
 
 
+def _research_item(s: ToolSession, args: Mapping[str, Any]) -> str | None:
+    item_id = str(args.get("item_id") or "").strip().upper()
+    return item_id if item_id in {**s.decision_items, **s.advisory_items} else None
+
+
+def _web_search(s: ToolSession, args: Mapping[str, Any]) -> str:
+    from govern.research import ResearchError, search
+    if "research" not in s.agent.capabilities:
+        return NOT_AVAILABLE
+    try:
+        return search(s.ctx, meeting_id=s.meeting_id, agent=s.agent, query=str(args.get("query", "")), item_id=_research_item(s, args))
+    except ResearchError as error:
+        return str(error)
+
+
+def _read_page(s: ToolSession, args: Mapping[str, Any]) -> str:
+    from govern.research import ResearchError, read_page
+    if "research" not in s.agent.capabilities:
+        return NOT_AVAILABLE
+    try:
+        return read_page(s.ctx, meeting_id=s.meeting_id, agent=s.agent, url=str(args.get("url", "")), item_id=_research_item(s, args))
+    except ResearchError as error:
+        return str(error)
+
+
 def _submit_position(s: ToolSession, args: Mapping[str, Any]) -> str:
     item = str(args.get("item_id", "")).strip().upper()
     if item not in s.decision_items:
@@ -336,6 +367,8 @@ HANDLERS: Mapping[str, Callable[[ToolSession, Mapping[str, Any]], str]] = {
     "read_decision": _read_decision,
     "recommend": _recommend,
     "propose_revision": _propose_revision,
+    "web_search": _web_search,
+    "read_page": _read_page,
 }
 
 
