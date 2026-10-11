@@ -37,7 +37,9 @@ export function structured(text: string | null): Structured {
   if (!raw.startsWith("{")) return { summary: raw, concerns: [], conditions: [] };
   try {
     const v = JSON.parse(raw) as Record<string, unknown>;
-    const list = (k: string) => (Array.isArray(v[k]) ? (v[k] as unknown[]).filter((x): x is string => typeof x === "string") : []);
+    // a list, or one entry written as a string, or nothing
+    const list = (k: string) => (Array.isArray(v[k]) ? (v[k] as unknown[]).filter((x): x is string => typeof x === "string")
+      : typeof v[k] === "string" && (v[k] as string).trim() ? [(v[k] as string).trim()] : []);
     const summary = ["summary", "rationale", "reason", "position"].map((k) => v[k]).find((x) => typeof x === "string" && x.trim());
     return { summary: typeof summary === "string" ? summary.trim() : "", concerns: list("concerns"), conditions: list("conditions") };
   } catch {

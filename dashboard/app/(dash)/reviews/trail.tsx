@@ -1,3 +1,4 @@
+import { structured } from "@/lib/reviews/brief";
 import type { ReactNode } from "react";
 import { SUPPORT_WORDS, buildTrail, debateRounds, seatsThatSat, supportTone, type StepId, type TrailInput } from "@/lib/reviews/trail";
 import { Avatar, Chip, Fold, Icon } from "./parts";
@@ -61,12 +62,13 @@ export function Trail({ input, committee, focus }: { input: TrailInput; committe
             <div key={item.item_id}>
               <div className="rv-trail-item"><span className="muted">{item.item_id}</span> {item.title}</div>
               {positions.map((p) => {
-                const body = parse<{ summary?: string; concerns?: string[]; conditions?: string[] }>(p.position, {});
+                // a live adviser sometimes writes one concern as prose rather than a list; read both shapes
+                const body = structured(p.position);
                 return (
                   <Fold key={p.seat} title={titleOf(p.seat)} lead={who(p.seat)} aside={<Chip tone={supportTone(p.support)} plain={!supportTone(p.support)}>{SUPPORT_WORDS[p.support] ?? p.support}</Chip>}>
                     {body.summary ? <p className="rv-prose">{body.summary}</p> : null}
-                    {body.concerns?.length ? <p className="rv-hint">Concerns: {body.concerns.join("; ")}</p> : null}
-                    {body.conditions?.length ? <p className="rv-hint">Conditions: {body.conditions.join("; ")}</p> : null}
+                    {body.concerns.length ? <p className="rv-hint">Concerns: {body.concerns.join("; ")}</p> : null}
+                    {body.conditions.length ? <p className="rv-hint">Conditions: {body.conditions.join("; ")}</p> : null}
                   </Fold>
                 );
               })}

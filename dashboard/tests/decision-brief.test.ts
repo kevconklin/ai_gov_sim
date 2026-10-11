@@ -66,5 +66,6 @@ describe("structured", () => {
     const v = structured(JSON.stringify({ concerns: ["No owner named"], conditions: ["Name an owner"], summary: "Send it back." }));
     expect(v).toEqual({ summary: "Send it back.", concerns: ["No owner named"], conditions: ["Name an owner"] });
     expect(structured("Plain words.")).toEqual({ summary: "Plain words.", concerns: [], conditions: [] });
+    expect(structured(JSON.stringify({ summary: "S.", concerns: "One concern as prose", conditions: null })).concerns).toEqual(["One concern as prose"]);
   });
 });
