@@ -95,6 +95,7 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
           <h1 className="rv-org" style={{ marginTop: "0.2rem" }}>{d.title}</h1>
           <div className="rv-rowmeta" style={{ marginTop: "0.4rem" }}><Chip plain>{KIND_LABELS[d.item_kind ?? d.kind] ?? d.kind}</Chip><RiskChip tier={d.risk_tier} /><Chip plain>{d.item_id}</Chip>{convener ? <Chip plain>Review of {d.meeting_date}, called by {who(convener.who)}</Chip> : null}</div>
         </div>
+        <div className="rv-top-actions"><Link href={`/matter?run=${run}&id=${encodeURIComponent(d.ref_id)}`} className="rv-btn">How did we get here</Link></div>
       </header>
 
       <div className="rv-decide-grid">

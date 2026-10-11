@@ -128,7 +128,8 @@ function chooseStance(a: SetupAnswers): [Stance, string] {
 function factsFrom(a: SetupAnswers): string {
   const regions = a.regions.length ? ` operating in the ${list(a.regions.map((r) => REGIONS[r]))}` : "";
   const size = { under_50: "under 50 people", "50_250": "50 to 250 people", "250_1000": "250 to 1,000 people", over_1000: "more than 1,000 people" }[a.size];
-  const parts = [`${a.name.trim()} is a ${SECTORS[a.sector].toLowerCase()} organization with ${size}${regions}.`];
+  const what = a.sector === "other" ? "an organization" : `a ${SECTORS[a.sector].toLowerCase()} organization`;
+  const parts = [`${a.name.trim()} is ${what} with ${size}${regions}.`];
   if (a.customers.trim()) parts.push(`Customers: ${a.customers.trim().replace(/\.?$/, ".")}`);
   if (a.regulated === "yes") parts.push("A regulator or examiner reviews how it handles data.");
   if (a.ships_ai) parts.push("It sells software with AI features in it.");

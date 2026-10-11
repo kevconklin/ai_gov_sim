@@ -1296,6 +1296,88 @@ pre.code {
   display: none;
 }
 
+/* The story of a matter, and the record: one line per event, the mark says what kind. */
+.rv-story {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0 0;
+  display: grid;
+  gap: 0;
+}
+.rv-story-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.rv-story-row:last-child { border-bottom: 0; }
+.rv-story.is-record .rv-story-row { padding: 0.65rem 0.9rem; }
+.rv-story-mark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+}
+.rv-story-row[data-tone="you"] .rv-story-mark { border-color: var(--you); color: var(--you); }
+.rv-story-row[data-tone="ai"] .rv-story-mark { border-color: var(--ai); color: var(--ai); }
+.rv-story-row[data-tone="ok"] .rv-story-mark { border-color: var(--ok); color: var(--ok); }
+.rv-story-row[data-tone="no"] .rv-story-mark { border-color: var(--no); color: var(--no); }
+.rv-story-row[data-tone="wait"] .rv-story-mark { border-color: var(--wait); color: var(--wait); }
+.rv-story-row[data-tone="objection"] .rv-story-mark { border-color: var(--objection); color: var(--objection); }
+.rv-story-body { min-width: 0; }
+.rv-story-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+.rv-story-title { font-weight: 600; }
+.rv-story-meta { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.rv-story-text { margin-top: 0.25rem; font-size: 13.5px; }
+.rv-story-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.3rem;
+  font-size: 12.5px;
+  color: var(--you);
+  text-decoration: none;
+}
+.rv-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.rv-filters .rv-field { width: auto; flex: 1 1 10rem; }
+
+/* Committee: one card per seat, the color is the seat's. */
+.rv-seatgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+.rv-seatcard {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--seat, var(--border));
+  border-radius: 12px;
+  background: var(--panel);
+  color: inherit;
+  text-decoration: none;
+}
+.rv-seatcard:hover { border-color: var(--seat, var(--you)); }
+.rv-seatcard-brief { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+
 /* A glossary word: dotted underline, meaning on hover or focus. */
 .rv-term {
   position: relative;

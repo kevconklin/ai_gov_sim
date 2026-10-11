@@ -1,6 +1,6 @@
 import "server-only";
 import { readDb } from "@/lib/db";
-import { num } from "@/lib/db/values";
+import { num, parseJson } from "@/lib/db/values";
 
 /** Which committee the product pages are looking at: the one in ?run=, else the newest customer, else any run. */
 export type Visible = "all" | string[];
@@ -252,4 +252,110 @@ export async function rereviewsOf(runId: string, itemId: string): Promise<{ item
   const db = await readDb();
   return db.all("SELECT item_id, title, status, submitted_on FROM items WHERE run_id = ? AND details LIKE ? ORDER BY submitted_on DESC",
     [runId, `%"rereview_of": "${itemId}"%`]);
+}
+
+// ---- the story of one matter, and the record of everything --------------------------------------
+
+export interface Event {
+  at: string;                 // ISO date or timestamp, for ordering
+  when: string;               // what to show
+  kind: string;               // submitted | flagged | reviewed | signed | sent_back | applied | recommended | stage | owner | rereview | ask | change
+  who: string | null;
+  title: string;
+  body: string | null;
+  href: string | null;        // where to read more
+  tone: "you" | "ai" | "ok" | "no" | "wait" | "objection" | null;
+}
+
+const short = (id: string) => id.split("/").pop() ?? id;
+const whoOf = (s: string | null | undefined) => (s ? s.replace(/ <.*>$/, "") : null);
+
+/** Everything that happened to one matter, oldest first: the answer to "how did we get here". */
+export async function matterStory(runId: string, itemId: string): Promise<{ item: Record<string, unknown> | null; events: Event[] }> {
+  const db = await readDb();
+  const run = encodeURIComponent(runId);
+  const item = await db.get<Record<string, unknown>>("SELECT * FROM items WHERE item_id = ? AND run_id = ?", [itemId, runId]);
+  if (!item) return { item: null, events: [] };
+  const sid = short(itemId);
+  const events: Event[] = [];
+  const details = parseJson<Record<string, unknown>>(String(item.details ?? "{}"), {});
+
+  events.push({ at: `${item.submitted_on}T00:00:00`, when: String(item.submitted_on), kind: "submitted", who: whoOf(String(item.submitted_by)),
+    title: `Submitted as ${String(item.kind).replace(/_/g, " ")}${item.risk_tier ? `, ${item.risk_tier} risk` : ""}`,
+    body: String(item.description ?? ""), href: null, tone: "you" });
+  const cited = Array.isArray(details.related_decisions) ? (details.related_decisions as string[]) : [];
+  if (cited.length) events.push({ at: `${item.submitted_on}T00:00:01`, when: String(item.submitted_on), kind: "cited", who: null, title: `Cited earlier decisions: ${cited.join(", ")}`, body: null, href: null, tone: null });
+  const flagged = Array.isArray(details.flagged_text) ? (details.flagged_text as string[]) : [];
+  if (flagged.length) events.push({ at: `${item.submitted_on}T00:00:02`, when: String(item.submitted_on), kind: "flagged", who: null, title: "Flagged at intake: text addressed to the advisers", body: flagged.join("; "), href: null, tone: "objection" });
+  if (typeof details.rereview_of === "string") events.push({ at: `${item.submitted_on}T00:00:00`, when: String(item.submitted_on), kind: "rereview", who: null, title: "Opened as a scheduled re-review", body: null, href: `/matter?run=${run}&id=${encodeURIComponent(details.rereview_of)}`, tone: "ai" });
+
+  const reviews = await db.all<{ meeting_id: string; meeting_date: string; convened: unknown; status: string; outcome: string; yes_votes: unknown; no_votes: unknown; decision_id: string; debate_skipped: unknown; debate_skip_p: unknown }>(
+    `SELECT m.meeting_id, m.meeting_date, m.convened, m.status, d.outcome, d.yes_votes, d.no_votes, d.decision_id, m.debate_skipped, m.debate_skip_p
+     FROM decisions d JOIN meetings m ON m.meeting_id = d.meeting_id WHERE d.ref_id = ? ORDER BY m.meeting_date, d.decision_id`, [itemId]);
+  for (const r of reviews) {
+    const conv = await db.get<{ reason: string; created_at: string; processed_at: string | null }>("SELECT reason, created_at, processed_at FROM commands WHERE run_id = ? AND kind = 'convene' AND status = 'done' AND result LIKE ? ORDER BY created_at LIMIT 1", [runId, `%${r.meeting_id}%`]);
+    // real times where the record has them: when the person pressed Convene, and when the review finished
+    const startedAt = conv?.created_at ?? `${r.meeting_date}T09:00:00`;
+    const finishedAt = conv?.processed_at ?? `${r.meeting_date}T10:00:00`;
+    events.push({ at: startedAt, when: startedAt.slice(0, 16).replace("T", " "), kind: "convened", who: whoOf(conv?.reason.split(":")[0] ?? null), title: "Review convened", body: null, href: `/reviews?run=${run}&tab=reviews&open=trail:${encodeURIComponent(r.meeting_id)}~${sid}`, tone: "you" });
+    const recs = await db.all<{ kind: string; title: string; seat_title: string }>("SELECT r.kind, r.title, a.title AS seat_title FROM recommendations r JOIN agents a ON a.agent_id = r.agent_id WHERE r.meeting_id = ? AND r.item_id = ?", [r.meeting_id, sid]);
+    events.push({ at: finishedAt, when: finishedAt.slice(0, 16).replace("T", " "), kind: "reviewed", who: "The committee",
+      title: `Recommended ${r.outcome === "approved" ? "approving" : "rejecting"}, ${num(r.yes_votes)} to ${num(r.no_votes)}${r.debate_skipped ? ` (debate skipped at ${Math.round(Number(r.debate_skip_p ?? 0) * 100)}%)` : ""}`,
+      body: recs.length ? `Also recommended: ${recs.map((x) => `${x.title} (${x.seat_title})`).join("; ")}` : null,
+      href: `/reviews?run=${run}&tab=reviews&open=trail:${encodeURIComponent(r.meeting_id)}~${sid}`, tone: "ai" });
+    const att = await db.get<{ actor: string; outcome: string; rationale: string; created_at: string; attestation_id: string }>("SELECT actor, outcome, rationale, created_at, attestation_id FROM attestations WHERE decision_id = ?", [r.decision_id]);
+    if (att) {
+      const overruled = att.outcome !== "deferred" && att.outcome !== r.outcome;
+      events.push({ at: att.created_at, when: att.created_at.slice(0, 16).replace("T", " "), kind: att.outcome === "deferred" ? "sent_back" : "signed", who: whoOf(att.actor),
+        title: att.outcome === "deferred" ? "Sent back for another look" : `Signed ${att.outcome}${overruled ? ", overruling the committee" : ""}`,
+        body: att.rationale, href: `/reviews?run=${run}&tab=decided&open=record:${encodeURIComponent(att.attestation_id)}`, tone: att.outcome === "approved" ? "ok" : att.outcome === "rejected" ? "no" : "wait" });
+      const applied = await db.all<{ target: string; title: string; status: string; applied_as: string | null }>("SELECT target, title, status, applied_as FROM document_revisions WHERE meeting_id = ? AND item_id = ? AND status = 'applied'", [r.meeting_id, sid]);
+      for (const a of applied) events.push({ at: att.created_at.replace(/\.\d+/, ".9"), when: att.created_at.slice(0, 10), kind: "applied", who: whoOf(att.actor),
+        title: a.target === "policy" ? `Policy section “${a.title}” revised, as the committee drafted` : `${a.title} became a new version, as the committee drafted`, body: null,
+        href: a.target === "policy" ? `/policy-record?run=${run}` : `/reviews?run=${run}&tab=settings&open=document:${encodeURIComponent(a.applied_as ?? "")}`, tone: "ok" });
+    } else if (r.status === "closed") {
+      events.push({ at: finishedAt.replace(/\.\d+/, ".9"), when: finishedAt.slice(0, 16).replace("T", " "), kind: "waiting", who: null, title: "Waiting for your decision", body: null, href: `/decide?run=${run}&d=${encodeURIComponent(r.decision_id)}`, tone: "you" });
+    }
+  }
+  const stages = await db.all<{ from_stage: string | null; to_stage: string; changed_by: string; changed_on: string; note: string; created_at: string }>("SELECT * FROM stage_changes WHERE item_id = ? ORDER BY created_at", [itemId]);
+  for (const sc of stages) events.push({ at: sc.created_at, when: sc.changed_on, kind: sc.note.startsWith("Owner set") ? "owner" : "stage", who: whoOf(sc.changed_by),
+    title: sc.note.startsWith("Owner set") ? "Owner named" : sc.from_stage && sc.from_stage !== sc.to_stage ? `Moved from ${sc.from_stage} to ${sc.to_stage}` : `Stage: ${sc.to_stage}`, body: sc.note, href: `/portfolio?run=${run}&open=${encodeURIComponent(itemId)}`, tone: sc.to_stage === "retired" || sc.to_stage === "paused" ? "wait" : "ok" });
+  const later = await db.all<{ item_id: string; submitted_on: string; status: string }>("SELECT item_id, submitted_on, status FROM items WHERE run_id = ? AND details LIKE ?", [runId, `%"rereview_of": "${itemId}"%`]);
+  for (const l of later) events.push({ at: `${l.submitted_on}T00:00:00`, when: l.submitted_on, kind: "rereview", who: null, title: `Re-review opened (${l.status.replace(/_/g, " ")})`, body: null, href: `/matter?run=${run}&id=${encodeURIComponent(l.item_id)}`, tone: "ai" });
+  const ask = typeof details.ask_id === "string" ? await db.get<{ asked_by: string; asked_at: string; question: string }>("SELECT asked_by, asked_at, question FROM asks WHERE ask_id = ?", [details.ask_id]) : undefined;
+  if (ask) events.unshift({ at: `${ask.asked_at}T00:00:00`, when: ask.asked_at, kind: "ask", who: whoOf(ask.asked_by), title: "Asked of the policy first; it could not answer", body: ask.question, href: `/ask?run=${run}`, tone: "ai" });
+  events.sort((a, b) => a.at.localeCompare(b.at));
+  return { item, events };
+}
+
+export interface RecordEntry { at: string; kind: string; who: string; title: string; body: string | null; href: string | null; tone: Event["tone"] }
+
+/** The organization's whole record, newest first: every change, signature, stage move, and review. */
+export async function organizationRecord(runId: string, limit = 300): Promise<RecordEntry[]> {
+  const db = await readDb();
+  const run = encodeURIComponent(runId);
+  const out: RecordEntry[] = [];
+  for (const c of await db.all<{ changed_at: string; actor: string; area: string; target: string; before_value: string | null; after_value: string | null; reason: string; change_id: string }>(
+    "SELECT changed_at, actor, area, target, before_value, after_value, reason, change_id FROM config_changes WHERE run_id = ? ORDER BY changed_at DESC LIMIT ?", [runId, limit])) {
+    out.push({ at: c.changed_at, kind: c.area, who: whoOf(c.actor) ?? c.actor, title: `${c.area.replace(/_/g, " ")}: ${c.target}${c.after_value ? ` → ${c.after_value.slice(0, 80)}` : ""}`, body: c.reason, href: `/reviews?run=${run}&tab=changes&open=change:${encodeURIComponent(c.change_id)}`, tone: "you" });
+  }
+  for (const a of await db.all<{ created_at: string; actor: string; outcome: string; rationale: string; attestation_id: string; title: string; recommended: string; item_id: string }>(
+    `SELECT a.created_at, a.actor, a.outcome, a.rationale, a.attestation_id, COALESCE(i.title, d.item_id) AS title, d.outcome AS recommended, d.ref_id AS item_id
+     FROM attestations a JOIN decisions d ON d.decision_id = a.decision_id LEFT JOIN items i ON i.item_id = d.ref_id WHERE a.run_id = ? ORDER BY a.created_at DESC LIMIT ?`, [runId, limit])) {
+    const overruled = a.outcome !== "deferred" && a.outcome !== a.recommended;
+    out.push({ at: a.created_at, kind: "signature", who: whoOf(a.actor) ?? a.actor, title: `${a.outcome === "deferred" ? "Sent back" : `Signed ${a.outcome}`}${overruled ? ", overruling the committee" : ""}: ${a.title}`, body: a.rationale, href: `/matter?run=${run}&id=${encodeURIComponent(a.item_id)}`, tone: a.outcome === "approved" ? "ok" : a.outcome === "rejected" ? "no" : "wait" });
+  }
+  for (const s of await db.all<{ created_at: string; changed_by: string; to_stage: string; from_stage: string | null; note: string; item_id: string; title: string }>(
+    "SELECT s.created_at, s.changed_by, s.to_stage, s.from_stage, s.note, s.item_id, i.title FROM stage_changes s JOIN items i ON i.item_id = s.item_id WHERE s.run_id = ? ORDER BY s.created_at DESC LIMIT ?", [runId, limit])) {
+    out.push({ at: s.created_at, kind: "use case", who: whoOf(s.changed_by) ?? s.changed_by, title: `${s.title}: ${s.note.startsWith("Owner set") ? "owner named" : s.from_stage && s.from_stage !== s.to_stage ? `${s.from_stage} to ${s.to_stage}` : s.to_stage}`, body: s.note, href: `/matter?run=${run}&id=${encodeURIComponent(s.item_id)}`, tone: "ok" });
+  }
+  for (const m of await db.all<{ meeting_id: string; meeting_date: string; status: string; n: unknown; reason: string | null; created_at: string | null }>(
+    `SELECT m.meeting_id, m.meeting_date, m.status, (SELECT COUNT(*) FROM decisions d WHERE d.meeting_id = m.meeting_id) AS n,
+            (SELECT reason FROM commands c WHERE c.run_id = m.run_id AND c.kind = 'convene' AND c.result LIKE '%' || m.meeting_id || '%' LIMIT 1) AS reason,
+            (SELECT created_at FROM commands c WHERE c.run_id = m.run_id AND c.kind = 'convene' AND c.result LIKE '%' || m.meeting_id || '%' LIMIT 1) AS created_at
+     FROM meetings m WHERE m.run_id = ? AND m.convened ORDER BY m.meeting_date DESC LIMIT ?`, [runId, limit])) {
+    out.push({ at: m.created_at ?? `${m.meeting_date}T09:00:00`, kind: "review", who: whoOf(m.reason?.split(":")[0] ?? null) ?? "A person", title: `Convened a review of ${num(m.n)} ${num(m.n) === 1 ? "matter" : "matters"}${m.status === "closed" ? "" : " (in progress)"}`, body: null, href: `/reviews?run=${run}&tab=reviews&open=trail:${encodeURIComponent(m.meeting_id)}`, tone: "ai" });
+  }
+  out.sort((a, b) => b.at.localeCompare(a.at));
+  return out.slice(0, limit);
 }

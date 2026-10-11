@@ -182,9 +182,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     { id: "decided", label: "Signed", count: record.length, tone: "ok" },
     { id: "advice", label: "Advice", count: syntheses.length, tone: "ai" },
     { id: "reviews", label: "Reviews", count: held.length, tone: "ai" },
-    { id: "committee", label: "Committee", count: committee.length, tone: "ai" },
     { id: "settings", label: "Settings", count: docs.length + panels.length, tone: "you" },
-    { id: "changes", label: "Changes", count: changes.length, tone: "you" },
   ];
   const fromKit = changes.some((c) => c.area === "starter");
   const shortId = (id: string) => id.split("/").pop() ?? id;
@@ -388,6 +386,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             </dl>
           </section>
           <p className="rv-hint">{m.advisory ? "A question gets advice, not a vote. " : ""}Tick it under Waiting to include it in a review.</p>
+          <Link href={`/matter?run=${encodeURIComponent(runId)}&id=${encodeURIComponent(m.ref_id)}`} className="rv-btn rv-btn-sm w-fit">How did we get here</Link>
         </Drawer>
       );
     }
@@ -412,7 +411,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           </section>
           <section className="rv-card" data-tone="ai">
             <div className="rv-card-h"><span>The committee recommended {r.recommended === "approved" ? "approving" : "rejecting"}</span><VoteBar yes={Number(r.yes_votes)} no={Number(r.no_votes)} /></div>
-            {trailButton(r.meeting_id, r.item_id)}
+            <div className="flex flex-wrap gap-2">{trailButton(r.meeting_id, r.item_id)}<Link href={`/matter?run=${encodeURIComponent(runId)}&id=${encodeURIComponent(r.item_id)}`} className="rv-btn rv-btn-sm w-fit">How did we get here</Link></div>
           </section>
           {citations.length ? (
             <section className="rv-card">

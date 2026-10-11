@@ -10,8 +10,7 @@ const STATUS_WORDS: Record<string, string> = { submitted: "Waiting for review", 
 
 function Row({ r, run, tone }: { r: RegisterEntry; run: string; tone: "ok" | "no" | "wait" }) {
   const data = dataSeen(r.details);
-  const href = r.attestation_id ? `/reviews?run=${run}&tab=decided&open=record:${encodeURIComponent(r.attestation_id)}`
-    : `/reviews?run=${run}&tab=waiting&open=matter:${encodeURIComponent(r.item_id)}`;
+  const href = `/matter?run=${run}&id=${encodeURIComponent(r.item_id)}`;
   return (
     <Link href={href} className="rv-rowline rv-reg">
       <span className="rv-riskmark" data-tone={tone} />

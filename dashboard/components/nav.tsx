@@ -24,6 +24,7 @@ const ICONS: Record<string, ReactNode> = {
   orgs: <><rect x="3" y="4" width="8" height="16" rx="1.5" /><rect x="13" y="9" width="8" height="11" rx="1.5" /><path d="M6 8h2M6 12h2M6 16h2M16 13h2M16 17h2" /></>,
   howto: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5" /><path d="M12 16.5v.3" /></>,
   approved: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7.5 12l3 3 6-6" /></>,
+  record: <><path d="M5 4h14v16H5z" /><path d="M8 9h8M8 13h5" /><path d="M14 16l2 2 3-3" /></>,
   ask: <><path d="M4 5h16v11H9l-5 4z" /><path d="M10 9.2a2 2 0 1 1 2.8 1.8c-.6.3-.8.6-.8 1.2" /><path d="M12 14.2v.3" /></>,
   menu: <><path d="M4 7h16M4 12h16M4 17h16" /></>,
   close: <><path d="M6 6l12 12M18 6L6 18" /></>,
@@ -40,8 +41,10 @@ type Item = { href: string; label: string; icon: string };
 // is trusted with real decisions, so its pages sit underneath, folded away by default.
 const PRODUCT: Item[] = [
   { href: "/organizations", label: "Organizations", icon: "orgs" },
-  { href: "/reviews", label: "Reviews", icon: "reviews" },
   { href: "/portfolio", label: "Use cases", icon: "usecases" },
+  { href: "/reviews", label: "Reviews", icon: "reviews" },
+  { href: "/committee", label: "Committee", icon: "people" },
+  { href: "/record", label: "Record", icon: "record" },
   { href: "/ask", label: "Ask", icon: "ask" },
   { href: "/approved", label: "Approved tools", icon: "approved" },
   { href: "/policy-record", label: "Policy", icon: "policy" },

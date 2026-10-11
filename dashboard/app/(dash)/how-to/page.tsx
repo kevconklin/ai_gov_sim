@@ -97,6 +97,30 @@ const SECTIONS: Section[] = [
     tryIt: { href: "/portfolio", label: "Open Use cases" },
   },
   {
+    id: "story",
+    title: "Answer “how did we get here” for any matter",
+    lead: "Every matter has one page that tells its whole story, oldest first, and every other page links to it.",
+    steps: [
+      "Open it from a decision, a use case, Approved tools, or any row: the button says How did we get here.",
+      "Where it is today sits on top; below it, every event: submitted by whom, what it cited, each review and its tally, each signature with the reasoning, each send-back note, each draft the committee wrote that a signature applied, each stage move, each re-review.",
+      "Every event has a link to the thing itself: the trail, the signed record, the policy version, the use case page.",
+    ],
+    image: "trail", alt: "The story page of one matter, a timeline from submission to today",
+    tryIt: { href: "/portfolio", label: "Open Use cases" },
+  },
+  {
+    id: "record",
+    title: "Read the whole record",
+    lead: "Record is everything anyone changed or signed in this organization, newest first. Nothing on it can be edited or removed.",
+    steps: [
+      "Filter by what (signatures, reviews, use cases, documents, policy, people, committee) and by who.",
+      "Search for a word: a tool name, a control number, a person.",
+      "Open any line for the full thing, or for the matter it belongs to.",
+    ],
+    image: "settings", alt: "The Record page, a filterable stream of every change and signature",
+    tryIt: { href: "/record", label: "Open Record" },
+  },
+  {
     id: "trail",
     title: "See how the committee got there",
     lead: "Every review keeps its full trail, recorded as it happened.",
@@ -151,13 +175,13 @@ const SECTIONS: Section[] = [
     title: "Shape the committee",
     lead: "Each seat is an AI adviser with a brief: what it argues for, and what it is blind to. You can change all of it.",
     steps: [
-      "Committee lists the seats. Open one to rewrite its brief, change its model, or remove it. Add a seat for a view you are missing.",
+      "Committee shows the board's direction every seat is told, then one card per seat with its brief, model, and leaning; open one to rewrite the brief, change the model, or remove it. Add a seat for a view you are missing. Who reviews what sets the panel per kind of matter.",
       "Settings holds what the committee is told about the organization, the governing documents it can cite, which seats review which kind of matter, and the monthly budget.",
       "Every change asks why. It lands under Changes with your name, and cannot be edited or removed.",
       "Status lets you archive an organization. Nothing is deleted, and it can be restored.",
     ],
     image: "committee", alt: "The Committee tab listing eight seats with their titles and models",
-    tryIt: { href: "/reviews?tab=committee", label: "Open Committee" },
+    tryIt: { href: "/committee", label: "Open Committee" },
   },
   {
     id: "people",

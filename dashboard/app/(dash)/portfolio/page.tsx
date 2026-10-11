@@ -57,6 +57,7 @@ export default async function PortfolioPage({ searchParams }: { searchParams: Pr
     drawer = (
       <Drawer closeHref={closeHref} title={uc.title} chips={<><RiskChip tier={uc.risk_tier} />{stage ? <Chip tone={STAGE_TONE[stage] === "plain" ? undefined : STAGE_TONE[stage]} plain={STAGE_TONE[stage] === "plain"} dot>{STAGE_WORDS[stage]}</Chip> : <Chip tone="wait" dot>{INTAKE_WORDS[uc.status] ?? uc.status}</Chip>}<Chip plain>{uc.item_id.split("/").pop()}</Chip></>}>
         <p className="rv-prose">{uc.description}</p>
+        <Link href={`/matter?run=${run}&id=${encodeURIComponent(uc.item_id)}`} className="rv-btn rv-btn-sm w-fit">How did we get here</Link>
         <section className="rv-card">
           <dl className="rv-facts">
             <dt>Owner</dt><dd>{uc.owner ?? <span className="muted">Nobody yet</span>}</dd>
