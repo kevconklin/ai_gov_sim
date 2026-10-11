@@ -46,10 +46,24 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
   ]);
   const d = decisions.find((x) => x.decision_id === decisionId);
   if (!d) {
+    // signed a moment ago, most likely: say so, and point at the next one
+    const signed = record.find((r) => r.decision_id === decisionId);
+    const next = decisions[0];
+    const rest = signed ? decisions.filter((x) => x.meeting_id === signed.meeting_id).length : 0;
     return (
       <div className="rv">
-        <h1 className="rv-org">Nothing to decide here</h1>
-        <p className="muted mt-2">That decision is signed, or it is not on this organization. <Link href={`/reviews?run=${run}&tab=needs`}>Back to Needs you</Link>.</p>
+        <header className="rv-top"><div><Link href={`/reviews?run=${run}&tab=needs`} className="rv-back"><Icon name="chevron" className="rv-chev is-back" /> Needs you</Link><h1 className="rv-org" style={{ marginTop: "0.2rem" }}>{signed ? signed.title : "Nothing to decide here"}</h1></div></header>
+        {signed ? (
+          <section className="rv-card" data-tone={signed.outcome === "approved" ? "ok" : signed.outcome === "rejected" ? "no" : "wait"}>
+            <div className="rv-card-h"><span>{signed.outcome === "deferred" ? "Sent back" : `Signed ${signed.outcome}`}</span><Chip plain>{signed.created_at.slice(0, 16).replace("T", " ")}</Chip></div>
+            <p className="rv-prose">{signed.rationale}</p>
+            <p className="rv-hint">On the record under {who(signed.actor)}.{rest ? ` It takes effect once the other ${rest === 1 ? "decision" : `${rest} decisions`} in this review ${rest === 1 ? "is" : "are"} signed.` : ""}</p>
+            <div className="flex flex-wrap gap-2" style={{ marginTop: "0.6rem" }}>
+              {next ? <Link href={`/decide?run=${run}&d=${encodeURIComponent(next.decision_id)}`} className="rv-btn rv-btn-you">Next to sign: {next.title}</Link> : <Link href={`/reviews?run=${run}&tab=needs`} className="rv-btn rv-btn-you">Nothing else to sign</Link>}
+              <Link href={`/matter?run=${run}&id=${encodeURIComponent(signed.item_id)}`} className="rv-btn">How did we get here</Link>
+            </div>
+          </section>
+        ) : <p className="muted mt-2">That decision is not on this organization. <Link href={`/reviews?run=${run}&tab=needs`}>Back to Needs you</Link>.</p>}
       </div>
     );
   }
