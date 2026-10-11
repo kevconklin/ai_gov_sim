@@ -2,6 +2,8 @@ import Link from "next/link";
 import { visibleRuns } from "@/lib/auth/access";
 import { first, type SearchParams } from "@/lib/params";
 import { currentScope, matterStory, type Event } from "@/lib/queries/product";
+import { voteHistory } from "@/lib/queries/votes";
+import { VoteChart } from "@/components/vote-chart";
 import { INTAKE_WORDS, STAGE_WORDS, type Stage } from "@/lib/lifecycle/stages";
 import { KIND_LABELS } from "@/lib/reviews/model";
 import { Chip, Icon, RiskChip } from "../reviews/parts";
@@ -14,7 +16,7 @@ export default async function MatterPage({ searchParams }: { searchParams: Promi
   const scope = await currentScope(first(sp, "run"), await visibleRuns());
   if (!scope) return <div className="rv"><h1 className="rv-org">No committee yet</h1></div>;
   const id = first(sp, "id") ?? "";
-  const { item, events } = await matterStory(scope.run_id, id);
+  const [{ item, events }, ballots] = await Promise.all([matterStory(scope.run_id, id), voteHistory(scope.run_id, id)]);
   const run = encodeURIComponent(scope.run_id);
   if (!item) return <div className="rv"><h1 className="rv-org">No such matter</h1><p className="muted mt-2"><Link href={`/reviews?run=${run}`}>Back to Reviews</Link></p></div>;
   const stage = item.stage as Stage | null;
@@ -44,6 +46,13 @@ export default async function MatterPage({ searchParams }: { searchParams: Promi
         <div className="rv-card-h"><span>Where it is today</span><Chip tone={nowTone} dot>{now}</Chip></div>
         {last ? <p className="rv-prose">Last: {last.title.toLowerCase()}{last.who ? `, ${last.who}` : ""}, {last.when}.{last.href ? <> <Link href={last.href}>Open it</Link>.</> : null}</p> : null}
       </section>
+
+      {ballots.length ? (
+        <section className="rv-card">
+          <div className="rv-card-h"><span>How the votes went</span><span className="muted font-normal">{ballots.length === 1 ? "one review" : `${ballots.length} reviews`}</span></div>
+          <VoteChart reviews={ballots} />
+        </section>
+      ) : null}
 
       <section className="rv-card">
         <div className="rv-card-h"><span>How it got here</span><span className="muted font-normal">{events.length} {events.length === 1 ? "event" : "events"}, oldest first</span></div>

@@ -6,6 +6,8 @@ import { ballotsToSign, committeeSeats, decisionsToSign, documentsInForce, orgPr
 import { policyHistory } from "@/lib/queries/product";
 import { readSection } from "@/lib/policy-text";
 import { PolicyDiff } from "@/components/policy-diff";
+import { VoteChart } from "@/components/vote-chart";
+import { voteHistory } from "@/lib/queries/votes";
 import { Recommendations } from "./recommendations";
 import { meetingDetail } from "@/lib/queries/meetings";
 import { currentScope } from "@/lib/queries/product";
@@ -74,7 +76,7 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
   const bench = benchFor(committee, mine, d.recommended);
   const t = tally(bench);
   const brief = decisionBrief({ recommended: d.recommended, bench, chairSeat: org?.chair_seat ?? null, riskTier: d.risk_tier, reviewTotal: Number(d.review_total), reviewSigned: Number(d.review_signed) });
-  const [detail, convener, recs, revisions, history, docs, sources] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id), revisionsFor(d.meeting_id, d.item_id), policyHistory(runId), documentsInForce(runId), sourcesFor(d.meeting_id, d.item_id)]);
+  const [detail, convener, recs, revisions, history, docs, sources, ballots_] = await Promise.all([meetingDetail(d.meeting_id), convenerOf(runId, d.meeting_id), recommendationsFor(d.meeting_id, d.item_id), revisionsFor(d.meeting_id, d.item_id), policyHistory(runId), documentsInForce(runId), sourcesFor(d.meeting_id, d.item_id), voteHistory(runId, d.item_id)]);
   const looked = sources.filter((x) => x.status === "ok");
   const isPolicyChange = (d.item_kind ?? d.kind) === "policy_change";
   const wording = recs.filter((r) => r.kind === "policy_wording");
@@ -126,6 +128,11 @@ export default async function DecidePage({ searchParams }: { searchParams: Promi
             {notes.length ? <div className="rv-brief-row"><span>Sent back before</span><span>{notes.map((n) => <span key={n.on + n.note} className="block">{n.on}, {who(n.by)}: “{n.note}”</span>)}</span></div> : null}
             {flagged.length ? <div className="rv-brief-row" data-tone="objection"><span>Flagged</span><span>The submission contained text addressed to the advisers, which they were told to ignore: {flagged.join("; ")}.</span></div> : null}
             {cited.length ? <div className="rv-brief-row"><span>Cites</span><span className="flex flex-wrap gap-1.5">{cited.map((id) => { const r = signedById.get(id); return r ? <Link key={id} href={`/reviews?run=${run}&tab=decided&open=record:${encodeURIComponent(r.attestation_id)}`} className="rv-chip" data-tone={r.outcome === "approved" ? "ok" : "no"}>{id} {r.title}</Link> : <Chip key={id} plain>{id}</Chip>; })}</span></div> : null}
+          </section>
+
+          <section className="rv-card">
+            <div className="rv-card-h"><span>How the votes went</span><span className="muted font-normal">{ballots_.length === 1 ? "one review" : `${ballots_.length} reviews`} of {d.item_id}</span></div>
+            <VoteChart reviews={ballots_} />
           </section>
 
           {pending.length ? (

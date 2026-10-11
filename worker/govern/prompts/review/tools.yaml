@@ -57,3 +57,17 @@
       kind: {type: string, enum: [acceptable_use, charter, standard, regulation, other], description: "Only for a new document."}
       mode: {type: string, enum: [add, replace], description: "Policy only: add to the section (default) or replace it."}
     required: [item_id, target, title, body, rationale]
+
+# Replaces the shared cast_vote for a disclosed committee: the ballot also carries how strongly it is held.
+- name: cast_vote
+  description: >-
+    Cast your secret ballot on one agenda item, with how strongly you hold it: 1 means you could be argued
+    the other way, 5 means you would resign over it. The person deciding sees the strength beside your ballot.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string}
+      vote: {type: string, enum: ["yes", "no", "abstain"]}
+      strength: {type: integer, minimum: 1, maximum: 5, description: "How strongly you hold this ballot, 1 (barely) to 5 (strongly)."}
+      rationale: {type: string}
+    required: [item_id, vote, strength, rationale]

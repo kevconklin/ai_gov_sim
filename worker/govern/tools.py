@@ -23,9 +23,11 @@ _FEEDS = frozenset({"read_news", "read_inbox"})
 # A disclosed committee recommends; it never writes. Policy changes and new initiatives reach it only
 # through intake, from a person, so text a submitter slips past the advisers cannot become policy.
 _WRITES = frozenset({"propose_policy_edit", "propose_use_case", "propose_status_change"})
+_REVIEW_OWN: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("review/tools.yaml"))
+_REPLACED = frozenset(t["name"] for t in _REVIEW_OWN)        # a review's own definition wins over the shared one (cast_vote carries strength)
 REVIEW_TOOLS: tuple[Mapping[str, Any], ...] = tuple(
     {**tool, "description": str(tool["description"]).replace("the bank's", "the organization's")}
-    for tool in TOOLS if tool["name"] not in _FEEDS | _WRITES) + tuple(prompts.load_yaml("review/tools.yaml"))
+    for tool in TOOLS if tool["name"] not in _FEEDS | _WRITES | _REPLACED) + _REVIEW_OWN
 # Only a seat holding the research capability is offered these, and only on a disclosed committee: the
 # simulation's banks have no web. What they return is fenced like submitted text (govern.research).
 RESEARCH_TOOLS: tuple[Mapping[str, Any], ...] = tuple(prompts.load_yaml("review/research_tools.yaml"))
@@ -340,10 +342,15 @@ def _cast_vote(s: ToolSession, args: Mapping[str, Any]) -> str:
         return f"{item} is not open for voting. Open items: {', '.join(s.decision_items)}."
     if vote not in ("yes", "no", "abstain"):
         return "Vote must be yes, no, or abstain."
+    strength = args.get("strength")
+    if strength is not None:
+        strength = int(strength)
+        if not 1 <= strength <= 5:
+            return "Strength runs from 1 (barely) to 5 (strongly)."
     s.ctx.db.execute("DELETE FROM votes WHERE meeting_id = ? AND agent_id = ? AND item_id = ?",
                      (s.meeting_id, s.agent.agent_id, item))
     s.ctx.db.insert("votes", {"run_id": s.ctx.run_id, "meeting_id": s.meeting_id, "agent_id": s.agent.agent_id,
-                              "item_id": item, "vote": vote, "rationale": args.get("rationale")})
+                              "item_id": item, "vote": vote, "rationale": args.get("rationale"), "strength": strength})
     s.votes[item] = vote
     remaining = [i for i in s.decision_items if i not in s.votes]
     return f"Ballot on {item} recorded." + (f" Still to vote on: {', '.join(remaining)}." if remaining else " All ballots cast.")

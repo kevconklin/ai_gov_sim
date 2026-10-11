@@ -209,8 +209,10 @@ def _committee(params: Mapping[str, Any]) -> list[dict[str, Any]]:
             "would_change_my_mind": "A written owner for every model and a completed inventory."}, (key, i))
             for i in items] or [{"type": "text", "text": "Done."}]
     if "Voting is open" in instruction:
+        strength = any(t["name"] == "cast_vote" and "strength" in t["input_schema"]["properties"] for t in params.get("tools", []))
         return [_tool("cast_vote", {"item_id": i, "vote": "yes" if _h(key, i, "v") % 10 < 7 else "no",
-                                    "rationale": "Consistent with my position."}, (key, i)) for i in items] or [{"type": "text", "text": "Done."}]
+                                    "rationale": "Consistent with my position.",
+                                    **({"strength": 1 + _h(key, i, "s") % 5} if strength else {})}, (key, i)) for i in items] or [{"type": "text", "text": "Done."}]
     if "record the official minutes" in instruction:
         return [_tool("record_minutes", {"summary": "The committee discussed the AI pipeline, capacity, and policy requirements.",
                                          "key_points": ["Capacity is the binding constraint", "Policy guardrails come first"],

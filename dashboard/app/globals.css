@@ -2192,3 +2192,38 @@ pre.code {
 .rv-drawer { box-shadow: -8px 0 32px rgba(16, 24, 40, 0.12); }
 .rv-drawer-title { font-size: 17px; font-weight: 600; }
 .rv-filed { border-radius: var(--radius); }
+
+/* ---- vote chart: one row per seat, a diverging bar for the ballot and a hollow mark for the leaning ---- */
+.rv-vc { display: grid; gap: 0.9rem; }
+.rv-vc-axis { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); padding: 0 0 0 11rem; }
+.rv-vc-axis span:last-child { padding-right: 7.5rem; }
+.rv-vc-review { display: grid; gap: 0.3rem; }
+.rv-vc-h { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); padding-bottom: 0.2rem; border-bottom: 1px solid var(--border); }
+.rv-vc-tally b { font-weight: 600; }
+.rv-vc-tally b[data-vote="yes"] { color: var(--ok); }
+.rv-vc-tally b[data-vote="no"] { color: var(--no); }
+.rv-vc-row { display: grid; grid-template-columns: 11rem minmax(0, 1fr) 7.5rem; align-items: center; gap: 0.6rem; min-height: 1.5rem; }
+.rv-vc-seat { font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-vc-row[data-vote="absent"] .rv-vc-seat, .rv-vc-row[data-vote="absent"] .rv-vc-label { color: var(--muted); opacity: 0.7; }
+.rv-vc-track { position: relative; height: 0.9rem; background: color-mix(in srgb, var(--border) 45%, transparent); border-radius: 3px; }
+.rv-vc-mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--border); }
+.rv-vc-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; }
+.rv-vc-bar[data-vote="yes"] { background: var(--ok); }
+.rv-vc-bar[data-vote="no"] { background: var(--no); }
+.rv-vc-bar[data-unscored] { opacity: 0.45; background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,255,255,0.5) 4px 6px); }
+.rv-vc-abstain { position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--muted); }
+.rv-vc-lean { position: absolute; top: 50%; width: 9px; height: 9px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid var(--text, currentColor); background: var(--panel, var(--bg)); box-sizing: border-box; }
+.rv-vc-lean-inline { position: static; display: inline-block; transform: rotate(45deg); vertical-align: middle; margin: 0 0.2rem; }
+.rv-vc-label { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+.rv-vc-moved { margin-left: 0.4rem; font-size: 0.68rem; color: var(--wait); }
+.rv-vc-legend { font-size: 0.72rem; color: var(--muted); margin: 0; }
+.rv-vc-swatch { display: inline-block; width: 10px; height: 8px; border-radius: 2px; vertical-align: middle; margin: 0 0.15rem; }
+.rv-vc-swatch[data-vote="yes"] { background: var(--ok); }
+.rv-vc-swatch[data-vote="no"] { background: var(--no); }
+.rv-vc[data-compact] .rv-vc-row { grid-template-columns: 8rem minmax(0, 1fr) 6.5rem; }
+.rv-vc[data-compact] .rv-vc-axis { padding-left: 8rem; }
+@media (max-width: 640px) {
+  .rv-vc-row, .rv-vc[data-compact] .rv-vc-row { grid-template-columns: 1fr; gap: 0.15rem; }
+  .rv-vc-axis, .rv-vc[data-compact] .rv-vc-axis { padding: 0; }
+  .rv-vc-axis span:last-child { padding-right: 0; }
+}

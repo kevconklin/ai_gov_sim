@@ -283,3 +283,13 @@ def test_a_new_customer_starts_with_the_customer_default_not_the_simulations(pro
     fresh = create_workspace(db, load_config(CONFIG), config_dir=CONFIG, data_dir=tmp_path,
                              name="Default Check Co", risk_appetite="Adopt AI carefully and only where it clearly helps.")
     assert db.fetch_one("SELECT spend_cap_usd_per_month AS cap FROM runs WHERE run_id = ?", (fresh,))["cap"] == 50.0
+
+
+def test_a_disclosed_ballot_carries_how_strongly_it_is_held(reviewed):
+    """The review's cast_vote asks for strength 1-5; the simulation's does not, and its ballots stay unscored."""
+    db, _, run_id, _, _, result = reviewed
+    rows = db.fetch_all("SELECT vote, strength FROM votes WHERE meeting_id = ?", (result.meeting_id,))
+    assert rows and all(r["strength"] is not None and 1 <= int(r["strength"]) <= 5 for r in rows)
+    from govern.tools import tools_for
+    assert "strength" in next(t for t in tools_for(True) if t["name"] == "cast_vote")["input_schema"]["required"]
+    assert "strength" not in next(t for t in tools_for(False) if t["name"] == "cast_vote")["input_schema"]["properties"]
