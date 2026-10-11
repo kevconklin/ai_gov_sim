@@ -2,7 +2,8 @@
 max_tokens:
   # This model thinks adaptively, and thinking tokens count against max_tokens, so every limit leaves room for
   # roughly 1,000-2,000 thinking tokens on top of the visible output. Sizing them too tightly truncates tool calls.
-  committee_turn: 1800       # a remark of about 250 words plus thinking
+  committee_turn: 3500       # a remark of about 250 words plus thinking, and room for one propose_revision: a disclosed
+                             # seat drafts a full policy section in debate, and at 1800 four seats in a row were cut off (2026-10-11)
   circulate: 3500            # reading, then a full use-case or policy proposal
   position: 1200             # base; plus position_per_item per item
   position_per_item: 500
