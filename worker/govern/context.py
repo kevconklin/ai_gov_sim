@@ -64,6 +64,7 @@ class ReviewContext:
     run: Mapping[str, Any]
     data_dir: Path
     budget_ok: Callable[[str], bool] = field(default=lambda month: True)
+    classifier: Any = None               # a gate provider (govern.classify); None means build it from config
 
     @property
     def run_id(self) -> str:

@@ -430,6 +430,26 @@ def cmd_status(args: argparse.Namespace) -> None:
         print(f"{r['run_id']:<60} {r['condition']:<12} {r['status']:<8} month={r['current_month']} cost=${r['cost']:.2f}")
 
 
+def cmd_replay_gate(args: argparse.Namespace) -> None:
+    """What the debate gate would have done on reviews already held, so a threshold is set from the record."""
+    from govern.classify import build_classifier, load_classify, replay_debate_gate
+
+    db = _open_db()
+    config = load_classify(REPO_ROOT / "config")
+    threshold = args.threshold if args.threshold is not None else config.debate_skip_threshold
+    rows = replay_debate_gate(db, args.run, classifier=build_classifier(config), threshold=threshold)
+    if not rows:
+        sys.exit("no closed reviews with positions and ballots on that run")
+    wrong = [r for r in rows if r.would_skip and r.debate_moved_a_vote]
+    for r in rows:
+        flag = "WRONG: would skip, debate moved a vote" if r.would_skip and r.debate_moved_a_vote else ("skip" if r.would_skip else "debate")
+        print(f"{r.meeting_date}  p={r.p_unanimous:.2f}  unanimous={'yes' if r.was_unanimous else 'no '}  moved={'yes' if r.debate_moved_a_vote else 'no '}  {flag}")
+    skips = sum(r.would_skip for r in rows)
+    print(f"\n{len(rows)} reviews at threshold {threshold}: {skips} would skip, {len(wrong)} of those where the debate moved a vote.")
+    if wrong:
+        print("Raise the threshold until that last number is 0 before enabling the gate.")
+
+
 def cmd_backup(args: argparse.Namespace) -> None:
     """Write a backup set: a consistent copy of the database and the policy repositories."""
     from govern.backup import BackupError, backup, prune
@@ -519,6 +539,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--starter", help="start from a kit in config/starters (general_business, regulated, software)")
     p.add_argument("--framework", help="control framework id; defaults to the kit's")
     p.set_defaults(func=cmd_workspace)
+
+    p = sub.add_parser("replay-gate", help="what the debate gate would have done on past reviews; set the threshold from this")
+    p.add_argument("--run", required=True)
+    p.add_argument("--threshold", type=float, help="try a threshold other than config/classify.yaml's")
+    p.set_defaults(func=cmd_replay_gate)
 
     p = sub.add_parser("backup", help="write a backup set (database copy or pg_dump, plus policy repositories)")
     p.add_argument("--out", required=True, help="folder that holds backup sets; something else must carry it off the machine")

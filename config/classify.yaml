@@ -1,0 +1,20 @@
+# Typed decisions made before expensive steps: a classifier routes, trims, or skips; it never decides
+# a matter. Each gate has a threshold a person sets, and every call is logged with its probability.
+#
+# provider:
+#   positions  a deterministic reading of the structured positions already recorded (free, no model)
+#   jev        a calibrated classifier service (early access; endpoint and key below, UNVERIFIED)
+#   scripted   a fixed answer, for tests and demos
+provider: positions
+
+debate_skip:
+  enabled: true
+  # PLACEHOLDER. Replay signed decisions through the gate (python -m sim replay-gate) and set this
+  # where the gate never skipped a debate that changed a vote. Applies to organizations only; the
+  # simulation's reviews always debate, because the study was registered that way.
+  threshold: 0.9
+
+jev:
+  endpoint: https://api.typesafe.ai/v1/decide      # UNVERIFIED placeholder; set from the vendor's docs
+  key_env: JEV_API_KEY
+  timeout_seconds: 3

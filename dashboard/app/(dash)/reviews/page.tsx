@@ -239,6 +239,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
       const [perspectives, signatures, convener] = await Promise.all([perspectivesFor(meetingId), signaturesFor(meetingId), convenerOf(runId, meetingId)]);
       const input = {
         status: detail.meeting.status, agenda: detail.agenda, minutes: detail.meeting.minutes_text, convener, perspectives, signatures,
+        debateSkipped: detail.meeting.debate_skipped && detail.meeting.debate_skip_p !== null ? { p: Number(detail.meeting.debate_skip_p) } : null,
         messages: detail.messages, positions: detail.positions, votes: detail.votes,
         decisions: detail.decisions.map((d) => ({ ...d, yes_votes: Number(d.yes_votes), no_votes: Number(d.no_votes), abstentions: Number(d.abstentions) })),
       };

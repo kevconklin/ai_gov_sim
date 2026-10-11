@@ -48,3 +48,12 @@ describe("the trail of a review", () => {
     expect(debateRounds(base.messages).map((r) => [r.round, r.turns.length])).toEqual([[1, 2], [2, 1]]);
   });
 });
+
+describe("the debate gate", () => {
+  it("says the debate was skipped and how sure the gate was", () => {
+    const steps = buildTrail({ ...base, messages: base.messages.filter((m) => m.phase !== "debate"), debateSkipped: { p: 0.94 } });
+    const debate = steps.find((s) => s.id === "debate")!;
+    expect(debate.done).toBe(true);
+    expect(debate.summary).toBe("Skipped: the sealed views already agreed (confidence 94%)");
+  });
+});

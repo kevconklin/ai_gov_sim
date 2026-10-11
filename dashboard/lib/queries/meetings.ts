@@ -18,8 +18,8 @@ export async function meetingsForRun(runId: string): Promise<MeetingSummary[]> {
 
 export async function meetingDetail(meetingId: string) {
   const db = await readDb();
-  const meeting = await db.get<{ meeting_id: string; run_id: string; bank_id: string; sim_month: string; meeting_date: string; agenda: string; minutes_json: string | null; minutes_text: string | null; status: string }>(
-    "SELECT meeting_id, run_id, bank_id, sim_month, meeting_date, agenda, minutes_json, minutes_text, status FROM meetings WHERE meeting_id = ?",
+  const meeting = await db.get<{ meeting_id: string; run_id: string; bank_id: string; sim_month: string; meeting_date: string; agenda: string; minutes_json: string | null; minutes_text: string | null; status: string; debate_skipped: boolean | number | null; debate_skip_p: number | null }>(
+    "SELECT meeting_id, run_id, bank_id, sim_month, meeting_date, agenda, minutes_json, minutes_text, status, debate_skipped, debate_skip_p FROM meetings WHERE meeting_id = ?",
     [meetingId],
   );
   if (!meeting) return null;

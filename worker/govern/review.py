@@ -12,6 +12,8 @@ with no person in the loop.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import logging
 from dataclasses import dataclass
 from datetime import date
@@ -276,8 +278,11 @@ class Review:
             self._positions(circulated, packet)
         if advisory:
             self._perspectives(advisory, packet)
-        self._debate(packet)
-        to_decide = [i for i in self.decision_items_after_debate(circulated)]
+        if self._skip_debate(circulated):
+            to_decide = list(circulated)
+        else:
+            self._debate(packet)
+            to_decide = [i for i in self.decision_items_after_debate(circulated)]
         self.ctx.db.update("meetings", {"agenda": [i.to_json() for i in self.full_agenda(to_decide)]},
                            where={"meeting_id": self.meeting_id})
         final_packet = build_packet(self.ctx, month=self.month, meeting_date=self.date,
@@ -297,6 +302,26 @@ class Review:
         self._memories(decisions, final_packet)
         self.ctx.db.update("meetings", {"status": "closed"}, where={"meeting_id": self.meeting_id})
         return MeetingResult(self.meeting_id, self.date, tuple(decisions), text)
+
+    def _skip_debate(self, circulated: Sequence[AgendaItem]) -> bool:
+        """The debate gate, for an organization's review only: the simulation always debates, as registered.
+
+        Above the threshold the sealed positions already agree and the review goes to the ballot. The
+        meeting records that it skipped and at what confidence, so the trail says so.
+        """
+        from govern.classify import build_classifier, load_classify, should_skip_debate
+        from govern.workspace import is_workspace
+        if not circulated or not is_workspace(self.ctx.run):
+            return False
+        config_dir = Path(__file__).resolve().parents[2] / "config"
+        config = load_classify(config_dir)
+        classifier = self.ctx.classifier or build_classifier(config)
+        skip, p = should_skip_debate(self.ctx.db, self.ctx.run_id, self.meeting_id, classifier=classifier, config=config)
+        if skip:
+            self.ctx.db.update("meetings", {"debate_skipped": True, "debate_skip_p": p}, where={"meeting_id": self.meeting_id})
+            self._message(None, "gate", f"Debate skipped: the sealed positions already agree (p {p}).", tags={"gate": "debate_skip", "p": p})
+            log.info("%s: debate skipped at p=%s", self.meeting_id, p)
+        return skip
 
     def decision_items_after_debate(self, before: Sequence[AgendaItem]) -> list[AgendaItem]:
         """What goes to the ballot. For a review, exactly what was given: items raised in debate wait."""

@@ -25,6 +25,7 @@ export interface TrailInput {
   signatures: TrailSignature[];
   minutes: string | null;
   convener: { who: string; at: string; finishedAt: string | null } | null;
+  debateSkipped?: { p: number } | null;     // the gate found the sealed views already agreed, and said so
 }
 
 export type StepId = "convened" | "seated" | "views" | "debate" | "ballot" | "minutes" | "decided";
@@ -67,7 +68,9 @@ export function buildTrail(input: TrailInput): Step[] {
     { id: "seated", by: "ai", done: sat.length > 0, title: "Panel seated", summary: sat.length ? `${many(sat.length, "adviser")} sat` : "Nobody was seated" },
     { id: "views", by: "ai", done: views > 0, title: "Sealed views",
       summary: views ? `${many(views, "view")} recorded before anyone spoke` : "None recorded" },
-    { id: "debate", by: "ai", done: turns > 0, title: "Debate", summary: turns ? `${many(turns, "turn")} over ${many(rounds, "round")}` : "No discussion was recorded" },
+    { id: "debate", by: "ai", done: turns > 0 || Boolean(input.debateSkipped), title: "Debate",
+      summary: input.debateSkipped ? `Skipped: the sealed views already agreed (confidence ${Math.round(input.debateSkipped.p * 100)}%)`
+        : turns ? `${many(turns, "turn")} over ${many(rounds, "round")}` : "No discussion was recorded" },
     { id: "ballot", by: "ai", done: input.votes.length > 0, title: "Secret ballot",
       summary: input.decisions.length
         ? input.decisions.map((d) => `${d.item_id} ${d.outcome === "approved" ? "carried" : "did not carry"} ${d.yes_votes}–${d.no_votes}`).join(", ")
