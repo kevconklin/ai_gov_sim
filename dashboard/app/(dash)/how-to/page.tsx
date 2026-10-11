@@ -73,8 +73,8 @@ const SECTIONS: Section[] = [
     title: "Read the recommendation and decide",
     lead: "The committee only recommends. The decision page puts what you need to know first.",
     steps: [
-      "The first line says what the committee recommends and how firmly: unanimous, a clear majority, or split.",
-      "Why gives the majority's reason in one adviser's words. Strongest objection gives the dissent in the objector's.",
+      "Click a matter under Needs you to open its own page. The first line says what the committee recommends and how firmly: unanimous, a clear majority, or split.",
+      "Why gives the majority's reason in one adviser's words. Strongest objection gives the dissent in the objector's. Below, every seat in full: its sealed view, its concerns and conditions, and its ballot; then the debate by round.",
       "What signing does tells you when it takes effect and that your name goes on the record.",
       "Tick each objection once you have weighed it. On high-risk matters you must.",
       "Choose Approve, Reject, or Send back, write your reasoning in your own words, and Sign. Deciding against the recommendation is allowed and recorded as an overrule.",

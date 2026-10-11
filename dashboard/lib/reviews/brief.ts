@@ -30,6 +30,21 @@ export function plain(text: string | null): string {
   }
 }
 
+/** A sealed position or ballot as the adviser structured it: a summary, then concerns and conditions as lists. */
+export interface Structured { summary: string; concerns: string[]; conditions: string[] }
+export function structured(text: string | null): Structured {
+  const raw = (text ?? "").trim();
+  if (!raw.startsWith("{")) return { summary: raw, concerns: [], conditions: [] };
+  try {
+    const v = JSON.parse(raw) as Record<string, unknown>;
+    const list = (k: string) => (Array.isArray(v[k]) ? (v[k] as unknown[]).filter((x): x is string => typeof x === "string") : []);
+    const summary = ["summary", "rationale", "reason", "position"].map((k) => v[k]).find((x) => typeof x === "string" && x.trim());
+    return { summary: typeof summary === "string" ? summary.trim() : "", concerns: list("concerns"), conditions: list("conditions") };
+  } catch {
+    return { summary: raw, concerns: [], conditions: [] };
+  }
+}
+
 const sentences = (text: string | null): string[] =>
   plain(text).split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decisionBrief } from "@/lib/reviews/brief";
+import { decisionBrief, structured } from "@/lib/reviews/brief";
 import type { BenchSeat } from "@/lib/reviews/model";
 
 const seat = (s: string, title: string, vote: BenchSeat["vote"], dissent: boolean, rationale: string | null): BenchSeat => ({ seat: s, title, vote, dissent, rationale });
@@ -58,5 +58,13 @@ describe("decisionBrief with structured ballots", () => {
     const bench = [seat("chair", "Chair", "yes", false, JSON.stringify({ concerns: ["delivery capacity"], summary: "The revenue case is plausible but thin. I would like Finance to validate it." }))];
     expect(decisionBrief({ recommended: "approved", bench, chairSeat: "chair", riskTier: null, reviewTotal: 1, reviewSigned: 0 }).why?.text)
       .toBe("The revenue case is plausible but thin. I would like Finance to validate it.");
+  });
+});
+
+describe("structured", () => {
+  it("reads a summary, concerns, and conditions out of a structured position, and leaves prose alone", () => {
+    const v = structured(JSON.stringify({ concerns: ["No owner named"], conditions: ["Name an owner"], summary: "Send it back." }));
+    expect(v).toEqual({ summary: "Send it back.", concerns: ["No owner named"], conditions: ["Name an owner"] });
+    expect(structured("Plain words.")).toEqual({ summary: "Plain words.", concerns: [], conditions: [] });
   });
 });

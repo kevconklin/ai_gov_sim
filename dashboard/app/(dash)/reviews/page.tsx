@@ -602,7 +602,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
               {decisions.map((d) => {
                 const objections = d.recommended === "approved" ? Number(d.no_votes) : Number(d.yes_votes);
                 return (
-                  <Link key={d.decision_id} href={to({ open: `decision:${d.decision_id}` })} scroll={false} className="rv-rowline">
+                  <Link key={d.decision_id} href={`/decide?run=${encodeURIComponent(runId)}&d=${encodeURIComponent(d.decision_id)}`} className="rv-rowline">
                     <span className="rv-riskmark" data-tone={d.risk_tier ?? undefined} />
                     <span className="min-w-0">
                       <span className="rv-rowtitle">{d.title}</span>
