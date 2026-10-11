@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { isOperator, visibleRuns } from "@/lib/auth/access";
-import { openAlerts, organizations, queueWait } from "@/lib/queries/product";
+import { openAlerts, organizations, queueWait, workerBusy } from "@/lib/queries/product";
 import { Acknowledge } from "./alerts";
 import { allUsers } from "@/lib/auth/users";
 import { currentUser } from "@/lib/auth/session";
@@ -20,8 +20,9 @@ function since(iso: string): string {
 export default async function OrganizationsPage() {
   const month = new Date().toISOString().slice(0, 7);
   const allowed = await visibleRuns();
-  const [rows, operator, alerts, wait] = await Promise.all([organizations(month, allowed), isOperator(), openAlerts(allowed), queueWait()]);
-  const workerDown = wait && wait.minutes >= 5;
+  const [rows, operator, alerts, wait, busy] = await Promise.all([organizations(month, allowed), isOperator(), openAlerts(allowed), queueWait(), workerBusy()]);
+  // a long queue behind a running review is a queue; only an untouched one with nothing processing means no worker
+  const workerDown = !busy && wait && wait.minutes >= 5;
   const [accounts, me] = operator ? await Promise.all([allUsers(), currentUser()]) : [[], null];
   const ops = accounts.filter((a) => a.role === "operator" && !a.disabled_at);
   const active = rows.filter((r) => r.status !== "archived");

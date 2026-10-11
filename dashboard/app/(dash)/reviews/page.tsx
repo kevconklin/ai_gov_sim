@@ -26,7 +26,7 @@ import {
 } from "@/lib/queries/governance";
 import { meetingDetail } from "@/lib/queries/meetings";
 import { citedBy } from "@/lib/queries/governance";
-import { unansweredCount } from "@/lib/queries/product";
+import { unansweredCount, workerBusy } from "@/lib/queries/product";
 import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
 import { AREA_LABELS, FRAMEWORK_LABELS, PROVIDER_TONES, STANCE_WORDS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
 import { AutoRefresh, BriefForm, DismissFailure, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
@@ -115,7 +115,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const canRun = atLeast(role, "runs");
   const people = scope.condition === "workspace" ? await membersOf(runId) : [];
 
-  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog, kitRows, inventoried, unansweredAsks] = await Promise.all([
+  const [operator, org, decisions, ballots, waiting, ranked, work, syntheses, record, seats, docs, panels, changes, cap, held, catalog, kitRows, inventoried, unansweredAsks, busy] = await Promise.all([
     currentOperator(),
     orgProfile(runId),
     decisionsToSign(runId),
@@ -135,6 +135,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     starterKits(),
     inventoryStarted(runId),
     unansweredCount(runId),
+    workerBusy(),
   ]);
   const kits: KitView[] = kitRows.map((k) => ({
     id: k.starter_id, label: k.label, summary: k.summary, audience: k.audience, framework: k.framework,
@@ -154,7 +155,9 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const reviewing = pending.filter((w) => w.kind === "convene").length;
   // a command still 'pending' after this long has not been picked up: no worker is running. Once it is
   // 'processing' the worker has it, and a live review takes minutes, so that is not a warning.
-  const stale = pending.some((w) => w.status === "pending" && Date.now() - new Date(w.created_at).getTime() > STALE_MS);
+  // ...unless the worker is busy with something else (it runs one command at a time), in which case this is a queue, not an outage
+  const stale = !busy && pending.some((w) => w.status === "pending" && Date.now() - new Date(w.created_at).getTime() > STALE_MS);
+  const queuedBehind = busy && busy.run_id !== runId && pending.some((w) => w.status === "pending");
   const reviewingLive = pending.some((w) => w.kind === "convene" && w.status === "processing");
   const settled = record.filter((r) => r.outcome !== "deferred");
   const overrides = settled.filter((r) => r.outcome !== r.recommended).length;
@@ -528,6 +531,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         <div key={w.command_id} className="rv-banner" data-tone="ai" aria-live="polite"><span className="rv-dot is-live" /><span>{describeWork(w.kind, w.payload)}…</span></div>
       ))}
       {stale ? <div className="rv-banner" data-tone="wait"><Icon name="alert" /><span>Nothing has picked this up. Is the worker running? <code>scripts/run-local.sh status</code></span></div> : null}
+      {queuedBehind ? <div className="rv-banner" data-tone="wait"><Icon name="alert" /><span>Queued. The worker is on another organization's {busy.kind === "convene" ? "review" : "request"} and takes one at a time; yours goes next.</span></div> : null}
       {reviewingLive ? <div className="rv-banner" data-tone="ai"><Icon name="users" /><span>A live review takes a few minutes: each adviser writes a position, then they debate, then they vote. This page refreshes on its own.</span></div> : null}
       {failed.map((w) => (
         <div key={w.command_id} className="rv-banner" data-tone="no">

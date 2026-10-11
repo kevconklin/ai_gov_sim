@@ -381,3 +381,12 @@ export async function queueWait(): Promise<{ minutes: number; kind: string } | n
   if (!row) return null;
   return { minutes: Math.floor((Date.now() - new Date(row.created_at).getTime()) / 60_000), kind: row.kind };
 }
+
+/** What the one worker is doing right now, across every organization: it runs one command at a time,
+ *  so a signature queued behind another organization's review is waiting, not lost. */
+export async function workerBusy(): Promise<{ kind: string; run_id: string | null; since: string } | null> {
+  const db = await readDb();
+  const row = await db.get<{ kind: string; run_id: string | null; created_at: string }>(
+    "SELECT kind, run_id, created_at FROM commands WHERE status = 'processing' ORDER BY created_at LIMIT 1");
+  return row ? { kind: row.kind, run_id: row.run_id, since: row.created_at } : null;
+}
