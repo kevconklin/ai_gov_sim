@@ -447,10 +447,13 @@ def cmd_replay_gate(args: argparse.Namespace) -> None:
     """What the debate gate would have done on reviews already held, so a threshold is set from the record."""
     from govern.classify import build_classifier, load_classify, replay_debate_gate
 
+    from govern.config import load_config
+    from govern.jev import build_jev
     db = _open_db()
     config = load_classify(REPO_ROOT / "config")
     threshold = args.threshold if args.threshold is not None else config.debate_skip_threshold
-    rows = replay_debate_gate(db, args.run, classifier=build_classifier(config), threshold=threshold)
+    jev = build_jev(db, REPO_ROOT / "config", load_config(REPO_ROOT / "config").models, scripted=bool(getattr(args, "demo", False)))
+    rows = replay_debate_gate(db, args.run, classifier=build_classifier(config, jev=jev, run_id=args.run), threshold=threshold)
     if not rows:
         sys.exit("no closed reviews with positions and ballots on that run")
     wrong = [r for r in rows if r.would_skip and r.debate_moved_a_vote]

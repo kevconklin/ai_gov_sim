@@ -19,6 +19,7 @@ const ICONS: Record<string, ReactNode> = {
   people: <><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.7-3.7 3.6-6 7-6s6.3 2.3 7 6" /></>,
   engine: <><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" /></>,
   health: <><path d="M3 12h4l2-5 3 10 3-7 2 2h4" /></>,
+  gates: <><path d="M4 6h16M4 12h16M4 18h16" /><circle cx="9" cy="6" r="2" fill="currentColor" /><circle cx="15" cy="12" r="2" fill="currentColor" /><circle cx="7" cy="18" r="2" fill="currentColor" /></>,
   compare: <><path d="M12 3v18" /><path d="M4 8l4-4 4 4M20 16l-4 4-4-4" /></>,
   logs: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
   orgs: <><rect x="3" y="4" width="8" height="16" rx="1.5" /><rect x="13" y="9" width="8" height="11" rx="1.5" /><path d="M6 8h2M6 12h2M6 16h2M16 13h2M16 17h2" /></>,
@@ -48,6 +49,7 @@ const PRODUCT: Item[] = [
   { href: "/ask", label: "Ask", icon: "ask" },
   { href: "/approved", label: "Approved tools", icon: "approved" },
   { href: "/policy-record", label: "Policy", icon: "policy" },
+  { href: "/gates", label: "Gates", icon: "gates" },
   { href: "/spend", label: "Spend & health", icon: "health" },
   { href: "/logs", label: "Logs", icon: "logs" },
   { href: "/how-to", label: "How to", icon: "howto" },
@@ -57,7 +59,7 @@ const SECTIONS: [string, string[]][] = [
   ["", ["/organizations"]],
   ["Govern", ["/portfolio", "/reviews", "/committee", "/record", "/ask"]],
   ["Reference", ["/approved", "/policy-record"]],
-  ["Operate", ["/spend", "/logs"]],
+  ["Operate", ["/gates", "/spend", "/logs"]],
   ["Help", ["/how-to"]],
 ];
 // The research instrument. Shown only when the person is looking at a simulated run, or has

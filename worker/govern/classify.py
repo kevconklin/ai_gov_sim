@@ -46,6 +46,8 @@ class Position:
     agent_id: str
     item_id: str
     support: int                  # 1 strongly oppose .. 5 strongly support
+    summary: str = ""             # the seat's own words, for a gate that reads them
+    concerns: str = ""
 
 
 class Classifier(Protocol):
@@ -107,37 +109,31 @@ class ScriptedClassifier:
 
 
 class JevClassifier:
-    """A calibrated classifier service. The request and response shapes here are a placeholder until
-    checked against the vendor's documentation; the key never leaves the environment."""
+    """The fast decision model reads the sealed positions, summaries and all, and says whether the vote
+    will be unanimous or contested. Every call is in gate_calls (govern.jev); the gate row is in classifier_calls."""
 
     name = "jev"
 
-    def __init__(self, endpoint: str, key_env: str, timeout: float) -> None:
-        self.endpoint, self.key_env, self.timeout = endpoint, key_env, timeout
+    def __init__(self, jev: Any, run_id: str, meeting_id: str | None = None) -> None:
+        self.jev, self.run_id, self.meeting_id = jev, run_id, meeting_id
 
     def debate_outcome(self, positions: Sequence[Position]) -> GateDecision:
-        key = os.environ.get(self.key_env)
-        if not key:
-            raise GateUnavailable(f"{self.key_env} is not set")
-        body = json.dumps({
-            "question": "After a committee debate, will the vote on each item be unanimous or contested?",
-            "choices": [UNANIMOUS, CONTESTED],
-            "state": {"positions": [{"item": p.item_id, "seat": p.agent_id.rsplit("/", 1)[-1], "support": p.support} for p in positions]},
-        }).encode()
-        req = urllib.request.Request(self.endpoint, data=body, method="POST",
-                                     headers={"content-type": "application/json", "authorization": f"Bearer {key}"})
-        started = time.monotonic()
+        from govern.jev import GateUnavailable as Unavailable
+        state = {"positions": [{"item": p.item_id, "seat": p.agent_id.rsplit("/", 1)[-1], "support_1_to_5": p.support,
+                                **({"summary": p.summary} if p.summary else {}), **({"concerns": p.concerns} if p.concerns else {})}
+                               for p in positions]}
+        questions = {"outcome": {"type": "choice",
+                                 "instructions": "These are a committee's sealed positions on the items before it, recorded before any discussion. "
+                                                 "If the committee debated and then voted, would every ballot on every item land the same way?",
+                                 "criteria": {UNANIMOUS: "Every seat would vote the same way on every item; the debate would change nothing.",
+                                              CONTESTED: "At least one seat would vote the other way, or a debate could move a seat."}}}
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                data = json.loads(resp.read().decode())
-        except Exception as error:  # noqa: BLE001 - any failure means the debate runs
-            raise GateUnavailable(f"classifier call failed: {type(error).__name__}: {error}") from None
-        label = str(data.get("label") or data.get("decision") or "")
-        probability = float(data.get("probability") or data.get("confidence") or 0.0)
-        if label not in (UNANIMOUS, CONTESTED) or not 0.0 <= probability <= 1.0:
-            raise GateUnavailable(f"classifier returned an unusable answer: {data!r}"[:200])
-        return GateDecision(label, probability, self.name, int((time.monotonic() - started) * 1000),
-                            cost_usd=float(data.get("cost_usd") or 0.0))
+            result = self.jev.evaluate(state, questions, purpose=DEBATE_OUTCOME, run_id=self.run_id, meeting_id=self.meeting_id)
+        except Unavailable as error:
+            raise GateUnavailable(str(error)) from None
+        label, probabilities, confidence = result.choice("outcome")
+        return GateDecision(label, float(probabilities.get(label, 0.0)), self.name, result.latency_ms, cost_usd=result.cost_usd,
+                            detail={"confidence": round(confidence, 3), "call_id": result.call_id})
 
 
 # ---- config and the gate itself ----------------------------------------------------------------
@@ -170,17 +166,26 @@ def load_classify(config_dir: Path) -> GateConfig:
                       jev_timeout=float(jev.get("timeout_seconds", 3)))
 
 
-def build_classifier(config: GateConfig) -> Classifier:
+def build_classifier(config: GateConfig, *, jev: Any = None, run_id: str = "", meeting_id: str | None = None) -> Classifier:
     if config.provider == "jev":
-        return JevClassifier(config.jev_endpoint, config.jev_key_env, config.jev_timeout)
+        if jev is None:
+            raise ConfigError("classify.yaml provider is jev, but no gate client was given (govern.jev.build_jev)")
+        return JevClassifier(jev, run_id, meeting_id)
     if config.provider == "scripted":
         return ScriptedClassifier(0.95)
     return PositionsClassifier()
 
 
 def positions_for(db: Database, meeting_id: str) -> tuple[Position, ...]:
-    rows = db.fetch_all("SELECT agent_id, item_id, support FROM positions WHERE meeting_id = ?", (meeting_id,))
-    return tuple(Position(r["agent_id"], r["item_id"], int(r["support"])) for r in rows)
+    rows = db.fetch_all("SELECT agent_id, item_id, support, position FROM positions WHERE meeting_id = ?", (meeting_id,))
+    out = []
+    for r in rows:
+        body = Database.loads(r["position"]) if isinstance(r["position"], str) else (r["position"] or {})
+        body = body if isinstance(body, dict) else {}
+        concerns = body.get("concerns")
+        concerns = "; ".join(str(c) for c in concerns) if isinstance(concerns, list) else str(concerns or "")
+        out.append(Position(r["agent_id"], r["item_id"], int(r["support"]), str(body.get("summary") or "")[:600], concerns[:600]))
+    return tuple(out)
 
 
 def record(db: Database, run_id: str, *, meeting_id: str | None, purpose: str, decision: GateDecision, acted: bool,

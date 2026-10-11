@@ -371,6 +371,27 @@ export async function setOwnerAction(_prev: ControlResult | null, formData: Form
 }
 
 /** Clear a failure banner. The command row keeps its result; only its status changes. */
+/** Pull a waiting matter back, for instance one the gate read as a duplicate. Recorded under the person's name. */
+export async function withdrawAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
+  return configure(operator, f.run_id ?? "", "withdraw", f.why?.trim() || "Withdrawn", { item_id: f.item_id ?? "" });
+}
+
+/** Change a waiting matter's risk tier, for instance to the gate's reading. Recorded. */
+export async function setTierAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
+  const operator = await currentOperator();
+  if (!operator) return UNAUTHORIZED;
+  const f = fieldsOf(formData);
+  const denied = await allowed(f.run_id ?? "", "runs");
+  if (denied) return denied;
+  if (!["low", "medium", "high"].includes(f.risk_tier ?? "")) return { success: false, data: null, error: "Pick low, medium, or high." };
+  return configure(operator, f.run_id ?? "", "set_risk_tier", f.why?.trim() || `Tier set to ${f.risk_tier}`, { item_id: f.item_id ?? "", risk_tier: f.risk_tier });
+}
+
 export async function dismissFailureAction(_prev: ControlResult | null, formData: FormData): Promise<ControlResult> {
   const operator = await currentOperator();
   if (!operator) return UNAUTHORIZED;

@@ -290,3 +290,22 @@ def test_a_malformed_command_fails_on_its_row_and_runs_nothing(workspace):
                                payload={"item_id": "x", "to": "king", "actor": "a", "source": "cli_asserted"})
     commands.process_pending(db, orch, data_dir)
     assert "payload refused" in json.loads(db.fetch_one("SELECT result FROM commands WHERE command_id = ?", (unknown,))["result"])["error"]
+
+
+def test_a_submission_is_read_by_the_intake_gate_and_a_person_withdraws_or_retiers(workspace):
+    db, orch, run_id, data_dir = workspace
+    out = run_command(workspace, "submit", {"kind": "tool", "title": "Gate test tool", "risk_tier": "low",
+                                           "description": "A note-taking assistant for branch staff.", "submitted_by": "ops@northwind.example"})
+    assert out["status"] == "done" and out["result"]["gate"] is not None, "the scripted gate runs beside the scripted model client"
+    item_id = out["result"]["item_id"]
+    row = db.fetch_one("SELECT details, risk_tier FROM items WHERE item_id = ?", (item_id,))
+    assert "gate" in json.loads(row["details"]) and row["risk_tier"] == "low"
+    assert db.fetch_one("SELECT COUNT(*) AS n FROM gate_calls WHERE item_id = ?", (item_id,))["n"] == 1
+    out = run_command(workspace, "set_risk_tier", {"item_id": item_id, "risk_tier": "high", "actor": "Dana <dana@northwind.example>",
+                                                  "source": "dashboard_session", "why": "The gate read it as high and I agree."})
+    assert out["status"] == "done" and db.fetch_one("SELECT risk_tier FROM items WHERE item_id = ?", (item_id,))["risk_tier"] == "high"
+    out = run_command(workspace, "withdraw", {"item_id": item_id, "actor": "Dana <dana@northwind.example>", "source": "dashboard_session",
+                                             "why": "Filed twice."})
+    assert out["status"] == "done" and db.fetch_one("SELECT status FROM items WHERE item_id = ?", (item_id,))["status"] == "withdrawn"
+    changes = db.fetch_all("SELECT before_value, after_value FROM config_changes WHERE run_id = ? AND area = 'intake' ORDER BY changed_at", (run_id,))
+    assert [(c["before_value"], c["after_value"]) for c in changes[-2:]] == [("low", "high"), ("submitted", "withdrawn")]

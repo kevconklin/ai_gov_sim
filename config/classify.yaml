@@ -5,7 +5,7 @@
 #   positions  a deterministic reading of the structured positions already recorded (free, no model)
 #   jev        a calibrated classifier service (early access; endpoint and key below, UNVERIFIED)
 #   scripted   a fixed answer, for tests and demos
-provider: positions
+provider: jev
 
 debate_skip:
   enabled: true
@@ -14,7 +14,26 @@ debate_skip:
   # simulation's reviews always debate, because the study was registered that way.
   threshold: 0.9
 
+# The fast decision model (TypeSafe's Jev): one endpoint, typed questions (noul = yes/no probability,
+# choice = one option with a probability per option, score = a level), calibrated probabilities and a
+# confidence per answer. Priced per input token in models.yaml ("typesafe:<model>"); output is free.
+# Docs: https://docs.typesafe.ai/api
 jev:
-  endpoint: https://api.typesafe.ai/v1/decide      # UNVERIFIED placeholder; set from the vendor's docs
-  key_env: JEV_API_KEY
-  timeout_seconds: 3
+  endpoint: https://api.typesafe.ai/v1/systemone
+  model: jev-1.13.0            # pinned; "jev-latest" would move under a running study
+  key_env: JEV_API_KEY         # the key lives in worker/.env or the k8s Secret, never in config or the database
+  timeout_seconds: 5
+  max_state_chars: 24000       # the state is cut to this before sending (the model takes 32k tokens of state)
+
+# Gates at intake, run by the worker the moment a matter is submitted. Each flags; none changes a
+# matter on its own. A person withdraws a duplicate or changes a tier, and that lands on the record.
+intake:
+  enabled: true
+  duplicate_p: 0.75            # flag "possible duplicate of IT-nnn" at or above this probability
+  disagree_confidence: 0.6     # flag a kind or tier the gate reads differently, at or above this confidence
+  instruction_p: 0.7           # add a gate flag to flagged_text at or above this probability
+  open_matters: 40             # how many open matters the duplicate question compares against
+  tiers:                       # the rubric the gate rates risk against; keep it in step with lib/intake/triage.ts
+    low: "Staff use it, it sees no personal or confidential data, and it makes no decisions about people."
+    medium: "It sees confidential or personal data, or helps a person decide something, or customers interact with it, but a person stays in charge of every decision about a person."
+    high: "It decides about people on its own, or helps decide about people while seeing their personal data, or customers or the public interact with it and it sees their personal data, or it is an incident involving people's data or decisions."

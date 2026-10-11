@@ -6,7 +6,7 @@ import { useActionState, useEffect, useState } from "react";
 import type { ControlResult } from "@/lib/control/submit";
 import type { SeatRow } from "@/lib/queries/governance";
 import { ageOf, initials, plural, seatCode, seatColor, type QueueEntry } from "@/lib/reviews/model";
-import { attestAction, conveneAction, dismissFailureAction, refreshCandidatesAction, setBriefAction } from "./actions";
+import { attestAction, conveneAction, dismissFailureAction, refreshCandidatesAction, setBriefAction, withdrawAction, setTierAction } from "./actions";
 import { Term } from "./parts";
 
 /** What the page says back. Every action is queued for the worker, so "done" means "asked", and says so. */
@@ -85,6 +85,10 @@ export function RefreshRanking({ runId }: { runId: string }) {
 const TIER_WORDS: Record<string, string> = { high: "High risk", medium: "Medium risk", low: "Low risk" };
 
 /** The waiting matters: tick to choose, click to read. The action bar names what it will do. */
+function gateFlags(details: string | null | undefined): string[] {
+  try { const g = (JSON.parse(details ?? "{}") as { gate?: { flags?: unknown } }).gate; return Array.isArray(g?.flags) ? (g!.flags as string[]) : []; } catch { return []; }
+}
+
 export function WaitingRows({ runId, entries, openHrefs, askHref, canConvene = true }: { runId: string; entries: QueueEntry[]; openHrefs: Record<string, string>; askHref: string; canConvene?: boolean }) {
   const [state, action, pending] = useActionState(conveneAction, null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -117,6 +121,7 @@ export function WaitingRows({ runId, entries, openHrefs, askHref, canConvene = t
                 {m.risk_tier ? <span className="rv-chip has-dot" data-tone={m.risk_tier}>{TIER_WORDS[m.risk_tier]}</span> : null}
                 {m.deferrals ? <span className="rv-chip" data-tone="objection">Deferred {m.deferrals === 1 ? "once" : `${m.deferrals}×`}</span> : null}
                 {m.escalated ? <span className="rv-chip is-solid" data-tone="high">Escalated</span> : null}
+                {gateFlags(m.details).map((f) => <span key={f} className="rv-chip" data-tone="wait">{f}</span>)}
                 {m.priority === null ? <span className="rv-chip" data-tone="you">New</span> : null}
               </span>
             </span>
@@ -278,6 +283,28 @@ export function BriefForm({ runId, seat }: { runId: string; seat: SeatRow }) {
 }
 
 /** The x on a failure banner. */
+export function WithdrawMatter({ runId, itemId, why }: { runId: string; itemId: string; why: string }) {
+  const [state, action, pending] = useActionState(withdrawAction, null);
+  return (
+    <form action={action} className="inline-flex items-center gap-2">
+      <input type="hidden" name="run_id" value={runId} /><input type="hidden" name="item_id" value={itemId} /><input type="hidden" name="why" value={why} />
+      <button className="rv-btn rv-btn-sm" type="submit" disabled={pending || Boolean(state?.success)}>{state?.success ? "Withdrawn" : pending ? "…" : "Withdraw it"}</button>
+      {state && !state.success ? <span className="rv-hint" data-tone="no">{state.error}</span> : null}
+    </form>
+  );
+}
+
+export function SetTier({ runId, itemId, tier, why }: { runId: string; itemId: string; tier: string; why: string }) {
+  const [state, action, pending] = useActionState(setTierAction, null);
+  return (
+    <form action={action} className="inline-flex items-center gap-2">
+      <input type="hidden" name="run_id" value={runId} /><input type="hidden" name="item_id" value={itemId} /><input type="hidden" name="risk_tier" value={tier} /><input type="hidden" name="why" value={why} />
+      <button className="rv-btn rv-btn-sm" type="submit" disabled={pending || Boolean(state?.success)}>{state?.success ? `Now ${tier}` : pending ? "…" : `Change to ${tier}`}</button>
+      {state && !state.success ? <span className="rv-hint" data-tone="no">{state.error}</span> : null}
+    </form>
+  );
+}
+
 export function DismissFailure({ runId, commandId }: { runId: string; commandId: string }) {
   const [, action, pending] = useActionState(dismissFailureAction, null);
   return (

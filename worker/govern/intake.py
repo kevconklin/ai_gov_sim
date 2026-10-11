@@ -56,7 +56,32 @@ def submit_item(db: Database, run_id: str, *, kind: str, title: str, description
     return item_id
 
 
-def withdraw_item(db: Database, item_id: str, *, by: str | None = None, reason: str | None = None) -> None:
+def set_risk_tier(db: Database, item_id: str, tier: str, *, by: str, source: str = "dashboard_session", reason: str) -> str | None:
+    """A person changes a matter's tier before its review, for instance on the gate's reading. Recorded."""
+    if tier not in RISK_TIERS:
+        raise IntakeError(f"risk tier must be one of {', '.join(RISK_TIERS)}")
+    row = db.fetch_one("SELECT status, risk_tier FROM items WHERE item_id = ?", (item_id,))
+    if row is None or row["status"] not in (OPEN,):
+        raise IntakeError(f"{item_id} is not waiting for review, so its tier is settled")
+    if row["risk_tier"] == tier:
+        return None
+    db.update("items", {"risk_tier": tier}, where={"item_id": item_id})
+    from govern.settings import record_change
+    record_change(db, item_id.split("/item/")[0], actor=by, source=source, area="intake", target=f"{display_id(item_id)} risk tier",
+                  before=row["risk_tier"], after=tier, reason=reason)
+    return tier
+
+
+def merge_details(db: Database, item_id: str, extra: Mapping[str, Any]) -> None:
+    """Add keys to a matter's details, keeping what is there."""
+    row = db.fetch_one("SELECT details FROM items WHERE item_id = ?", (item_id,))
+    if row is None:
+        raise IntakeError(f"no such matter {item_id}")
+    current = Database.loads(row["details"]) if isinstance(row["details"], str) else dict(row["details"] or {})
+    db.update("items", {"details": {**current, **dict(extra)}}, where={"item_id": item_id})
+
+
+def withdraw_item(db: Database, item_id: str, *, by: str | None = None, reason: str | None = None, source: str = "dashboard_session") -> None:
     """Pull a matter back. Before its review, it simply leaves the queue; after a review and before a signature, its
     recommendation is left unsigned and the rest of that review can still apply. A signed matter cannot be withdrawn."""
     row = db.fetch_one("SELECT status FROM items WHERE item_id = ?", (item_id,))
@@ -66,7 +91,7 @@ def withdraw_item(db: Database, item_id: str, *, by: str | None = None, reason: 
     if by:
         from govern.settings import record_change
         run_id = item_id.split("/item/")[0]
-        record_change(db, run_id, actor=by, source="dashboard_session", area="intake", target=display_id(item_id), before=row["status"],
+        record_change(db, run_id, actor=by, source=source, area="intake", target=display_id(item_id), before=row["status"],
                       after=WITHDRAWN, reason=reason or "Withdrawn")
 
 

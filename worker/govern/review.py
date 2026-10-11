@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import json
 import logging
 from dataclasses import dataclass
 from datetime import date
@@ -341,9 +342,14 @@ class Review:
         if not circulated or not is_workspace(self.ctx.run):
             return False
         config_dir = Path(__file__).resolve().parents[2] / "config"
+        from govern.jev import build_jev
         config = load_classify(config_dir)
-        classifier = self.ctx.classifier or build_classifier(config)
+        classifier = self.ctx.classifier or build_classifier(
+            config, jev=build_jev(self.ctx.db, config_dir, self.ctx.config.models, scripted=self.ctx.llm.scripted),
+            run_id=self.ctx.run_id, meeting_id=self.meeting_id)
         skip, p = should_skip_debate(self.ctx.db, self.ctx.run_id, self.meeting_id, classifier=classifier, config=config)
+        self.ctx.db.execute("UPDATE gate_calls SET acted = ? WHERE meeting_id = ? AND purpose = 'debate_outcome' AND acted IS NULL",
+                            (json.dumps({"skipped": skip, "p_unanimous": p}), self.meeting_id))
         if skip:
             self.ctx.db.update("meetings", {"debate_skipped": True, "debate_skip_p": p}, where={"meeting_id": self.meeting_id})
             self._message(None, "gate", f"Debate skipped: the sealed positions already agree (p {p}).", tags={"gate": "debate_skip", "p": p})

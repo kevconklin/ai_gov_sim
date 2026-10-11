@@ -157,6 +157,7 @@ class LLMClient:
         # SDK retries stay disabled so every attempt is visible in llm_calls.
         self._client = client
         self._registry = registry
+        self.scripted = client is not None      # an injected client stands in for every provider, so gates are scripted too
         if client is None and registry is None:
             self._client = anthropic.Anthropic(max_retries=0)
         self._sleep = sleep

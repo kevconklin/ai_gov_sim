@@ -136,6 +136,15 @@ class AddSeat(Attributed):
     capabilities: list[str] = Field(default_factory=list, max_length=4)
 
 
+class Withdraw(Attributed):
+    item_id: str = Field(min_length=1, max_length=200)
+
+
+class SetRiskTier(Attributed):
+    item_id: str = Field(min_length=1, max_length=200)
+    risk_tier: Literal["low", "medium", "high"]
+
+
 class RemoveSeat(Attributed):
     seat: str = Field(min_length=1, max_length=60)
 
@@ -176,7 +185,7 @@ SCHEMAS: Mapping[str, type[BaseModel]] = {
     "start": Empty, "pause": Empty, "resume": Empty, "stop": Empty, "advance": Advance, "inject_event": InjectEvent, "fork": Fork,
     "set_spend_cap": SpendCap, "candidates": Candidates, "convene": Convene, "attest": Attest, "submit": Submit, "set_brief": SetBrief,
     "create_workspace": CreateWorkspace, "update_profile": UpdateProfile, "add_document": AddDocument, "retire_document": RetireDocument,
-    "set_panel": SetPanel, "add_seat": AddSeat, "remove_seat": RemoveSeat, "update_seat": UpdateSeat, "ask": Ask, "escalate_ask": EscalateAsk,
+    "set_panel": SetPanel, "add_seat": AddSeat, "remove_seat": RemoveSeat, "withdraw": Withdraw, "set_risk_tier": SetRiskTier, "update_seat": UpdateSeat, "ask": Ask, "escalate_ask": EscalateAsk,
     "archive_workspace": Attributed, "restore_workspace": Attributed, "set_member": SetMember, "remove_member": RemoveMember,
     "set_stage": SetStage, "set_owner": SetOwner,
 }

@@ -29,7 +29,7 @@ import { citedBy } from "@/lib/queries/governance";
 import { unansweredCount, workerBusy } from "@/lib/queries/product";
 import { convenerOf, perspectivesFor, reviewsHeld, signaturesFor } from "@/lib/queries/trail";
 import { AREA_LABELS, FRAMEWORK_LABELS, PROVIDER_TONES, STANCE_WORDS, KIND_LABELS, PROFILE_LABELS, ageOf, benchFor, changeTitle, describeWork, firstSentence, mergeQueue, plural, tally, type Ranking } from "@/lib/reviews/model";
-import { AutoRefresh, BriefForm, DismissFailure, EscClose, RefreshRanking, SignDecision, WaitingRows, WorkspacePicker, type Scope } from "./forms";
+import { AutoRefresh, BriefForm, DismissFailure, EscClose, RefreshRanking, SetTier, SignDecision, WaitingRows, WithdrawMatter, WorkspacePicker, type Scope } from "./forms";
 import { SubmitMatterForm } from "./intake-form";
 import { AddSeatForm, RemoveSeatForm, SeatForm } from "./seat-forms";
 import { Trail } from "./trail";
@@ -194,6 +194,12 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const flaggedIn = (detailsJson: string | null | undefined): string[] => {
     const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).flagged_text;
     return Array.isArray(v) ? v.map(String) : [];
+  };
+  const gateIn = (detailsJson: string | null | undefined): { flags: string[]; duplicate: { of: string; p: number } | null; tier: { read: string; p: number; agrees: boolean } | null } => {
+    const g = parse<Record<string, unknown>>(detailsJson ?? null, {}).gate as Record<string, unknown> | undefined;
+    if (!g) return { flags: [], duplicate: null, tier: null };
+    return { flags: Array.isArray(g.flags) ? (g.flags as string[]) : [], duplicate: (g.duplicate as { of: string; p: number } | null) ?? null,
+             tier: (g.risk_tier as { read: string; p: number; agrees: boolean } | null) ?? null };
   };
   const notesIn = (detailsJson: string | null | undefined): { by: string; on: string; note: string }[] => {
     const v = parse<Record<string, unknown>>(detailsJson ?? null, {}).decider_notes;
@@ -377,8 +383,15 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
               <dt>Waiting</dt><dd>{ageOf(m.since)}</dd>
               {notesIn(m.details).length ? <><dt>Sent back with</dt><dd>{notesIn(m.details).map((n) => <span key={n.on + n.note} className="block">{n.on}, {n.by.replace(/ <.*>$/, "")}: “{n.note}”</span>)}</dd></> : null}
               {flaggedIn(m.details).length ? <><dt>Flagged</dt><dd><Chip tone="objection">Text addressed to the advisers</Chip> <span className="muted text-xs">{flaggedIn(m.details).join("; ")}</span></dd></> : null}
+              {gateIn(m.details).flags.length ? (() => { const g = gateIn(m.details); return (
+                <><dt>Gate</dt><dd className="grid gap-1.5">
+                  {g.duplicate ? <span className="flex flex-wrap items-center gap-2"><Chip tone="wait">Possible duplicate of {g.duplicate.of}, p {g.duplicate.p.toFixed(2)}</Chip>{canRun ? <WithdrawMatter runId={runId} itemId={m.ref_id} why={`Duplicate of ${g.duplicate.of}, as the intake gate read it.`} /> : null}</span> : null}
+                  {g.tier && !g.tier.agrees && g.flags.some((f) => f.includes(" risk")) ? <span className="flex flex-wrap items-center gap-2"><Chip tone="wait">Reads as {g.tier.read} risk, p {g.tier.p.toFixed(2)}</Chip>{canRun ? <SetTier runId={runId} itemId={m.ref_id} tier={g.tier.read} why={`The intake gate read it as ${g.tier.read} risk and I agree.`} /> : null}</span> : null}
+                  {g.flags.filter((f) => !f.startsWith("possible duplicate") && !f.includes(" risk")).map((f) => <Chip key={f} tone="wait">{f}</Chip>)}
+                  <Link href={`/gates?run=${encodeURIComponent(runId)}`} className="rv-hint">See what the gate saw</Link>
+                </dd></>); })() : null}
               {citedIn(m.details).length ? <><dt>Earlier decisions</dt><dd className="flex flex-wrap gap-1.5">{precedentChips(citedIn(m.details))}</dd></> : null}
-              {Object.entries(parse<Record<string, unknown>>(m.details, {})).filter(([k]) => !["related_decisions", "flagged_text", "decider_notes"].includes(k)).map(([k, v]) => (
+              {Object.entries(parse<Record<string, unknown>>(m.details, {})).filter(([k]) => !["related_decisions", "flagged_text", "decider_notes", "gate"].includes(k)).map(([k, v]) => (
                 <span key={k} className="contents"><dt>{k.replace(/_/g, " ").replace(/^./, (ch) => ch.toUpperCase())}</dt><dd>{Array.isArray(v) ? v.join(", ") : v === true ? "Yes" : v === false ? "No" : String(v)}</dd></span>
               ))}
               <dt>Priority</dt>

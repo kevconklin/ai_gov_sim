@@ -20,6 +20,7 @@ prices:
   "huggingface:meta-llama/Llama-3.3-70B-Instruct": {input: 0.60, output: 0.60}     # unverified
   "huggingface:Qwen/Qwen2.5-72B-Instruct": {input: 0.60, output: 0.60}             # unverified
   "local:default": {input: 0.00, output: 0.00}                                     # your own hardware
+  "typesafe:jev-1.13.0": {input: 0.042, output: 0.00}                              # the fast decision model; output is free (docs.typesafe.ai/models)
 
 # Models a customer can give a committee seat. Every entry must be priced above.
 catalog:

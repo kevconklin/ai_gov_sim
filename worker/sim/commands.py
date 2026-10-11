@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 KINDS = frozenset({"start", "pause", "resume", "stop", "advance", "inject_event", "fork", "set_spend_cap",
                    "candidates", "convene", "attest", "submit", "set_brief",
                    "create_workspace", "update_profile", "add_document", "retire_document", "set_panel",
-                   "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
+                   "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask", "withdraw", "set_risk_tier",
                    "archive_workspace", "restore_workspace", "set_member", "remove_member", "set_stage", "set_owner"})
 TRANSITIONS = {"start": ({"created", "paused"}, "running"), "resume": ({"paused", "failed"}, "running"),
                "pause": ({"running", "created"}, "paused"), "stop": ({"created", "running", "paused", "failed"}, "stopped")}
@@ -76,6 +76,20 @@ def process_pending(db: Database, orchestrator: Any, data_dir: Path) -> list[str
     return processed
 
 
+def _intake_gate(db: Database, orchestrator: Any, run_id: str, item_id: str) -> Any:
+    """The fast decision model reads a new matter: duplicate, kind, tier, text aimed at the reviewers. Flags only;
+    nothing here can fail the submission."""
+    from govern.jev import build_jev
+    from govern.triage import assess_submission, load_intake_gate
+    from sim.world import REPO_ROOT
+    try:
+        jev = build_jev(db, REPO_ROOT / "config", orchestrator.config.models, scripted=orchestrator.llm.scripted)
+        return assess_submission(db, jev, load_intake_gate(REPO_ROOT / "config"), run_id=run_id, item_id=item_id)
+    except Exception as error:  # noqa: BLE001 - a gate never blocks a submission
+        log.warning("intake gate failed for %s: %s", item_id, error)
+        return None
+
+
 def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str, Any], payload: Mapping[str, Any]) -> Any:
     kind, run_id = command["kind"], command["run_id"]
     if kind == "create_workspace":          # the one command with no run yet: it makes one
@@ -125,7 +139,7 @@ def _apply(db: Database, orchestrator: Any, data_dir: Path, command: Mapping[str
                       after=str(cap), reason=command["reason"])
         return {"spend_cap_usd_per_month": cap}
     if kind in ("candidates", "convene", "attest", "submit", "set_brief", "update_profile", "add_document",
-                "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask",
+                "retire_document", "set_panel", "add_seat", "remove_seat", "update_seat", "ask", "escalate_ask", "withdraw", "set_risk_tier",
                 "archive_workspace", "restore_workspace", "set_member", "remove_member", "set_stage", "set_owner"):
         return _governance(db, orchestrator, command, payload, run)
     raise ValueError(f"unsupported command {kind}")
@@ -175,10 +189,18 @@ def _governance(db: Database, orchestrator: Any, command: Mapping[str, Any], pay
         item_id = submit_item(db, run_id, kind=payload["kind"], title=payload["title"],
                               description=payload["description"], submitted_by=payload["submitted_by"],
                               risk_tier=payload.get("risk_tier"), details=payload.get("details"))
-        return {"item_id": item_id}
+        return {"item_id": item_id, "gate": _intake_gate(db, orchestrator, run_id, item_id)}
 
     who = {"actor": payload.get("actor", "unknown"), "source": payload.get("source", "unknown")}
     why = payload.get("why") or command["reason"]
+
+    if kind == "withdraw":
+        from govern.intake import withdraw_item
+        withdraw_item(db, payload["item_id"], by=who["actor"], reason=why, source=who["source"])
+        return {"withdrawn": payload["item_id"]}
+    if kind == "set_risk_tier":
+        from govern.intake import set_risk_tier
+        return {"risk_tier": set_risk_tier(db, payload["item_id"], payload["risk_tier"], by=who["actor"], source=who["source"], reason=why)}
 
     if kind in ("set_stage", "set_owner"):
         from govern.lifecycle import load_lifecycle, set_owner, set_stage
