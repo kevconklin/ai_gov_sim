@@ -148,7 +148,7 @@ export async function organizations(month: string, allowed: Visible): Promise<Or
             (SELECT COUNT(*) FROM items i WHERE i.run_id = r.run_id AND i.status = 'submitted') AS waiting,
             (SELECT COUNT(*) FROM decisions d JOIN meetings m ON m.meeting_id = d.meeting_id
               LEFT JOIN attestations a ON a.decision_id = d.decision_id
-              WHERE d.run_id = r.run_id AND m.convened AND a.attestation_id IS NULL) AS needs_you,
+              WHERE d.run_id = r.run_id AND m.convened AND m.status = 'closed' AND a.attestation_id IS NULL) AS needs_you,
             (SELECT COUNT(*) FROM attestations a WHERE a.run_id = r.run_id AND a.outcome <> 'deferred') AS signed,
             (SELECT COUNT(*) FROM meetings m WHERE m.run_id = r.run_id AND m.convened) AS reviews,
             (SELECT MAX(m.meeting_date) FROM meetings m WHERE m.run_id = r.run_id AND m.convened) AS last_review,

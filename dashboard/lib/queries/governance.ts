@@ -77,7 +77,7 @@ export async function awaitingAttestation(runId: string): Promise<AwaitingRow[]>
      JOIN meetings m ON m.meeting_id = d.meeting_id
      LEFT JOIN attestations a ON a.decision_id = d.decision_id
      LEFT JOIN use_cases u ON u.use_case_id = d.ref_id
-     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed'
      ORDER BY d.sim_month DESC, d.item_id`,
     [runId],
   );
@@ -98,7 +98,7 @@ export async function dissentsAwaiting(runId: string): Promise<DissentRow[]> {
      LEFT JOIN attestations a ON a.decision_id = d.decision_id
      JOIN votes v ON v.meeting_id = d.meeting_id AND v.item_id = d.item_id
      JOIN agents ag ON ag.agent_id = v.agent_id
-     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed'
        AND v.vote = CASE WHEN d.outcome = 'approved' THEN 'no' ELSE 'yes' END
      ORDER BY d.decision_id, ag.seat`,
     [runId],
@@ -264,7 +264,7 @@ export async function decisionsToSign(runId: string): Promise<DecisionRow[]> {
      LEFT JOIN attestations a ON a.decision_id = d.decision_id
      LEFT JOIN items i ON i.item_id = d.ref_id
      LEFT JOIN use_cases u ON u.use_case_id = d.ref_id
-     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed'
      ORDER BY m.meeting_date DESC, d.item_id`,
     [runId],
   );
@@ -291,7 +291,7 @@ export async function ballotsToSign(runId: string): Promise<BallotRow[]> {
      JOIN votes v ON v.meeting_id = d.meeting_id AND v.item_id = d.item_id
      JOIN agents ag ON ag.agent_id = v.agent_id
      LEFT JOIN positions p ON p.meeting_id = v.meeting_id AND p.item_id = v.item_id AND p.agent_id = v.agent_id
-     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened`,
+     WHERE d.run_id = ? AND a.attestation_id IS NULL AND m.convened AND m.status = 'closed'`,
     [runId],
   );
 }
@@ -514,4 +514,13 @@ export async function citedBy(runId: string, shortId: string): Promise<{ item_id
   return db.all<{ item_id: string; title: string; status: string }>(
     "SELECT item_id, title, status FROM items WHERE run_id = ? AND details LIKE ? AND status <> 'withdrawn' ORDER BY submitted_on DESC",
     [runId, `%"${shortId}"%`]);
+}
+
+/** The id of a signature on this decision still waiting for the worker, if any. */
+export async function pendingAttestFor(runId: string, decisionId: string): Promise<string | null> {
+  const db = await readDb();
+  const row = await db.get<{ command_id: string }>(
+    `SELECT command_id FROM commands WHERE run_id = ? AND kind = 'attest' AND status IN ('pending', 'processing') AND payload LIKE ? ORDER BY created_at DESC LIMIT 1`,
+    [runId, `%"decision_id":${JSON.stringify(decisionId)}%`]);
+  return row?.command_id ?? null;
 }

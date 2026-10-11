@@ -95,6 +95,10 @@ export async function attestAction(_prev: ControlResult | null, formData: FormDa
   const respondedTo = formData
     .getAll("responded_to")
     .filter((v): v is string => typeof v === "string" && v.length > 0);
+  // a second press while the first signature is still queued is the same signature, not a second one
+  const { pendingAttestFor } = await import("@/lib/queries/governance");
+  const already = await pendingAttestFor(f.run_id ?? "", f.decision_id ?? "");
+  if (already) return done({ success: true, data: { command_id: already, intervention_id: "" }, error: null });
   const attested = await submitCommand({
     kind: "attest",
     run_id: f.run_id ?? "",

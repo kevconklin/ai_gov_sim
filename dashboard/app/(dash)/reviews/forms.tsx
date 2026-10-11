@@ -238,10 +238,10 @@ export function SignDecision({ runId, decisionId, recommended, mustWeighAll, dis
           <span className="rv-avatar is-you">{initials(operator)}</span>
           <span className="rv-signer-name">{operator}</span>
         </span>
-        <button className="rv-btn rv-btn-you" type="submit" disabled={pending}>{pending ? "Signing…" : sendingBack ? "Sign and send back" : "Sign decision"}</button>
+        <button className="rv-btn rv-btn-you" type="submit" disabled={pending || Boolean(state?.success)}>{state?.success ? "Signed" : pending ? "Signing…" : sendingBack ? "Sign and send back" : "Sign decision"}</button>
       </div>
       {left > 0 ? <p className="rv-hint" style={{ marginTop: "-0.5rem" }}>Takes effect once the other {plural(left, "matter")} from this review {left === 1 ? "is" : "are"} signed.</p> : null}
-      <Said state={state} ok="Signed. It is being recorded now." />
+      <Said state={state} ok="Signed. The worker is recording it; this closes on its own in a moment." />
     </form>
   );
 }
