@@ -125,3 +125,20 @@ def test_replay_says_where_a_skip_would_have_been_wrong(org):
     # whether that skip was wrong depends on whether a seat's ballot crossed its sealed position; both fields are read from the record
     assert isinstance(rows[0].debate_moved_a_vote, bool) and isinstance(rows[0].was_unanimous, bool)
     assert classify.replay_debate_gate(db, run_id, classifier=PositionsClassifier(), threshold=0.9)[0].p_unanimous <= 1.0
+
+
+def test_a_shadow_gate_is_logged_beside_the_outcome_and_never_acts(org, monkeypatch):
+    """With shadow: jev, every workspace review asks the fast model too; its row says shadow and acted is false."""
+    db, config, llm, run_id, item, data_dir = org
+    from govern import classify as c
+    base = c.load_classify(CONFIG)
+    monkeypatch.setattr(c, "load_classify", lambda _dir: c.GateConfig(provider="positions", debate_skip_enabled=True, debate_skip_threshold=0.9,
+                                                                         jev_endpoint=base.jev_endpoint, jev_key_env=base.jev_key_env,
+                                                                         jev_timeout=base.jev_timeout, shadow="jev"))
+    service = ReviewService(db=db, config=config, llm=llm, data_dir=data_dir, panel_rules=load_panels(CONFIG))
+    result = service.convene(run_id, [AgendaItem("IT-001", "item", "AI tool: Otter.ai", item)], on=TODAY)
+    rows = db.fetch_all("SELECT provider, acted, inputs FROM classifier_calls WHERE meeting_id = ? ORDER BY created_at", (result.meeting_id,))
+    assert [r["provider"] for r in rows] == ["positions", "jev (shadow)"]
+    assert not rows[1]["acted"] and '"shadow": true' in str(rows[1]["inputs"])
+    gate = db.fetch_one("SELECT purpose, acted FROM gate_calls WHERE meeting_id = ? AND purpose = 'debate_outcome'", (result.meeting_id,))
+    assert gate is not None and '"shadow": true' in str(gate["acted"])

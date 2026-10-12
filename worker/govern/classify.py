@@ -146,6 +146,7 @@ class GateConfig:
     jev_endpoint: str
     jev_key_env: str
     jev_timeout: float
+    shadow: str | None = None          # a provider asked and logged on every review, never acting
 
 
 def load_classify(config_dir: Path) -> GateConfig:
@@ -161,17 +162,26 @@ def load_classify(config_dir: Path) -> GateConfig:
     if not 0.5 <= threshold <= 1.0:
         raise ConfigError("classify.yaml: debate_skip.threshold must be between 0.5 and 1.0")
     jev = data.get("jev") or {}
+    shadow = skip.get("shadow")
+    if shadow is not None and str(shadow) not in ("positions", "jev", "scripted"):
+        raise ConfigError("classify.yaml: debate_skip.shadow must be positions, jev, or scripted")
+    if shadow is not None and str(shadow) == provider:
+        shadow = None
     return GateConfig(provider=provider, debate_skip_enabled=bool(skip.get("enabled", False)), debate_skip_threshold=threshold,
+                      shadow=str(shadow) if shadow else None,
                       jev_endpoint=str(jev.get("endpoint") or ""), jev_key_env=str(jev.get("key_env") or "JEV_API_KEY"),
                       jev_timeout=float(jev.get("timeout_seconds", 3)))
 
 
-def build_classifier(config: GateConfig, *, jev: Any = None, run_id: str = "", meeting_id: str | None = None) -> Classifier:
-    if config.provider == "jev":
+def build_classifier(config: GateConfig, *, jev: Any = None, run_id: str = "", meeting_id: str | None = None,
+                     provider: str | None = None) -> Classifier:
+    """The gate for `provider` (the configured one by default; pass config.shadow for the shadow)."""
+    chosen = provider or config.provider
+    if chosen == "jev":
         if jev is None:
             raise ConfigError("classify.yaml provider is jev, but no gate client was given (govern.jev.build_jev)")
         return JevClassifier(jev, run_id, meeting_id)
-    if config.provider == "scripted":
+    if chosen == "scripted":
         return ScriptedClassifier(0.95)
     return PositionsClassifier()
 
@@ -196,6 +206,28 @@ def record(db: Database, run_id: str, *, meeting_id: str | None, purpose: str, d
                                    "acted": acted, "inputs": dict(inputs), "latency_ms": decision.latency_ms,
                                    "cost_usd": decision.cost_usd, "created_at": utc_now_iso()})
     return call_id
+
+
+def shadow_debate_gate(db: Database, run_id: str, meeting_id: str, *, classifier: Classifier, config: GateConfig) -> float | None:
+    """Ask a second gate the same question and log what it would have done. It never acts. Returns its p_unanimous."""
+    positions = positions_for(db, meeting_id)
+    if not positions:
+        return None
+    try:
+        decision = classifier.debate_outcome(positions)
+    except GateUnavailable as error:
+        record(db, run_id, meeting_id=meeting_id, purpose=DEBATE_OUTCOME,
+               decision=GateDecision("unavailable", 0.0, f"{getattr(classifier, 'name', '?')} (shadow)", 0, detail={"error": str(error)}),
+               acted=False, inputs={"positions": len(positions), "shadow": True, "error": str(error)[:200]})
+        return None
+    p_unanimous = decision.probability if decision.label == UNANIMOUS else 1 - decision.probability
+    would_skip = decision.label == UNANIMOUS and decision.probability >= config.debate_skip_threshold
+    record(db, run_id, meeting_id=meeting_id, purpose=DEBATE_OUTCOME,
+           decision=GateDecision(decision.label, decision.probability, f"{decision.provider} (shadow)", decision.latency_ms,
+                                 cost_usd=decision.cost_usd, detail=decision.detail),
+           acted=False, inputs={"positions": len(positions), "shadow": True, "would_skip": would_skip,
+                                "threshold": config.debate_skip_threshold, **({"detail": dict(decision.detail)} if decision.detail else {})})
+    return round(p_unanimous, 3)
 
 
 def should_skip_debate(db: Database, run_id: str, meeting_id: str, *, classifier: Classifier, config: GateConfig) -> tuple[bool, float | None]:

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { visibleRuns } from "@/lib/auth/access";
 import { first, type SearchParams } from "@/lib/params";
 import { currentScope } from "@/lib/queries/product";
-import { gateCalls, gateSummary, type GateCallRow } from "@/lib/queries/gates";
+import { debateCalibration, gateCalls, gateSummary, safeThreshold, type GateCallRow } from "@/lib/queries/gates";
 import { Chip, Fold, Icon } from "../reviews/parts";
 
 const PURPOSE: Record<string, string> = { intake_triage: "Intake", debate_outcome: "Debate gate", smoke: "Smoke test" };
@@ -86,7 +86,9 @@ export default async function GatesPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const scope = await currentScope(first(sp, "run"), await visibleRuns());
   if (!scope) return <div className="rv"><h1 className="rv-org">No committee yet</h1></div>;
-  const [rows, s] = await Promise.all([gateCalls(scope.run_id), gateSummary(scope.run_id)]);
+  const [rows, s, cal] = await Promise.all([gateCalls(scope.run_id), gateSummary(scope.run_id), debateCalibration(scope.run_id)]);
+  const THRESHOLD = 0.9;   // config/classify.yaml debate_skip.threshold
+  const MIN_REVIEWS = 20;  // below this the safe threshold is a reading of noise, not of the gate
   const run = encodeURIComponent(scope.run_id);
   return (
     <div className="rv">
@@ -109,6 +111,36 @@ export default async function GatesPage({ searchParams }: { searchParams: Promis
           <div className="rv-brief-row"><span>Risk tier</span><span>{s.tier_disagreed} read differently from how they were filed, {s.tier_followed} then changed to the gate's tier{s.tier_disagreed ? ` (${pct(s.tier_followed / s.tier_disagreed)})` : ""}</span></div>
           <div className="rv-brief-row"><span>Debates</span><span>{s.debates_skipped} skipped on the gate's word. <Link href={`/reviews?run=${run}&tab=decided`}>Check the decided tab</Link> for any where a debate would have changed a vote; <code>sim replay-gate</code> sets the threshold from the record.</span></div>
         </div>
+      </section>
+
+      <section className="rv-card">
+        <div className="rv-card-h"><span>Debate gate, checked against the record</span><span className="muted font-normal">{cal.rows.length} closed {cal.rows.length === 1 ? "review" : "reviews"} with positions and ballots</span></div>
+        <p className="rv-hint" style={{ marginTop: 0 }}>Each gate says how likely a unanimous vote is before the debate. The dangerous case is a skip on a review where the debate moved a seat to the other side. The safe threshold for a gate is the lowest one that never skips such a review on this record; the gate acts at {THRESHOLD}.</p>
+        {cal.rows.length === 0 ? <p className="muted">No closed reviews yet.</p> : (
+          <>
+            <div className="rv-brief">
+              {cal.providers.map((name) => { const t = safeThreshold(cal.rows, name); return (
+                <div key={name} className="rv-brief-row"><span>{name === "positions" ? "Positions reader (free)" : name === "jev" ? "Jev" : name}</span>
+                  <span>{t ? <>Safe threshold on this record: <b>{t.threshold.toFixed(2)}</b>, which would skip {t.skips} of {t.of} debates{t.threshold > THRESHOLD ? <> <Chip tone="objection">above the {THRESHOLD} it acts at</Chip></> : null}{t.of < MIN_REVIEWS ? <> <Chip tone="wait">{t.of} of the {MIN_REVIEWS} reviews needed before this means anything</Chip></> : null}</> : "No readings yet"}</span></div>
+              ); })}
+            </div>
+            <div className="rv-table-wrap"><table className="rv-table">
+              <thead><tr><th>Review</th><th>Items</th>{cal.providers.map((n) => <th key={n}>{n} p(unanimous)</th>)}<th>Vote</th><th>Debate moved a seat</th><th>Debate</th></tr></thead>
+              <tbody>
+                {cal.rows.map((r) => (
+                  <tr key={r.meeting_id}>
+                    <td><Link href={`/reviews?run=${run}&tab=reviews&open=trail:${encodeURIComponent(r.meeting_id)}`}>{r.meeting_date}</Link><span className="block text-xs muted">{r.meeting_id.split("/").pop()}</span></td>
+                    <td>{r.items}</td>
+                    {cal.providers.map((n) => { const v = r.p[n]; return <td key={n}>{v == null ? <span className="muted">—</span> : <span className="rv-gt-p" data-tone={v >= THRESHOLD ? (r.moved ? "no" : "ok") : undefined}>{v.toFixed(2)}{v >= THRESHOLD ? (r.moved ? " would skip, wrongly" : " would skip") : ""}</span>}</td>; })}
+                    <td>{r.unanimous ? <Chip tone="ok" dot>Unanimous</Chip> : <Chip plain>Split</Chip>}</td>
+                    <td>{r.moved ? <Chip tone="wait">Yes</Chip> : <span className="muted">No</span>}</td>
+                    <td>{r.skipped ? <Chip tone="ai">Skipped</Chip> : <span className="muted">Held</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          </>
+        )}
       </section>
 
       <section className="rv-card">

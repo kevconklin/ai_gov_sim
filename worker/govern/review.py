@@ -350,6 +350,14 @@ class Review:
         skip, p = should_skip_debate(self.ctx.db, self.ctx.run_id, self.meeting_id, classifier=classifier, config=config)
         self.ctx.db.execute("UPDATE gate_calls SET acted = ? WHERE meeting_id = ? AND purpose = 'debate_outcome' AND acted IS NULL",
                             (json.dumps({"skipped": skip, "p_unanimous": p}), self.meeting_id))
+        if config.shadow and config.debate_skip_enabled and self.ctx.classifier is None:
+            # the shadow gate sees the same positions and is logged beside the outcome; it never acts
+            from govern.classify import shadow_debate_gate
+            shadow_p = shadow_debate_gate(self.ctx.db, self.ctx.run_id, self.meeting_id, config=config, classifier=build_classifier(
+                config, jev=build_jev(self.ctx.db, config_dir, self.ctx.config.models, scripted=self.ctx.llm.scripted),
+                run_id=self.ctx.run_id, meeting_id=self.meeting_id, provider=config.shadow))
+            self.ctx.db.execute("UPDATE gate_calls SET acted = ? WHERE meeting_id = ? AND purpose = 'debate_outcome' AND acted IS NULL",
+                                (json.dumps({"shadow": True, "skipped": skip, "p_unanimous": shadow_p}), self.meeting_id))
         if skip:
             self.ctx.db.update("meetings", {"debate_skipped": True, "debate_skip_p": p}, where={"meeting_id": self.meeting_id})
             self._message(None, "gate", f"Debate skipped: the sealed positions already agree (p {p}).", tags={"gate": "debate_skip", "p": p})
