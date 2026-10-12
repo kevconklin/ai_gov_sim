@@ -159,7 +159,8 @@ class LLMClient:
         self._registry = registry
         self.scripted = client is not None      # an injected client stands in for every provider, so gates are scripted too
         if client is None and registry is None:
-            self._client = anthropic.Anthropic(max_retries=0)
+            # one bounded wait per call: a dead connection becomes a retry, not an hour of silence
+            self._client = anthropic.Anthropic(max_retries=0, timeout=config.budget.retries.call_timeout_seconds)
         self._sleep = sleep
 
     # ---- standard calls -------------------------------------------------

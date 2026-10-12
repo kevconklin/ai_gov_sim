@@ -217,8 +217,8 @@ class OpenAICompatClient:
 
 class Registry:
     def __init__(self, specs: Mapping[str, ProviderSpec], *, transport: Transport = _post,
-                 env: Mapping[str, str] | None = None) -> None:
-        self._specs, self._transport, self._env = dict(specs), transport, env
+                 env: Mapping[str, str] | None = None, timeout: float = 240.0) -> None:
+        self._specs, self._transport, self._env, self._timeout = dict(specs), transport, env, timeout
         self._clients: dict[str, Any] = {}
 
     def _getenv(self, name: str) -> str | None:
@@ -252,7 +252,7 @@ class Registry:
         if provider not in self._clients:
             if spec.kind == "anthropic":
                 import anthropic
-                self._clients[provider] = anthropic.Anthropic(api_key=key, max_retries=0)
+                self._clients[provider] = anthropic.Anthropic(api_key=key, max_retries=0, timeout=self._timeout)
             else:
                 self._clients[provider] = OpenAICompatClient(spec, key, self._transport)
         return self._clients[provider]

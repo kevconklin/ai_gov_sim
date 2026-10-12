@@ -111,7 +111,7 @@ def _orchestrator(db: Database, *, demo: bool) -> Orchestrator:
 
     # Which providers this worker can reach is decided by which keys it holds. The scripted client
     # answers for every model, so a demo needs none of them.
-    registry = Registry(load_providers(REPO_ROOT / "config"))
+    registry = Registry(load_providers(REPO_ROOT / "config"), timeout=config.budget.retries.call_timeout_seconds)
     client = None
     if demo:
         from sim.demo_llm import DemoAnthropic

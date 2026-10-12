@@ -48,6 +48,7 @@ class RetryConfig:
     max_attempts: int
     base_delay_seconds: float
     max_delay_seconds: float
+    call_timeout_seconds: float = 240.0     # how long one API call may wait for its reply before it is a failed attempt
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,7 @@ def _load_budget(data: Mapping[str, Any]) -> BudgetConfig:
         max_attempts=int(retries["max_attempts"]),
         base_delay_seconds=float(retries["base_delay_seconds"]),
         max_delay_seconds=float(retries["max_delay_seconds"]),
+        call_timeout_seconds=float(retries.get("call_timeout_seconds", 240.0)),
     )
     if retry.max_attempts < 1:
         raise ConfigError("budget.yaml retries.max_attempts must be at least 1")

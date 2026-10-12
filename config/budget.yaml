@@ -39,6 +39,8 @@ spend_caps_usd:
   per_review: 3.00
   hard_monthly: 200.00
 retries:
+  call_timeout_seconds: 240   # one API call waits this long for its reply, then counts as a failed attempt and is retried;
+                              # on 2026-10-12 a dead connection held a review for 57 minutes under the SDK's own 10-minute limit
   max_attempts: 5
   base_delay_seconds: 2.0
   max_delay_seconds: 60.0
