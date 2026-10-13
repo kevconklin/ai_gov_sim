@@ -7,7 +7,7 @@ from pathlib import Path
 import logging
 from dataclasses import dataclass
 from datetime import date
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from govern import ids
 from govern.calendar import long_date
@@ -188,12 +188,18 @@ def results_text(decisions: Sequence[Decision]) -> str:
                      + ("; tie decided by the chair" if d.tally.tie_broken else "") + ")" for d in decisions)
 
 
+def _action_line(a: Any) -> str:
+    """An action item as the chair wrote it: the asked-for {owner, action, due}, or a plain sentence."""
+    if isinstance(a, Mapping):
+        return f"- {a.get('owner') or 'Unassigned'}: {a.get('action') or ''}" + (f" (due {a['due']})" if a.get("due") else "")
+    return f"- {a}"
+
+
 def minutes_text(*, bank_name: str, meeting_date: date, present: Sequence[str], minutes: Mapping | None,
                  decisions: Sequence[Decision]) -> str:
     summary = (minutes or {}).get("summary") or "The chair did not record a narrative summary."
     points = "\n".join(f"- {p}" for p in (minutes or {}).get("key_points") or []) or "- None recorded"
-    actions = "\n".join(f"- {a.get('owner', 'Unassigned')}: {a.get('action', '')}" + (f" (due {a['due']})" if a.get("due") else "")
-                        for a in (minutes or {}).get("action_items") or []) or "- None recorded"
+    actions = "\n".join(_action_line(a) for a in (minutes or {}).get("action_items") or []) or "- None recorded"
     return (f"{bank_name} AI Governance Committee\nMinutes of the meeting held {long_date(meeting_date)}\n"
             f"Present: {', '.join(present)}\n\n{summary}\n\nKey points\n{points}\n\n"
             f"Decisions\n{results_text(decisions)}\n\nAction items\n{actions}")
