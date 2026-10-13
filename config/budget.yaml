@@ -36,7 +36,7 @@ spend_caps_usd:
   # PLACEHOLDER: the most one review may cost. Checked between phases (after the positions, after
   # each debate round); a review that passes it stops, its matters go back to Waiting, and an
   # alert says so. A live review of three matters has cost about $1.
-  per_review: 6.00             # a contested review with a research seat and three debate rounds ran $3.84 on 2026-10-12
+  per_review: 10.00            # a contested high-risk matter seats all nine advisers for three debate rounds: 6.49 by round 3 on 2026-10-13
   hard_monthly: 200.00
 retries:
   call_timeout_seconds: 240   # one API call waits this long for its reply, then counts as a failed attempt and is retried;
