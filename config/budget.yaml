@@ -2,7 +2,8 @@
 max_tokens:
   # This model thinks adaptively, and thinking tokens count against max_tokens, so every limit leaves room for
   # roughly 1,000-2,000 thinking tokens on top of the visible output. Sizing them too tightly truncates tool calls.
-  committee_turn: 1800       # a remark of about 250 words plus thinking
+  committee_turn: 3500       # a remark of about 250 words plus thinking, and room for one propose_revision: a disclosed
+                             # seat drafts a full policy section in debate, and at 1800 four seats in a row were cut off (2026-10-11)
   circulate: 3500            # reading, then a full use-case or policy proposal
   position: 1200             # base; plus position_per_item per item
   position_per_item: 500
@@ -10,6 +11,7 @@ max_tokens:
   vote_per_item: 300
   minutes: 3500
   memory_rewrite: 3000
+  research_search: 1500      # the librarian's report on one web search, with sources
   compression: 2000
   handover: 2500
   board_memo: 3000
@@ -27,8 +29,18 @@ debate:
   max_speakers: 8
 spend_caps_usd:
   per_bank_per_sim_month: 4.00
+  # PLACEHOLDER: a new customer's monthly cap on review spend, in real calendar months. A customer
+  # changes its own under Settings, and the change is recorded. Set from observed cost per review
+  # once real reviews have run; the pilot's simulated months are not a basis for it.
+  per_workspace_per_month: 50.00
+  # PLACEHOLDER: the most one review may cost. Checked between phases (after the positions, after
+  # each debate round); a review that passes it stops, its matters go back to Waiting, and an
+  # alert says so. A live review of three matters has cost about $1.
+  per_review: 10.00            # a contested high-risk matter seats all nine advisers for three debate rounds: 6.49 by round 3 on 2026-10-13
   hard_monthly: 200.00
 retries:
+  call_timeout_seconds: 240   # one API call waits this long for its reply, then counts as a failed attempt and is retried;
+                              # on 2026-10-12 a dead connection held a review for 57 minutes under the SDK's own 10-minute limit
   max_attempts: 5
   base_delay_seconds: 2.0
   max_delay_seconds: 60.0
@@ -37,3 +49,12 @@ batch:
 alerts:
   suspicion_rate_above: 0.02     # share of member messages in a month
   false_claim_relative_tolerance: 0.25
+
+# The research seat. Each search is a priced call and each page is tokens the seat then reads, so a
+# review may do only so much of either; the seat is told when it has used its share.
+research:
+  max_searches_per_review: 6
+  max_pages_per_review: 6
+  max_page_chars: 6000           # a page is cut to this many characters before the seat sees it
+  max_results: 5                 # sources listed per search
+  fetch_timeout_seconds: 10

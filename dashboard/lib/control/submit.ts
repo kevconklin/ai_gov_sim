@@ -1,7 +1,7 @@
 import "server-only";
 import { controlDb } from "@/lib/db";
 import { commandStatements, interventionStatement, type RunContext } from "./rows";
-import { commandSchema, interventionSchema, issuesToMessages } from "./schema";
+import { commandSchema, interventionSchema, issuesToMessages, workspaceSchema } from "./schema";
 
 export type ControlResult =
   | { success: true; data: { command_id?: string; intervention_id: string }; error: null }
@@ -53,5 +53,41 @@ export async function submitIntervention(raw: unknown): Promise<ControlResult> {
   } catch (err) {
     console.error("[control] submitIntervention failed", err);
     return fail("Could not record the intervention. Check server logs.");
+  }
+}
+
+/**
+ * Queue the creation of a new customer. It is the one command with no run to attach to, so it is
+ * written with a null run; the worker creates the run and everything that hangs off it.
+ */
+export async function submitWorkspace(raw: unknown): Promise<ControlResult> {
+  const parsed = workspaceSchema.safeParse(raw);
+  if (!parsed.success) return fail("That customer cannot be created yet.", issuesToMessages(parsed.error));
+  const input = parsed.data;
+  try {
+    const db = await controlDb();
+    // a double press, a retried request, or a refreshed form must not make two organizations
+    const recent = await db.get<{ command_id: string }>(
+      `SELECT command_id FROM commands WHERE kind = 'create_workspace' AND created_at > ? AND payload LIKE ? ORDER BY created_at DESC LIMIT 1`,
+      [new Date(Date.now() - 2 * 60_000).toISOString(), `%"name":${JSON.stringify(input.payload.name)}%`]);
+    if (recent) return { success: true, data: { command_id: recent.command_id, intervention_id: "" }, error: null };
+    const ids = { commandId: crypto.randomUUID(), interventionId: crypto.randomUUID() };
+    const now = new Date().toISOString();
+    await db.transaction([
+      {
+        sql: `INSERT INTO commands (command_id, run_id, kind, payload, reason, status, result, created_at, processed_at)
+              VALUES (?, NULL, 'create_workspace', ?, ?, 'pending', NULL, ?, NULL)`,
+        params: [ids.commandId, JSON.stringify(input.payload), input.reason, now],
+      },
+      {
+        sql: `INSERT INTO interventions (intervention_id, run_id, sim_month, real_ts, kind, description, source)
+              VALUES (?, NULL, NULL, ?, 'create_workspace', ?, 'dashboard')`,
+        params: [ids.interventionId, now, `${input.reason} [command ${ids.commandId}]`],
+      },
+    ]);
+    return { success: true, data: { command_id: ids.commandId, intervention_id: ids.interventionId }, error: null };
+  } catch (err) {
+    console.error("[control] submitWorkspace failed", err);
+    return fail("Could not queue the new customer. Check server logs.");
   }
 }

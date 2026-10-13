@@ -1,0 +1,202 @@
+# The control library the starter kits draw from. A kit lists control keys; the policy is rendered
+# with AI-GOV numbers assigned in order and, beside each control, the clause of the organization's
+# chosen framework it serves (omitted when a control has no mapping for that framework).
+#
+# This is a starting point for a committee and a board to make their own. It is not legal advice,
+# and the framework references are to the public structure of each framework as of its cited
+# edition; the committee should read the source before relying on a mapping:
+#   nist_ai_rmf  NIST AI 100-1, AI Risk Management Framework 1.0 (January 2023), subcategory ids
+#   iso_42001    ISO/IEC 42001:2023, clause and Annex A control numbers
+#   eu_ai_act    Regulation (EU) 2024/1689, article numbers
+#   sr_11_7      Federal Reserve SR 11-7 / OCC 2011-12, section names
+#
+# Keep each control to one requirement in one paragraph: the committee edits them one at a time,
+# and the dashboard lists them one per row.
+
+sections:
+  - title: Scope and accountability
+    controls:
+      - key: scope
+        text: >-
+          This policy applies to every use of an artificial intelligence system by or for {org}, whether built,
+          bought, or embedded in a product the organization already uses, including generative AI tools used by
+          staff in their work.
+        map: {nist_ai_rmf: "GOVERN 1.2", iso_42001: "4.3, A.2.2", eu_ai_act: "Art. 4", sr_11_7: "Governance, policies, and controls"}
+      - key: committee
+        text: >-
+          The AI Governance Committee reviews every AI matter under this policy and records a recommendation. A
+          named person accountable to the board decides, and that decision, the reasons for it, and any dissent
+          are kept on the record.
+        map: {nist_ai_rmf: "GOVERN 2.1", iso_42001: "5.3, A.3.2", eu_ai_act: "Art. 26(2)", sr_11_7: "Roles and responsibilities"}
+      - key: owner
+        text: >-
+          Every AI system in use has a named business owner who answers for its purpose, its results, and its
+          continued fitness. A system with no owner is withdrawn from use until one is named.
+        map: {nist_ai_rmf: "GOVERN 2.1", iso_42001: "A.3.2", eu_ai_act: "Art. 26(2)", sr_11_7: "Roles and responsibilities"}
+      - key: literacy
+        text: >-
+          Staff who use, build, or approve AI systems receive training suited to their role in how those systems
+          work, where they fail, and what this policy asks of them.
+        map: {nist_ai_rmf: "MAP 3.4", iso_42001: "7.2", eu_ai_act: "Art. 4"}
+
+  - title: Inventory and approval
+    controls:
+      - key: inventory
+        text: >-
+          {org} keeps an inventory of AI systems in use or under development, recording for each its owner,
+          purpose, the data it touches, its risk tier, and its approval status. The inventory is reviewed at
+          least quarterly.
+        map: {nist_ai_rmf: "GOVERN 1.6", iso_42001: "A.4.2", eu_ai_act: "Art. 26(1)", sr_11_7: "Model inventory"}
+      - key: approval
+        text: >-
+          No AI system is put into use, and no existing system is put to a materially new purpose, until it has
+          been submitted to the committee and approved. Approval names the purpose approved and the conditions
+          attached to it.
+        map: {nist_ai_rmf: "MAP 1.1", iso_42001: "6.1.2, A.6.2.2", eu_ai_act: "Art. 26(1)", sr_11_7: "Model development, implementation, and use"}
+      - key: tiering
+        text: >-
+          Each AI system is assigned a risk tier of low, medium, or high before approval, based on the harm a
+          wrong or unfair output could do to a person, to the organization, or to a third party, and on how
+          reversible that harm is. The tier sets the depth of review and the frequency of re-review.
+        map: {nist_ai_rmf: "MAP 5.1", iso_42001: "6.1.2, A.5.2", eu_ai_act: "Art. 6, Art. 27", sr_11_7: "Model risk management framework"}
+      - key: prohibited
+        text: >-
+          {org} does not use AI to make a decision about a person that the law requires a person to make, to
+          infer sensitive characteristics without a lawful basis, to manipulate or deceive people, or for any
+          purpose a regulator applying to the organization has prohibited.
+        map: {nist_ai_rmf: "GOVERN 1.1", iso_42001: "A.9.3", eu_ai_act: "Art. 5"}
+      - key: rereview
+        text: >-
+          Every approved AI system is re-reviewed on a schedule set by its risk tier, and at once when its
+          purpose, its data, its vendor, or its model changes materially. Approval lapses if a scheduled
+          re-review is missed.
+        map: {nist_ai_rmf: "MANAGE 4.1", iso_42001: "9.1, A.6.2.6", eu_ai_act: "Art. 26(5)", sr_11_7: "Ongoing monitoring"}
+
+  - title: Data and confidentiality
+    controls:
+      - key: data_entry
+        text: >-
+          Staff do not enter confidential, personal, or client information into an AI tool unless the tool has
+          been approved for that class of data and the terms with its provider forbid training on or retaining
+          that data beyond what the service needs.
+        map: {nist_ai_rmf: "MEASURE 2.10", iso_42001: "A.7.2, A.7.4", eu_ai_act: "Art. 10", sr_11_7: "Data"}
+      - key: data_basis
+        text: >-
+          Personal data used to build, tune, or run an AI system has a documented lawful basis and purpose, and
+          the data's source and quality are recorded before the system is approved.
+        map: {nist_ai_rmf: "MAP 1.1, MEASURE 2.10", iso_42001: "A.7.3, A.7.5", eu_ai_act: "Art. 10", sr_11_7: "Data"}
+      - key: retention
+        text: >-
+          Prompts, outputs, and logs of AI systems in medium and high tiers are retained for as long as the
+          organization's records policy requires for the decisions they informed, and are available to the
+          committee and to audit.
+        map: {nist_ai_rmf: "GOVERN 1.4", iso_42001: "7.5, A.6.2.8", eu_ai_act: "Art. 26(6)", sr_11_7: "Documentation"}
+
+  - title: Human oversight and fairness
+    controls:
+      - key: human_decision
+        text: >-
+          Where an AI system informs a decision that affects a person's rights, money, health, employment, or
+          access to a service, a trained person reviews the output and can override it before the decision takes
+          effect, and that person's involvement is recorded.
+        map: {nist_ai_rmf: "GOVERN 3.2, MANAGE 2.4", iso_42001: "A.9.2", eu_ai_act: "Art. 14, Art. 26(2)", sr_11_7: "Model use"}
+      - key: disclosure
+        text: >-
+          People are told when they are interacting with an AI system rather than a person, and when content
+          they receive was generated by AI, unless that is obvious from the context.
+        map: {nist_ai_rmf: "MEASURE 2.8", iso_42001: "A.8.2", eu_ai_act: "Art. 50"}
+      - key: fairness
+        text: >-
+          Before approval and at each re-review, medium and high tier systems that affect people are tested for
+          materially different outcomes across groups the organization is bound not to discriminate against, and
+          the results and any remediation are recorded.
+        map: {nist_ai_rmf: "MEASURE 2.11", iso_42001: "A.5.4", eu_ai_act: "Art. 10(2)(f), Art. 27", sr_11_7: "Outcomes analysis"}
+      - key: off_switch
+        text: >-
+          Every AI system in use can be paused or withdrawn by its owner or by the committee without the
+          provider's cooperation, and the business has a documented way to operate while it is off.
+        map: {nist_ai_rmf: "MANAGE 2.4, GOVERN 6.2", iso_42001: "A.6.2.6", eu_ai_act: "Art. 14(4)", sr_11_7: "Model use"}
+
+  - title: Vendors and third parties
+    controls:
+      - key: vendor_review
+        text: >-
+          Before an AI product or service is bought or renewed, the committee reviews what data the provider
+          receives, where it is processed, whether it is used to train models, the provider's security and
+          incident commitments, and how the organization would leave.
+        map: {nist_ai_rmf: "GOVERN 6.1, MANAGE 3.1", iso_42001: "A.10.2, A.10.3", eu_ai_act: "Art. 25", sr_11_7: "External resources"}
+      - key: vendor_terms
+        text: >-
+          Contracts for AI products and services require notice of material model or service changes, of
+          security incidents affecting the organization's data, and of any change in where data is processed.
+        map: {nist_ai_rmf: "GOVERN 6.1", iso_42001: "A.10.3", eu_ai_act: "Art. 25", sr_11_7: "External resources"}
+      - key: embedded_ai
+        text: >-
+          AI features added to software the organization already uses are treated as new AI systems under this
+          policy, and providers are asked to say when they add them.
+        map: {nist_ai_rmf: "GOVERN 1.6, GOVERN 6.1", iso_42001: "A.4.2, A.10.3", eu_ai_act: "Art. 25"}
+
+  - title: Incidents and review
+    controls:
+      - key: incident
+        text: >-
+          Any staff member who sees an AI system produce a harmful, unfair, misleading, or insecure result reports
+          it through the incident process. The system's owner reviews it within two business days, and incidents
+          in medium and high tier systems go to the committee.
+        map: {nist_ai_rmf: "MANAGE 4.3, GOVERN 4.3", iso_42001: "10.2, A.8.4", eu_ai_act: "Art. 26(5), Art. 73", sr_11_7: "Ongoing monitoring"}
+      - key: exceptions
+        text: >-
+          An exception to this policy is granted only by the committee, for a stated period, with the reason and
+          the compensating controls recorded, and is reviewed before it expires.
+        map: {nist_ai_rmf: "GOVERN 1.4", iso_42001: "A.2.3", sr_11_7: "Policies and procedures"}
+      - key: policy_review
+        text: >-
+          The committee reviews this policy at least annually and whenever a law, regulator, or material change
+          in the organization's use of AI calls for it, and the board receives a summary of AI matters decided
+          each quarter.
+        map: {nist_ai_rmf: "GOVERN 1.5", iso_42001: "9.3, A.2.4", sr_11_7: "Board and senior management oversight"}
+
+  # Used by the regulated kit.
+  - title: Validation and regulators
+    controls:
+      - key: validation
+        text: >-
+          High tier systems, and any system whose output is relied on by a regulator or auditor, are validated by
+          people independent of those who built or bought them before approval and after each material change,
+          covering conceptual soundness, outcomes, and limits of use.
+        map: {nist_ai_rmf: "MEASURE 2.5", iso_42001: "A.6.2.4", eu_ai_act: "Art. 9", sr_11_7: "Model validation"}
+      - key: regulator_notice
+        text: >-
+          Where a regulator applying to the organization requires notice, filing, or approval of an AI use, the
+          committee confirms it has been given before approval, and the system's owner keeps the evidence.
+        map: {nist_ai_rmf: "GOVERN 1.1", iso_42001: "A.8.3", eu_ai_act: "Art. 49", sr_11_7: "Governance, policies, and controls"}
+      - key: audit
+        text: >-
+          Internal audit assesses the operation of this policy, including the inventory, approvals, and
+          re-reviews, at least every two years and reports to the board.
+        map: {nist_ai_rmf: "GOVERN 1.7", iso_42001: "9.2", sr_11_7: "Internal audit"}
+
+  # Used by the software kit.
+  - title: AI in our products
+    controls:
+      - key: product_purpose
+        text: >-
+          Every AI feature {org} ships records its intended purpose, its known limits, and the users it is not
+          meant for, and that record is available to customers in plain language.
+        map: {nist_ai_rmf: "MAP 1.1, MEASURE 2.8", iso_42001: "A.8.2, A.6.2.2", eu_ai_act: "Art. 13"}
+      - key: product_release
+        text: >-
+          A change of model, provider, or training data behind a shipped AI feature is a material change: it is
+          evaluated against the feature's tests before release, and customers are told when their results may
+          change.
+        map: {nist_ai_rmf: "MEASURE 2.3, MANAGE 4.1", iso_42001: "A.6.2.5", eu_ai_act: "Art. 25, Art. 13"}
+      - key: provenance
+        text: >-
+          Data used to train or tune a model {org} ships is recorded with its source, license, and consent basis,
+          and customer data is not used for training without the customer's written agreement.
+        map: {nist_ai_rmf: "MAP 4.1, MEASURE 2.10", iso_42001: "A.7.3, A.7.6", eu_ai_act: "Art. 10, Art. 53"}
+      - key: customer_incidents
+        text: >-
+          Customers are told within the time the contract or the law requires when an AI feature they use has
+          produced harmful or insecure results, and what {org} has done about it.
+        map: {nist_ai_rmf: "MANAGE 4.3", iso_42001: "A.8.4, A.10.4", eu_ai_act: "Art. 73"}

@@ -1,0 +1,76 @@
+# Starter kit: an organization whose regulator, examiner, or auditor will read its AI decisions.
+# Defaults to ISO/IEC 42001, a certifiable management system an auditor can assess against; banks
+# may prefer SR 11-7, and the wizard lets them choose it.
+id: regulated
+label: Regulated
+summary: For banks, credit unions, insurers, clinics, and other organizations whose examiner or auditor will read every AI decision.
+audience: Financial services, healthcare, insurance, utilities, and public bodies.
+framework: iso_42001
+
+stances:
+  cautious:
+    label: Cautious
+    text: >-
+      AI may support staff; it does not decide anything about a customer, patient, or member. No protected or
+      regulated data enters an AI system until the committee has approved that system for it and the regulator's
+      expectations have been checked. We accept being late to a capability over being cited for it.
+  balanced:
+    label: Balanced
+    text: >-
+      Adopt AI where it demonstrably improves service or reduces error, and never where we could not show an
+      examiner how the decision was made and who owned it. Every system that touches regulated data or a decision
+      about a person is validated independently before use and monitored after. Speed matters less than a clean
+      record.
+  ambitious:
+    label: Ambitious
+    text: >-
+      We intend to lead our sector in the use of AI and to be the institution our regulator points to as having
+      done it well. Approve quickly where oversight, validation, and monitoring are in place; invest in those so
+      that more can be approved. The lines that do not move: a person owns every decision about a person, and
+      every approval could survive an examination.
+
+facts_template: >-
+  What we do, which regulators and examiners apply to us, roughly how many staff and customers or patients, and
+  which classes of protected data we hold.
+business_goals: >-
+  Use AI to reduce operational cost and error, improve service, and strengthen compliance, in a way that our
+  examiners and auditors would read as well governed.
+
+controls:
+  - scope
+  - committee
+  - owner
+  - literacy
+  - inventory
+  - approval
+  - tiering
+  - prohibited
+  - rereview
+  - data_entry
+  - data_basis
+  - retention
+  - human_decision
+  - disclosure
+  - fairness
+  - off_switch
+  - vendor_review
+  - vendor_terms
+  - embedded_ai
+  - incident
+  - exceptions
+  - policy_review
+  - validation
+  - regulator_notice
+  - audit
+
+documents: [charter, acceptable_use]
+
+first_matter:
+  title: Does the starter AI policy fit {org}?
+  description: >-
+    The policy now in force was written from the Regulated starter kit and mapped to {framework}. It has not
+    been read against this organization, its regulators, or the data it holds. Read it against the board's
+    direction and what you know of us. Which controls would our examiner expect that are missing? Which are
+    written for a sector that is not ours? Which would we fail to operate as written? Recommend adopting it as
+    it stands, adopting it with the edits you propose, or sending it back, and say which controls you would
+    change first.

@@ -1,4 +1,5 @@
 import { PageHeader, TabLinks } from "@/components/ui";
+import { isOperator } from "@/lib/auth/access";
 import { first, href, type SearchParams } from "@/lib/params";
 import { listAllRuns } from "@/lib/queries/runs";
 import { CallsTab } from "./calls-tab";
@@ -6,6 +7,7 @@ import { EventsTab } from "./events-tab";
 
 export default async function LogsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const sp = await searchParams;
+  if (!(await isOperator())) return <div className="rv"><h1 className="rv-org">Operators only</h1><p className="muted mt-2">The raw call and event logs cover every organization, so only an operator can read them.</p></div>;
   const tab = first(sp, "tab") === "events" ? "events" : "calls";
   const runs = await listAllRuns();
   const runOptions = [{ value: "", label: "All runs" }, ...runs.map((r) => ({ value: r.run_id, label: r.run_id }))];

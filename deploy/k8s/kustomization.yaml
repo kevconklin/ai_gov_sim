@@ -10,6 +10,7 @@ resources:
   - worker.yaml
   - dashboard.yaml
   - networkpolicy.yaml
+  - cronjob-backup.yaml
 
 images:
   - name: ghcr.io/REPLACE/govsim-worker

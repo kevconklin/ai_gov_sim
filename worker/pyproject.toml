@@ -19,11 +19,12 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["sim*"]
+include = ["sim*", "govern*"]
 
 [tool.setuptools.package-data]
-"sim.prompts" = ["committee/*", "world/*"]
+"sim.prompts" = ["world/*"]
+"govern.prompts" = ["committee/*", "review/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=sim --cov-report=term-missing --cov-fail-under=80"
+addopts = "--cov=sim --cov=govern --cov-report=term-missing --cov-fail-under=80"

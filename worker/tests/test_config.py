@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from sim.config import ConfigError, load_config
+from govern.config import ConfigError, load_config
 
 
 def test_loads_pinned_models_and_retry_settings(config):

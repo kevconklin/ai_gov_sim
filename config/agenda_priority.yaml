@@ -2,7 +2,7 @@
 # the list they choose from. Priority is never shown to agents (it would anchor positions).
 #
 # Every weight below is a PLACEHOLDER. Replace with values grounded in observed committee
-# behaviour or published guidance, and cite the source next to each one.
+# behavior or published guidance, and cite the source next to each one.
 
 deferral:
   escalate_after: 2                 # cumulative tablings before an item escalates

@@ -7,13 +7,13 @@ from datetime import date
 import pytest
 
 from conftest import REPO_ROOT
-from sim.agenda import deferral_count
-from sim.attestation import (Attestation, AttestationInvalid, AttestationRequired, apply_attested, attestation_for,
+from govern.agenda import deferral_count
+from govern.attestation import (Attestation, AttestationInvalid, AttestationRequired, apply_attested, attestation_for,
                              dissents, record_attestation)
-from sim.config import load_attestation
+from govern.config import load_attestation
 from sim.context import RunContext
-from sim.decisions import Decision, Tally
-from sim.packet import AgendaItem
+from govern.decisions import Decision, Tally
+from govern.packet import AgendaItem
 from sim.world import load_world
 
 MONTH = "2027-01"
@@ -213,7 +213,7 @@ def test_policy_edits_carry_no_risk_tier(ctx, attest_config):
 
 
 def test_decisions_are_rebuilt_from_the_meeting_record(ctx):
-    from sim.decisions import decisions_for_meeting
+    from govern.decisions import decisions_for_meeting
     decision = make_decision(ctx)
     ctx.db.update("meetings", {"agenda": [decision.item.to_json()]},
                   where={"meeting_id": f"{ctx.run_id}/meeting/{MONTH}"})
@@ -224,21 +224,21 @@ def test_decisions_are_rebuilt_from_the_meeting_record(ctx):
 
 
 def test_a_decision_with_no_agenda_entry_still_rebuilds(ctx):
-    from sim.decisions import decisions_for_meeting
+    from govern.decisions import decisions_for_meeting
     make_decision(ctx)
     rebuilt = decisions_for_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}")
     assert rebuilt[0].item.title == "UC-001"
 
 
 def test_apply_meeting_refuses_until_every_item_is_attested(ctx):
-    from sim.attestation import apply_meeting
+    from govern.attestation import apply_meeting
     make_decision(ctx)
     with pytest.raises(AttestationRequired):
         apply_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}", month=MONTH, meeting_date=date(2027, 1, 12))
 
 
 def test_apply_meeting_applies_what_was_attested(ctx, attest_config):
-    from sim.attestation import apply_meeting
+    from govern.attestation import apply_meeting
     decision = make_decision(ctx)
     attest(ctx, decision, attest_config, outcome="approved")
     apply_meeting(ctx, f"{ctx.run_id}/meeting/{MONTH}", month=MONTH, meeting_date=date(2027, 1, 12))
@@ -257,3 +257,9 @@ def test_an_unstated_source_is_recorded_as_unknown_not_assumed_verified(ctx, att
     decision = make_decision(ctx)
     attest(ctx, decision, attest_config)
     assert attestation_for(ctx.db, decision.decision_id).source == "unknown"
+
+
+def test_a_deferral_is_not_an_override(ctx, attest_config):
+    """Declining to decide is a different signal from overruling, and is counted as a deferral instead."""
+    decision = make_decision(ctx, approved=True)
+    assert attest(ctx, decision, attest_config, outcome="deferred").overrides(decision) is False

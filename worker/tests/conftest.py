@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from sim.config import load_config
-from sim.db import Database
+from govern.config import load_config
+from govern.db import Database
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -47,5 +47,5 @@ def agenda_yaml():
 
 @pytest.fixture
 def agenda_config():
-    from sim.config import load_agenda_priority
+    from govern.config import load_agenda_priority
     return load_agenda_priority(REPO_ROOT / "config")

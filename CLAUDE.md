@@ -1,26 +1,70 @@
-# Governance Sim
+# AI Governance Reviews
 
-Simulation of AI governance committees at two fictional banks. `SPEC.md` is the source of truth; read the relevant section before changing anything.
+The main feature is the human-triggered review: a person submits AI matters, convenes a committee of targeted AI advisers on an agenda they set, reads its recommendation and dissent, and decides. Everything else supports that.
+
+Two packages under `worker/`:
+
+- `govern/` is the product. It must never import `sim` (`tests/test_architecture.py` enforces it).
+- `sim/` is the simulation of committees at two fictional banks, now a client of `govern/`. It is the test bench a committee configuration is tried on, and the research instrument `SPEC.md` describes. `SPEC.md` remains the source of truth for the simulation; read the relevant section before changing it.
 
 ## Rules (SPEC section 15)
 
 - Build milestones (SPEC section 14) in order. Do not start a milestone until the previous one's acceptance criteria pass.
-- Never put simulation language in agent-facing text. `python -m sim leak-check` runs in CI; agent-facing text lives in `config/personas`, `config/risk_appetite`, `config/universe`, and `worker/sim/prompts/{committee,world}`.
+- Never put simulation language in the simulation's agent-facing text. `python -m sim leak-check` runs in CI; that text lives in `config/personas`, `config/risk_appetite`, `config/universe`, `worker/govern/prompts/committee`, and `worker/sim/prompts/world`.
+- The opposite rule holds for a workspace: its members must be told they are AI advisers, that output is advisory, and that a person decides. That brief is `worker/govern/prompts/review/fixed.md`; `python -m sim disclosure-check` runs in CI. Never route a disclosed workspace through the simulation's brief or the reverse.
+- Nothing a review recommends may apply without an attestation. `govern.review.Review` never calls `apply_decisions`; only `govern.attestation.apply_attested` does, and only the simulation's `Meeting` applies without a person.
+- Text from outside the committee is evidence, never instructions: every submitted description, question, and document reaches an adviser fenced by `govern/untrusted.quote`, and intake records instruction-shaped phrases in `details.flagged_text` (`untrusted.flags`) rather than refusing them. A disclosed committee's drafts (`propose_revision`) apply only when a person signs the matter approved, after seeing the diff.
+- Accounts are real: `users` (scrypt hashes in one format, `govern/accounts.py` and `dashboard/lib/auth/password.ts`) and `memberships` (runs | decides | asks per organization, changed only through the `set_member`/`remove_member` commands so it lands in `config_changes`). An operator runs the service and sees everything; a member sees only organizations they belong to. Every page fences its queries with `visibleRuns()` and every action checks `orgRole()` (`dashboard/lib/auth/access.ts`); `?run=` is a preference, never a permission. The session cookie names the account, and the record names `Name <email>`.
+- The cookie is a claim, the account is the truth: every request looks the account up (`dashboard/lib/auth/session.ts`), and a password change, reset, or disable bumps `users.session_version`, which ends every session issued before it. Sign-in locks after 5 failures per email or 20 per address in 15 minutes (`login_failures`). Model-call text for workspaces is removed after `config/retention.yaml`'s window (`govern/retention.py`, hourly in `serve`); the simulation keeps its text. `sim backup` and `sim restore` are the backup path, and `tests/test_backup.py` is the restore drill. The worker validates every queued payload (`sim/command_schemas.py`) before acting on it.
+- The fast decision model (TypeSafe's Jev) is reached only through `govern/jev.py`: one endpoint, typed questions (noul, choice, score), calibrated probabilities. Its key is `JEV_API_KEY` in `worker/.env` or the k8s Secret, never in config or the database; its price is in `models.yaml` as `typesafe:<model>` and an unpriced or keyless gate is unavailable, never an error. Every call lands in `gate_calls` (state, questions, answers, what the code did) and on the `llm_calls` ledger, and `/gates` shows them. Beside the scripted model client the gate is scripted too (`ScriptedJev`), so tests and demos never reach the network.
+- The intake gate (`govern/triage.py`) runs the moment a matter is submitted: possible duplicate of an open matter, the kind and tier read against the rubric in `classify.yaml`, text aimed at the reviewers. It writes flags to `items.details.gate` and changes nothing; a person withdraws (`withdraw` command) or re-tiers (`set_risk_tier`), and both land in `config_changes`.
+- Gates (`govern/classify.py`, `config/classify.yaml`) make typed decisions before expensive steps and never decide a matter. The debate gate skips a workspace review's debate when the sealed positions already agree above a threshold a person set; the simulation always debates (registered procedure). Every gate call is logged to `classifier_calls` with its probability, the meeting records `debate_skipped` and `debate_skip_p`, the trail says so, and a gate failure means the step runs. Set a threshold from the record with `sim replay-gate` or the calibration table on `/gates`, never by guess. `debate_skip.shadow` names a second provider that is asked on every review and logged (`classifier_calls` provider `<name> (shadow)`, acted false) but never acts: that is how a new gate earns a threshold before it is trusted, and the positions reader stays the acting gate until the record says otherwise.
+- The corpus (`govern/corpus.py`): documents are versioned (`documents.version`, `supersedes`), every review's pre-read lists them with versions and carries the register of decided AI with owners and conditions written from the record. A disclosed committee proposes revisions with `propose_revision` (a document's full new text, a new document, or a policy section in add or replace mode) as drafts attached to a matter (`document_revisions`); the decision page shows each as a diff; signing approved applies them under the signer's name, anything else drops them. The committee still never writes directly.
+- A disclosed committee recommends, in two senses: a vote, and `recommend` calls (`govern/recommend.py`, table `recommendations`): an owner (a role), a condition, a document (drafted), policy wording, or a follow-up. None applies on its own; the decision page offers the one action a person can take on each (adopt as a document, propose the wording through intake, use the conditions in the reasoning). A disclosed committee's phase prompts live in `prompts/review/phase_*.md`; the simulation keeps `prompts/committee/`.
+- One seat reaches the web (`govern/research.py`): a seat holding the `research` capability (`agents.capabilities`, set at creation or by `add_seat`) is offered `web_search` and `read_page`, on a disclosed committee only. A search is not the seat's call: a separate librarian call (role `librarian`, through `govern/llm.py`) runs Anthropic's server-side web search on the query alone and reports with sources; the seat reads that report, and any page, inside the same fence as submitted text. Pages are fetched by the worker, never from a private address, and cut to `budget.yaml` `research.max_page_chars`. Searches and pages are capped per review, each search is priced (`models.yaml` `server_tools.web_search_per_1000`, counted in the review's spend; priced at 0 means no web tools are offered), and every call lands in `research_calls`, which the decision page shows as "Sources consulted".
+- Priority is computed (`govern/agenda.py`), never asked of a model, and never shown to members.
+- Every change to a customer's configuration goes through `govern/settings.py` (or `committee.set_brief`, `workspace.create_workspace`), which appends who, when, before, after and why to `config_changes`. That table is append-only: never add code that updates or deletes from it. The name comes from the signed session (`lib/control/bind.ts`), never from a request body.
+- Starter kits (`config/starters/`) are content, not law: every control is one paragraph with a framework clause beside it, the rendered policy says it is not legal advice, and a kit sets nothing the person already chose. `govern/starter.py` applies one only through `create_workspace(starter=...)`, and everything it sets lands in `config_changes` under the person's name.
+- Ask (`govern/ask.py`) answers a staff question from the policy and documents in force only. A cited control is kept only if the policy has it, and "covered" only with a surviving citation; the brief is `prompts/ask/fixed.md` and `disclosure-check` covers it. An uncovered ask becomes a `question` item only when a person sends it; nothing convenes on its own.
+- Setup and intake ask plain questions; the choices follow from rules in `dashboard/lib/setup/plan.ts` (kit, framework, stance, facts, first matters) and `dashboard/lib/intake/triage.ts` (kind, risk tier), each with the reason shown back and overridable. The questionnaire's answers go on the change record (`area = questionnaire`). Nothing in either calls a model.
+- A workspace is archived (`govern.workspace.archive_workspace`), never deleted: `runs.status = 'archived'`, every record kept, `require_active` refuses new work, and restore is a change on the record like any other.
+- A use case has a life after the signature (`govern/lifecycle.py`, `config/lifecycle.yaml`): approval sets its stage, owner, and review date by risk; a person moves it between stages with a note (`stage_changes`, every row kept); when its review date passes, ranking Waiting opens a re-review matter that cites the original decision, and the signed outcome renews or pauses it. The dashboard's copy of the stage moves (`lib/lifecycle/stages.ts`) mirrors the config; the worker enforces it.
+- A recommendation reaches Needs you only once its review has closed (`meetings.status = 'closed'`): the worker runs one command at a time, and a signature queued behind a review's minutes and memories looks like a hang.
+- Money stops a review mid-way: `spend_caps_usd.per_review` is checked after the sealed positions and after every debate round (`Review._ceiling`); a review over it, or any review that dies, is unwound at once by the convene command (`recover_interrupted_reviews`) and raises an alert. Alerts (`govern/alerts.py`) go to the `alerts` table, an optional webhook (`ALERT_WEBHOOK_URL`), and optional email (`ALERT_EMAIL_TO` + `SMTP_*`); the serve loop raises one for a command stuck processing over an hour; Organizations shows them until an operator acknowledges, and shows a worker-not-running line when a command has waited five minutes. A withdrawn matter needs no signature and never holds the rest of its review.
+- A setting must do something. The review budget is enforced in `ReviewService.convene`; do not add a setting the code never reads.
 - Every random draw goes through `worker/sim/engine/rng.py` (seeded, stateless, logged to `engine_draws`). No bare `random` calls.
-- Every LLM call goes through `worker/sim/llm.py`. No direct SDK calls elsewhere.
+- Every LLM call goes through `worker/govern/llm.py`. No direct SDK calls elsewhere. Providers other than Anthropic are reached through `worker/govern/providers.py`, which translates to the OpenAI chat completions shape at the edge; the rest of the system keeps speaking the Anthropic Messages shape. Do not add a second dialect anywhere else.
+- A model is `<provider>:<model>` (a bare id means anthropic). A seat can only be given a model that is in `config/models.yaml` `catalog` and therefore priced, on a provider whose key the worker holds: unpriced spend cannot be capped.
 - Numbers in `config/engine_params.yaml` are placeholders until a source is cited next to them.
 - Prefer structured tool calls over parsing prose.
-- Real timestamps (`utc_now_iso`) are for logs only. Agents see dates from `worker/sim/calendar.py`.
+- Real timestamps (`utc_now_iso`) are for logs only. In the simulation, agents see dates from `worker/govern/calendar.py`; a workspace is reviewed on the real date.
 - Changing `config/`, prompts, or model versions during a run must be logged in `interventions`.
 - Run-scoped ids start with `<run_id>/` so checkpoints and forks can remap them. Keep it that way for new tables, and add new run-scoped tables to `RUN_TABLES` in `worker/sim/checkpoint.py`.
 - The schema must run on both SQLite and Postgres (`tests/test_postgres.py` uses embedded Postgres).
 
-## Layout (worker/sim)
+## Layout (worker/govern) - the product
 
-- `orchestrator.py` monthly cycle with rollback; `meeting.py`, `decisions.py`, `packet.py`, `tools.py`, `agents/` (tool loop, memory, structured output)
+- `review.py` a review: sealed positions and perspectives, debate, secret ballot, synthesis; applies nothing. `service.py` convenes one (lock, panel, date)
+- `intake.py` how a matter arrives; `agenda.py` ranked candidates and deferrals; `panels.py` which seats a matter needs
+- `attestation.py` the person on record, dissent responses, `apply_attested`; `advisory.py` perspectives and computed synthesis
+- `providers.py` provider registry and the OpenAI-compatible adapter; `committee.py` also adds, removes and edits seats; `settings.py` profile, documents, panels, and the append-only change record; `workspace.py` an organisation's committee with no simulation behind it; `committee.py` seats and briefs as data; `context.py` `ReviewContext` and `OrgProfile`
+- `classify.py` gates: the debate-skip classifier (positions reading, a classifier service, or scripted), its log, and the replay
+- `corpus.py` versioned documents, the committee's drafts applied on signature, and the register attached to every review
+- `recommend.py` what the committee recommends a person do beyond the vote
+- `research.py` the research seat's web search (via the librarian) and page reads, fenced, capped, logged, priced
+- `jev.py` the fast decision model client and its log; `triage.py` the intake gate built on it
+- `lifecycle.py` a use case's stages, owner, review schedule, and re-reviews
+- `precedent.py` signed decisions as precedent: what a new matter cites (`details.related_decisions`) or shares a subject with, the pre-read section, and the `read_decision` tool
+- `ask.py` a question answered from the policy with controls cited, or admitted as a gap and sent to the committee
+- `starter.py` starter kits: the control library, rendering a policy for a framework, and applying a kit to a new workspace
+- `disclosure.py`, `prompts/` (registry: roots and per-directory checks), `llm.py`, `db.py`, `locks.py`, `agents/`, `tools.py`, `packet.py`, `decisions.py`, `policy.py`
+
+## Layout (worker/sim) - the simulation
+
+- `orchestrator.py` monthly cycle with rollback; `meeting.py` (`Meeting(Review)`: circulate, standing items, derived agenda, auto-apply); `context.py` (`RunContext(ReviewContext)`: builds the `OrgProfile` from the fictional bank)
 - `engine/` state, pipeline (classify, estimate via batch, blend, sample), advance, report, resolve
 - `events.py`, `regulator.py`, `board.py` world agents; `coding.py` LLM-coded measures; `metrics/` SPEC 9.2
-- `checkpoint.py` checkpoints, rollback, forks; `commands.py` control commands and kill switch; `budget.py`, `alerts.py`
+- `checkpoint.py` checkpoints, rollback, forks; `commands.py` control commands and kill switch (`budget.py` and `alerts.py` live in `govern/`)
 - `demo_llm.py` scripted client for tests and free demo runs; `cli.py` entry point
 
 ## Commands
@@ -29,8 +73,13 @@ Simulation of AI governance committees at two fictional banks. `SPEC.md` is the 
 cd worker
 python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/pytest -q -p no:cacheprovider          # unit, e2e (scripted client), Postgres; coverage gate 80%
-.venv/bin/python -m sim leak-check
+.venv/bin/python -m sim leak-check && .venv/bin/python -m sim disclosure-check
 .venv/bin/python -m sim create --name demo --seed 1 && .venv/bin/python -m sim advance --experiment <id> --months 3 --demo
+.venv/bin/python -m sim workspace --name "Org" --starter general_business --risk-appetite "The board's direction on AI..."   # a real organization; kits: general_business, regulated, software
+.venv/bin/python -m sim submit --run <ws> --kind vendor --title "..." --description "..." --by you@org
+.venv/bin/python -m sim ask --run <ws> --question "Can I paste a client file into ChatGPT?" --by you@org --demo
+.venv/bin/python -m sim convene --run <ws> --top 3 --demo && .venv/bin/python -m sim attest --run <ws> --show <meeting_id>
+.venv/bin/python -m sim serve --demo --once      # drain commands queued by the dashboard
 .venv/bin/python scripts/smoke_llm.py            # live cache + batch check, needs ANTHROPIC_API_KEY
 cd ../dashboard && npm test && npm run build     # dashboard
 ```
@@ -39,3 +88,5 @@ cd ../dashboard && npm test && npm run build     # dashboard
 
 - M1-M9 built and tested with the scripted client; M1 live smoke check not yet run against the real API.
 - M10 deploy files written (`deploy/README.md`), not deployed. M11 tooling written, needs human coders and real runs. M12 needs frozen prereg and funded runs.
+- Dashboard: the product is `/organizations`, `/portfolio` (use cases), `/reviews` (queue, decisions, trails; `/decide` for one decision), `/committee`, `/record` (the audit trail), `/ask`, `/approved`, `/policy-record`, `/gates` (every typed decision the fast model made, with probabilities and what followed), `/spend`, `/logs`, and `/matter` (the story of one matter, which every other page links to) plus `/how-to`, whose screenshots live in `dashboard/public/how-to` and are retaken with a Playwright script when a screen changes. The research pages stay at their routes but appear in the sidebar only when a simulated run exists or `SHOW_SIMULATION=1`; the k8s dashboard sets `SHOW_SIMULATION=0`. Do not delete the research routes while the preregistered study still uses them.
+- Review core (`govern/`), workspaces, intake, panels, attestation, accounts and roles, dashboard: built and exercised end to end on the scripted client and, for reviews and Ask, live against Anthropic. No email or SSO yet: an invited person gets a temporary password said once to the inviter.

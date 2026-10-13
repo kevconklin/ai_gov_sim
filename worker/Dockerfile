@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 WORKDIR /app
 COPY worker/pyproject.toml worker/pyproject.toml
 COPY worker/sim worker/sim
+COPY worker/govern worker/govern
 RUN pip install --no-cache-dir ./worker "psycopg[binary]>=3.2" "pandas>=2.2" "pyarrow>=16"
 
 COPY config config

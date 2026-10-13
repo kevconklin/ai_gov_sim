@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sameOrigin } from "@/lib/auth/origin";
+import { isOperator } from "@/lib/auth/access";
 import { currentOperator, hasValidSession } from "@/lib/auth/session";
 import { bindActor } from "@/lib/control/bind";
 import { commandResult } from "@/lib/control/result";
@@ -24,6 +25,8 @@ function error(status: number, message: string): NextResponse {
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return error(403, "Cross-origin request refused.");
   if (!(await hasValidSession())) return error(401, "Unauthorized");
+  // the raw command API can name any run, so it is for operators; members act through the pages, which check their role
+  if (!(await isOperator())) return error(403, "Operators only");
   if (!(request.headers.get("content-type") ?? "").includes("application/json")) return error(415, "Use application/json.");
 
   const text = await request.text();
@@ -50,6 +53,8 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   if (!(await hasValidSession())) return error(401, "Unauthorized");
+  // the raw command API can name any run, so it is for operators; members act through the pages, which check their role
+  if (!(await isOperator())) return error(403, "Operators only");
   const commandId = new URL(request.url).searchParams.get("command") ?? "";
   const result = await commandResult(commandId);
   return NextResponse.json(result, { status: result.success ? 200 : 404 });

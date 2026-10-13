@@ -21,22 +21,21 @@ The seed is invented sample data (experiment `devfx-exp-001`, both banks, one re
 |---|---|---|
 | `DATABASE_URL` | yes | Read connection for every page. SQLite file path, `file:./.dev/sim.sqlite`, or `postgres://` / `postgresql://`. Use a read-only role in production. SQLite is opened read-only. |
 | `DATABASE_URL_CONTROL` | production | Connection used only by the Control page / `POST /api/control`. It only INSERTs into `commands` (status `pending`) and `interventions` (source `dashboard`); grant that role only those privileges. Falls back to `DATABASE_URL`. |
-| `DASHBOARD_PASSWORD` | production | Single researcher password (compared in constant time). |
 | `DASHBOARD_SESSION_SECRET` | production | HMAC-SHA256 key for session cookies, at least 32 characters (`openssl rand -base64 48`). |
 
-In production (`NODE_ENV=production`) the app fails closed: if either auth variable is missing, every page returns 503 and sign-in is disabled. In development only, missing values fall back to password `dev-password` and a fixed dev secret.
+In production (`NODE_ENV=production`) the app fails closed: if the session secret is missing, every page returns 503 and sign-in is disabled. In development only, a fixed dev secret is used. Accounts are rows in `users` (scrypt password hashes); the first visit to `/login` with no accounts makes an operator, and `python -m sim user add` does the same from the worker.
 
 Example local run against the seed:
 
 ```bash
-DATABASE_URL=file:./.dev/sim.sqlite DASHBOARD_PASSWORD=choose-one \
+DATABASE_URL=file:./.dev/sim.sqlite \
 DASHBOARD_SESSION_SECRET=$(openssl rand -base64 48) npm start
 ```
 
 ## Auth
 
 - `proxy.ts` (Next 16's renamed middleware) verifies the `gsim_session` cookie with Web Crypto on every route except `/login*` and static assets. Pages redirect to `/login`; `/api/*` returns 401.
-- `POST /login/session` (form fields `password`, `next`) sets an httpOnly, SameSite=Lax cookie `<expiresMs>.<nonce>.<hmac>` valid for 12 hours. `POST /logout` clears it.
+- `POST /login/session` (form fields `email`, `password`, `next`) checks the account and sets an httpOnly, SameSite=Lax cookie `<expiresMs>.<nonce>.<account>.<hmac>` valid for 12 hours; `POST /login/setup` makes the first account while there are none. `POST /logout` clears it. Every page and action then checks the account's role in the organization it names (`lib/auth/access.ts`).
 - Write paths re-check the session and reject cross-origin `Origin` headers.
 
 ## Control API

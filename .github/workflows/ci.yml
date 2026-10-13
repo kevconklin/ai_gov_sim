@@ -14,6 +14,8 @@ jobs:
       - run: pip install -e '.[dev]' "psycopg[binary]" pandas pyarrow pgserver
       - name: Leak check (SPEC 15)
         run: python -m sim leak-check
+      - name: Disclosure check (a workspace's members are told what they are)
+        run: python -m sim disclosure-check
       - name: Tests with coverage gate
         run: pytest -q -p no:cacheprovider
 

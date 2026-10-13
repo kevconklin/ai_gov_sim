@@ -28,7 +28,7 @@ The worker image takes the **repo root** as context; it needs `config/`, `db/`, 
 
 `config/` is baked into the image on purpose, not mounted as a ConfigMap. Model versions are
 pinned per run and SPEC §15 requires config changes to be logged as interventions; a mutable
-ConfigMap would change agent behaviour mid-run with nothing in the record. A config change means
+ConfigMap would change agent behavior mid-run with nothing in the record. A config change means
 a new image tag.
 
 ## Why the worker is one replica

@@ -1,0 +1,68 @@
+# Starter kit: a company adopting AI tools in everyday work. No regulator looks at its AI in
+# particular, but its customers, staff, and insurers do. Defaults to NIST AI RMF, the framework a
+# US business with no sector rule is most often asked about.
+id: general_business
+label: General business
+summary: For a company using AI tools in everyday work, with customers and staff to answer to but no regulator watching its AI in particular.
+audience: Professional services, retail, manufacturing, hospitality, nonprofits, and any business whose AI is bought rather than built.
+framework: nist_ai_rmf
+
+stances:
+  cautious:
+    label: Cautious
+    text: >-
+      Use AI where it saves staff time on work a person still checks. Nothing that touches customer or employee
+      personal data goes into an AI tool until the committee has approved that tool for it. We would rather be six
+      months behind a competitor than explain a leak or an unfair decision to a customer.
+  balanced:
+    label: Balanced
+    text: >-
+      Use AI to do more with the team we have, and approve it quickly where the harm of a wrong answer is small
+      and a person is still in the loop. Be slow and deliberate where AI would touch a decision about a customer
+      or an employee. Know what AI is in use, and be able to say so.
+  ambitious:
+    label: Ambitious
+    text: >-
+      AI is how we compete, and the committee's job is to make yes safe, not to say no. Approve fast, put
+      guardrails and monitoring around what we approve, and pull anything that misbehaves. Our lines are firm:
+      no AI decisions about people without a person, and no customer data in tools we have not vetted.
+
+facts_template: >-
+  What we do, how many staff, where we operate, who our customers are, and which laws or regulators already
+  apply to how we handle their data.
+business_goals: >-
+  Use AI to reduce time spent on routine work, respond to customers faster, and let a small team do more, without
+  taking on a risk we could not explain to a customer.
+
+controls:
+  - scope
+  - committee
+  - owner
+  - literacy
+  - inventory
+  - approval
+  - tiering
+  - prohibited
+  - rereview
+  - data_entry
+  - retention
+  - human_decision
+  - disclosure
+  - off_switch
+  - vendor_review
+  - vendor_terms
+  - embedded_ai
+  - incident
+  - exceptions
+  - policy_review
+
+documents: [charter, acceptable_use]
+
+first_matter:
+  title: Does the starter AI policy fit {org}?
+  description: >-
+    The policy now in force was written from the General business starter kit and mapped to {framework}. It has
+    not been read against this organization yet. Read it against the board's direction and what you know of us.
+    Which controls do not fit how we work? Which are missing given the AI already in use here? Which would we fail
+    to operate as written? Recommend adopting it as it stands, adopting it with the edits you propose, or sending
+    it back, and say which controls you would change first.

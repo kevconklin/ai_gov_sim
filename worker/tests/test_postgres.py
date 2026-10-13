@@ -7,10 +7,10 @@ import pytest
 pgserver = pytest.importorskip("pgserver")
 
 from conftest import REPO_ROOT  # noqa: E402
-from sim.config import load_config  # noqa: E402
-from sim.db import Database, PostgresDatabase  # noqa: E402
+from govern.config import load_config  # noqa: E402
+from govern.db import Database, PostgresDatabase  # noqa: E402
 from sim.demo_llm import DemoAnthropic  # noqa: E402
-from sim.llm import LLMClient  # noqa: E402
+from govern.llm import LLMClient  # noqa: E402
 from sim.orchestrator import Orchestrator  # noqa: E402
 from sim.setup import create_experiment  # noqa: E402
 from sim.world import load_world  # noqa: E402

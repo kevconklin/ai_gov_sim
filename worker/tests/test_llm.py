@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from fakes import FakeClient, make_message, make_status_error
-from sim.llm import LLMCallFailed, LLMClient, LLMRequest
+from govern.llm import LLMCallFailed, LLMClient, LLMRequest
 
 
 def _request(**overrides):
@@ -242,7 +242,7 @@ def test_llm_calls_rejects_duplicate_batch_rows(db):
 def test_stop_flag_blocks_calls_and_batches(db, config):
     fake = FakeClient()
     llm = LLMClient(db=db, config=config, client=fake, sleep=lambda s: None, should_stop=lambda: True)
-    from sim.llm import StopRequested
+    from govern.llm import StopRequested
     with pytest.raises(StopRequested):
         llm.call(_request())
     with pytest.raises(StopRequested):

@@ -1,0 +1,73 @@
+# Tools only a disclosed committee is offered, on top of the shared list in committee/tools.yaml.
+- name: read_document
+  description: >-
+    Read one of the organization's governing documents in full, such as its acceptable use policy or a committee
+    charter. The pre-read lists the documents in force by title. Cite the document when you rely on it.
+  input_schema:
+    type: object
+    properties:
+      title: {type: string, description: The document's title, or a distinctive part of it.}
+    required: [title]
+
+- name: read_decision
+  description: >-
+    Read the full record of a decision a person signed, such as IT-001: what was submitted, how the committee voted,
+    what the person decided, whether they overruled the committee, and the reason they gave. Cite it when you rely
+    on it, and say plainly if you think this matter should be decided differently and why.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string, description: "The matter's id, such as IT-001."}
+    required: [item_id]
+
+- name: recommend
+  description: >-
+    Recommend something a person should do about an agenda item, beyond your vote: who should own it (a role, not
+    a name), a condition an approval should carry, a document the organization lacks (give a usable draft in body),
+    a change of policy wording (section and the exact text), or a follow-up with a date. Use it whenever your
+    position has a "yes, if" or a "no, until": the person deciding needs the "if" and the "until" spelled out.
+    Nothing you recommend applies on its own; a person acts on it.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string, description: "The agenda item, such as IT-001."}
+      kind: {type: string, enum: [owner, condition, document, policy_wording, follow_up]}
+      title: {type: string, description: "One line a person can act on: 'Name the Nursing Director as owner', 'Adopt a meeting-recording standard'."}
+      body: {type: string, description: "The recommendation in full. For a document, the draft itself. For policy wording, the section and the text."}
+      due: {type: string, description: "For a follow-up: when, in plain words."}
+    required: [item_id, kind, title, body]
+
+- name: propose_revision
+  description: >-
+    Propose a change to one of the organization's documents, a new document, or new wording for a section of the AI
+    policy. Give the full text as it should read afterward, not a description of the change. It is a draft attached
+    to the agenda item: the person deciding sees the exact change, and it takes effect only if they sign the item
+    approved. For the policy, name the section; with mode "add" (the default) your text is added to the end of that
+    section, with mode "replace" it becomes the whole section, so give all of it. New controls are written AI-GOV-NEW
+    and numbered on adoption. For a document, use its exact title to revise it (give the whole new text), or a new
+    title and a kind to create it.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string, description: "The agenda item this change belongs to, such as IT-001."}
+      target: {type: string, enum: [policy, document]}
+      title: {type: string, description: "The policy section, or the document's title."}
+      body: {type: string, description: "The full text as it should read."}
+      rationale: {type: string, description: "Why, in a sentence or two."}
+      kind: {type: string, enum: [acceptable_use, charter, standard, regulation, other], description: "Only for a new document."}
+      mode: {type: string, enum: [add, replace], description: "Policy only: add to the section (default) or replace it."}
+    required: [item_id, target, title, body, rationale]
+
+# Replaces the shared cast_vote for a disclosed committee: the ballot also carries how strongly it is held.
+- name: cast_vote
+  description: >-
+    Cast your secret ballot on one agenda item, with how strongly you hold it: 1 means you could be argued
+    the other way, 5 means you would resign over it. The person deciding sees the strength beside your ballot.
+  input_schema:
+    type: object
+    properties:
+      item_id: {type: string}
+      vote: {type: string, enum: ["yes", "no", "abstain"]}
+      strength: {type: integer, minimum: 1, maximum: 5, description: "How strongly you hold this ballot, 1 (barely) to 5 (strongly)."}
+      rationale: {type: string}
+    required: [item_id, vote, strength, rationale]

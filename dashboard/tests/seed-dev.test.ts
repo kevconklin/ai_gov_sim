@@ -34,7 +34,7 @@ describe("dev seed", () => {
     const tables = new Set(
       db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => (r as { name: string }).name),
     );
-    for (const table of ["attestations", "syntheses", "perspectives", "agenda_deferrals", "run_snapshots"]) {
+    for (const table of ["attestations", "syntheses", "perspectives", "agenda_deferrals", "run_snapshots", "items", "org_profiles", "panel_rules"]) {
       expect(tables.has(table), `missing ${table}`).toBe(true);
     }
   });

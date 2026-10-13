@@ -1,0 +1,22 @@
+# What happens to an approved AI use case after the signature. Approval is a beginning: the use
+# case is built, piloted, goes live, is paused or retired, and comes back for re-review on a
+# schedule set by its risk. Every stage change is made by a person, with a note, on the record.
+#
+# PLACEHOLDER intervals. Revisit against the organization's own review cadence and any rule
+# that applies to it (a model risk policy, a regulator's expectation), and cite the basis here.
+
+stages: [approved, building, piloting, live, paused, retired]
+
+transitions:
+  approved: [building, piloting, live, retired]
+  building: [piloting, live, paused, retired]
+  piloting: [live, paused, retired]
+  live: [paused, retired]
+  paused: [building, piloting, live, retired]
+  retired: []
+
+# Months between reviews, by risk tier. A use case with no tier is treated as medium.
+review_every_months:
+  high: 6
+  medium: 12
+  low: 24

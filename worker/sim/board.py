@@ -6,17 +6,18 @@ import json
 import logging
 from typing import Any
 
-from sim import ids, prompts
-from sim.agents.memory import save_memory
-from sim.agents.runner import run_turn
-from sim.agents.structured import StructuredOutputError, call_structured, tool
-from sim.alerts import raise_alert
-from sim.calendar import add_months, day_in_month, long_date, meeting_date, month_index, parse_month
-from sim.context import Agent, RunContext
+from govern import ids, prompts
+from govern.agents.memory import save_memory
+from govern.agents.runner import run_turn
+from govern.agents.structured import StructuredOutputError, call_structured, tool
+from govern.alerts import raise_alert
+from govern.calendar import add_months, day_in_month, long_date, meeting_date, month_index, parse_month
+from govern.context import Agent
+from sim.context import RunContext
 from sim.events import deliver_inbox
-from sim.llm import LLMCallFailed
+from govern.llm import LLMCallFailed
 from sim.realism import find_leaks
-from sim.tools import ToolSession
+from govern.tools import ToolSession
 
 log = logging.getLogger(__name__)
 
