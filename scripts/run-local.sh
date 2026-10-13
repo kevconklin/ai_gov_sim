@@ -94,6 +94,11 @@ start() {
     cd "$ROOT/worker"
     set -a; [ -f .env ] && source .env; set +a
     detach "$LOG_DIR/worker.log" "$RUN_DIR/worker.pid" .venv/bin/python -m sim "${args[@]}"
+    # a live review is minutes of API calls; a Mac that idles to sleep freezes the worker mid-call and the
+    # connection is dead when it wakes. Hold off idle sleep for as long as this worker process exists.
+    if command -v caffeinate >/dev/null 2>&1; then
+      nohup caffeinate -i -w "$(cat "$RUN_DIR/worker.pid")" >/dev/null 2>&1 &
+    fi
   )
   echo "$mode" > "$RUN_DIR/worker.mode"
 
